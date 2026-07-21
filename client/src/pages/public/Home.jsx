@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { 
   ArrowRight, 
   Sparkles, 
@@ -11,8 +11,7 @@ import {
   Calendar, 
   Award, 
   ChevronDown, 
-  ShieldCheck, 
-  Zap 
+  ShieldCheck 
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
@@ -73,7 +72,7 @@ export default function Home() {
   // Video overlay darkens slightly into the dark theme as transition completes
   const videoDarkenOverlay = useTransform(scrollYProgress, [0.7, 0.95], [0, 0.75])
 
-  // Handle Video Metadata & Sync currentTime to scroll progress
+  // Handle Video Metadata
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -92,12 +91,10 @@ export default function Home() {
     }
   }, [])
 
-  // Frame-accurate scrubbing with seeked event listener guard
+  // Scrubbing & End-of-Video Ambient Loop handler
   useEffect(() => {
     const video = videoRef.current
     if (!video || !videoDuration) return
-
-    video.pause() // Pause video so native playback motor doesn't conflict with manual scrubbing
 
     let animationFrameId
     let isSeeking = false
@@ -109,16 +106,35 @@ export default function Home() {
     video.addEventListener('seeked', handleSeeked)
 
     const updateFrame = () => {
-      if (!isSeeking && videoDuration) {
-        const latest = scrollYProgress.get()
-        const targetTime = Math.min(videoDuration - 0.05, Math.max(0, latest * videoDuration))
-        const diff = targetTime - video.currentTime
+      if (!videoDuration) return
 
-        if (Math.abs(diff) > 0.01) {
-          isSeeking = true
-          video.currentTime = video.currentTime + diff * 0.35
+      const latest = scrollYProgress.get()
+
+      // When scroll reaches end of video track (latest >= 0.92), play smooth ambient background loop of last 2.5 seconds
+      if (latest >= 0.92) {
+        const loopStart = Math.max(0, videoDuration - 2.5)
+        if (video.paused) {
+          video.play().catch(() => {})
+        }
+        if (video.currentTime >= videoDuration - 0.1 || video.currentTime < loopStart) {
+          video.currentTime = loopStart
+        }
+      } else {
+        // Normal scroll-driven scrubbing
+        if (!video.paused) {
+          video.pause()
+        }
+        if (!isSeeking) {
+          const targetTime = Math.min(videoDuration - 0.05, Math.max(0, latest * videoDuration))
+          const diff = targetTime - video.currentTime
+
+          if (Math.abs(diff) > 0.01) {
+            isSeeking = true
+            video.currentTime = video.currentTime + diff * 0.35
+          }
         }
       }
+
       animationFrameId = requestAnimationFrame(updateFrame)
     }
 
@@ -180,7 +196,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-indigo-500 selection:text-white">
       
       {/* Dynamic Dark Modern Navbar */}
       <motion.header
@@ -188,19 +204,19 @@ export default function Home() {
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300 flex items-center justify-between px-8 md:px-16 w-full border-b border-transparent pointer-events-auto",
           scrolledNav 
-            ? "bg-[#030712]/90 backdrop-blur-xl border-b-slate-800/80 shadow-2xl shadow-black/80" 
-            : "bg-[#030712]/40 backdrop-blur-md border-b-white/10"
+            ? "bg-[#030712]/95 backdrop-blur-xl border-b-slate-800/80 shadow-2xl shadow-black/90" 
+            : "bg-[#030712]/60 backdrop-blur-md border-b-white/10"
         )}
       >
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-transform duration-200">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-transform duration-200">
               CK
             </div>
-            <span className="font-bold text-sm tracking-tight text-white">C.K. Classes</span>
+            <span className="font-bold text-base tracking-tight text-white">C.K. Classes</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-300">
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-200">
             <a href="#home" className="hover:text-indigo-400 transition-colors">Home</a>
             <a href="#courses" className="hover:text-indigo-400 transition-colors">Courses</a>
             <a href="#features" className="hover:text-indigo-400 transition-colors">ERP Features</a>
@@ -211,13 +227,13 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <Link 
               to="/login" 
-              className="text-xs font-semibold text-slate-300 hover:text-white transition-colors px-3 py-2"
+              className="text-xs font-semibold text-slate-200 hover:text-white transition-colors px-3 py-2"
             >
               Login
             </Link>
             <a 
               href="/login" 
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-600/30 active:scale-95 transition-all text-xs font-semibold"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-600/40 active:scale-95 transition-all text-xs font-bold"
             >
               Get Admission
             </a>
@@ -252,7 +268,7 @@ export default function Home() {
           {/* Initial Subtle Scroll Hint at Bottom (Fades out as user scrolls) */}
           <motion.div 
             style={{ opacity: initialScrollHintOpacity }}
-            className="absolute bottom-10 z-20 flex flex-col items-center gap-2 text-white/90 text-xs font-semibold uppercase tracking-widest pointer-events-none bg-black/50 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 shadow-2xl"
+            className="absolute bottom-10 z-20 flex flex-col items-center gap-2 text-white text-xs font-bold uppercase tracking-widest pointer-events-none bg-black/60 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/30 shadow-2xl"
           >
             <span>Scroll to play video & enter website</span>
             <ChevronDown className="h-4 w-4 text-amber-300 animate-bounce" />
@@ -270,19 +286,19 @@ export default function Home() {
           scale: pageTransitionScale
         }}
         id="home"
-        className="relative z-30 min-h-screen bg-[#030712] text-slate-100 pt-20 pb-24 -mt-20 border-t border-slate-800/80"
+        className="relative z-30 min-h-screen bg-[#030712] text-white pt-20 pb-24 -mt-20 border-t border-slate-800/80"
       >
         {/* Dark Space Grid Accent */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_10%,#000_70%,transparent_100%)] z-0 opacity-40 pointer-events-none" />
-        <div className="absolute top-0 left-1/4 h-[400px] w-[600px] rounded-full bg-indigo-600/10 filter blur-[120px] -translate-y-1/2 z-0 pointer-events-none" />
-        <div className="absolute top-1/3 right-1/4 h-[300px] w-[500px] rounded-full bg-blue-600/10 filter blur-[120px] z-0 pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_10%,#000_70%,transparent_100%)] z-0 opacity-50 pointer-events-none" />
+        <div className="absolute top-0 left-1/4 h-[400px] w-[600px] rounded-full bg-indigo-600/15 filter blur-[120px] -translate-y-1/2 z-0 pointer-events-none" />
+        <div className="absolute top-1/3 right-1/4 h-[300px] w-[500px] rounded-full bg-blue-600/15 filter blur-[120px] z-0 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-24">
           
           {/* Main Hero Section */}
           <div className="text-center flex flex-col items-center pt-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-xs font-semibold text-indigo-300 mb-6 shadow-lg backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/20 text-xs font-bold text-indigo-200 mb-6 shadow-xl backdrop-blur-md">
+              <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
               <span>Surat's Premier Coaching Academy & Institutional ERP 2.0</span>
             </div>
 
@@ -293,23 +309,23 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl leading-relaxed font-normal">
+            <p className="mt-6 text-base sm:text-xl text-[#E2E8F0] max-w-2xl leading-relaxed font-medium">
               Empowering students from Class 1 to 12 in Science and Commerce through expert faculty, real-time AI analytics, and academic excellence.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <a
                 href="/login"
-                className="px-8 h-13 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                className="px-8 h-13 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/40 transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 Enroll Now
                 <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#courses"
-                className="px-6 h-13 rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-slate-800 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95"
+                className="px-6 h-13 rounded-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-sm text-slate-100 hover:bg-slate-800 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95"
               >
-                <BookOpen className="h-4 w-4 text-slate-400" />
+                <BookOpen className="h-4 w-4 text-slate-300" />
                 Explore Courses
               </a>
             </div>
@@ -322,13 +338,13 @@ export default function Home() {
                 key={idx}
                 whileHover={{ y: -4, scale: 1.02 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="p-6 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl shadow-xl flex flex-col items-center text-center relative group overflow-hidden"
+                className="p-6 bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-2xl shadow-2xl flex flex-col items-center text-center relative group overflow-hidden"
               >
                 <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-blue-500 to-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 rounded-t-full" />
                 <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                   <AnimatedCounter value={item.value} />
                 </h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-2">
+                <p className="text-xs text-[#CBD5E1] font-bold uppercase tracking-wider mt-2">
                   {item.label}
                 </p>
               </motion.div>
@@ -338,11 +354,11 @@ export default function Home() {
           {/* ERP Core Features Section */}
           <div id="features" className="space-y-10 pt-6">
             <div className="text-center space-y-3 max-w-2xl mx-auto">
-              <span className="text-xs font-bold text-indigo-400 tracking-widest uppercase">Institutional Intelligence</span>
+              <span className="text-xs font-bold text-indigo-300 tracking-widest uppercase">Institutional Intelligence</span>
               <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
                 AI-Powered ERP Modules for School & Coaching Control
               </h2>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm sm:text-base text-[#CBD5E1] font-normal">
                 Integrated Groq Llama 3.3 AI, MongoDB Atlas, and modern academic management workflows.
               </p>
             </div>
@@ -351,49 +367,49 @@ export default function Home() {
               {erpFeatures.map((feat, i) => (
                 <div 
                   key={i} 
-                  className="p-6 bg-slate-900/70 border border-slate-800/80 rounded-2xl hover:border-indigo-500/50 transition duration-300 space-y-4 hover:shadow-2xl hover:shadow-indigo-500/10 group"
+                  className="p-6 bg-slate-900/80 border border-slate-800 rounded-2xl hover:border-indigo-500/60 transition duration-300 space-y-4 hover:shadow-2xl hover:shadow-indigo-500/20 group"
                 >
                   <div className="h-12 w-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
                     {feat.icon}
                   </div>
                   <h4 className="text-lg font-bold text-white tracking-tight">{feat.title}</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">{feat.desc}</p>
+                  <p className="text-xs sm:text-sm text-[#CBD5E1] leading-relaxed font-normal">{feat.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Role Access Section */}
-          <div id="portals" className="bg-gradient-to-b from-slate-900 via-slate-950 to-black p-8 sm:p-12 rounded-3xl border border-slate-800 space-y-8 text-center shadow-2xl">
+          <div id="portals" className="bg-gradient-to-b from-slate-900 via-slate-950 to-black p-8 sm:p-12 rounded-3xl border border-slate-800/90 space-y-8 text-center shadow-2xl">
             <div className="space-y-2">
               <h3 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Role-Based Access Portals</h3>
-              <p className="text-xs text-slate-400">Log in with role-specific permissions and scope</p>
+              <p className="text-xs sm:text-sm text-[#CBD5E1]">Log in with role-specific permissions and scope</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
-              <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <div className="h-10 w-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">1</div>
+              <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                <div className="h-10 w-10 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-300 font-bold text-sm">1</div>
                 <h4 className="font-bold text-white">Admin Portal</h4>
-                <p className="text-xs text-slate-400">Complete institutional oversight, financial reports, faculty management & system settings.</p>
+                <p className="text-xs sm:text-sm text-[#CBD5E1]">Complete institutional oversight, financial reports, faculty management & system settings.</p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">2</div>
+              <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold text-sm">2</div>
                 <h4 className="font-bold text-white">Faculty Portal</h4>
-                <p className="text-xs text-slate-400">Attendance entry, 1-click AI exam paper generator, homework assignments & student feedback logs.</p>
+                <p className="text-xs sm:text-sm text-[#CBD5E1]">Attendance entry, 1-click AI exam paper generator, homework assignments & student feedback logs.</p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <div className="h-10 w-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-sm">3</div>
+              <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                <div className="h-10 w-10 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold text-sm">3</div>
                 <h4 className="font-bold text-white">Student & Parent Portal</h4>
-                <p className="text-xs text-slate-400">Check academic performance, view assigned homework, fee payment receipts & exam schedules.</p>
+                <p className="text-xs sm:text-sm text-[#CBD5E1]">Check academic performance, view assigned homework, fee payment receipts & exam schedules.</p>
               </div>
             </div>
 
             <div className="pt-2">
               <Link 
                 to="/login"
-                className="inline-flex items-center gap-2 px-8 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition"
+                className="inline-flex items-center gap-2 px-8 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/40 transition"
               >
                 Access ERP Management Portal
                 <ArrowRight className="h-4 w-4" />
@@ -402,11 +418,11 @@ export default function Home() {
           </div>
 
           {/* Footer */}
-          <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+          <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
             <p>© {new Date().getFullYear()} C.K. Classes ERP Platform. Parvat Patiya, Surat, India. All rights reserved.</p>
             <div className="flex items-center gap-6">
-              <Link to="/login" className="hover:text-indigo-400 transition">Portal Login</Link>
-              <a href="#features" className="hover:text-indigo-400 transition">ERP Features</a>
+              <Link to="/login" className="hover:text-indigo-300 transition">Portal Login</Link>
+              <a href="#features" className="hover:text-indigo-300 transition">ERP Features</a>
             </div>
           </footer>
 
