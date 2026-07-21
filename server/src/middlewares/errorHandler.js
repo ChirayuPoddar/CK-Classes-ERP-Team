@@ -3,7 +3,7 @@ const ApiError = require('../utils/ApiError')
 const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500
   let message = err.message || 'Internal Server Error'
-  let code = err.code || 'INTERNAL_SERVER_ERROR'
+  let code = err.code || (statusCode === 404 ? 'NOT_FOUND' : 'INTERNAL_SERVER_ERROR')
   let field = err.field || null
 
   // 1. Handle Mongo Duplicate Key Error (Code 11000)

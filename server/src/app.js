@@ -52,6 +52,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }))
 
+// Root welcome endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    service: 'C.K. Classes ERP Management API',
+    version: '1.0.0',
+    status: 'active',
+    healthEndpoint: '/health',
+    frontend: 'https://ck-classes-erp-team.vercel.app',
+    timestamp: new Date()
+  })
+})
+
 // Root / health endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date() })
@@ -79,6 +92,7 @@ app.use('/api/v1/ai', aiRoutes)
 app.use((req, res, next) => {
   const error = new Error(`Resource Not Found - ${req.originalUrl}`)
   error.statusCode = 404
+  error.code = 'NOT_FOUND'
   next(error)
 })
 
