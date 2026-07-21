@@ -32,6 +32,7 @@ class AdminDashboardFragment : Fragment() {
         sessionManager = SessionManager(requireContext())
 
         binding.tvWelcomeRole.text = "Welcome, ${sessionManager.getUserName()}!"
+        binding.tvUserEmailSub.text = "${sessionManager.getUserEmail()} • ${sessionManager.getUserRole().uppercase()}"
 
         adapter = AnnouncementAdapter()
         binding.rvDashboardAnnouncements.layoutManager = LinearLayoutManager(requireContext())
