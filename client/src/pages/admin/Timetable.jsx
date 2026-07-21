@@ -13,13 +13,36 @@ import {
   Edit3,
   Trash2,
   MapPin,
-  User
+  User,
+  Cpu,
+  Layers,
+  Search,
+  Download,
+  Building,
+  CalendarDays,
+  BarChart2
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
 import DashboardStatCard from '@/components/common/DashboardStatCard'
 import SearchableSelect from '@/components/common/SearchableSelect'
 import { motion, AnimatePresence } from 'framer-motion'
+
+import TimetableViewTabs from '@/components/timetable/TimetableViewTabs'
+import TimetableFilters from '@/components/timetable/TimetableFilters'
+import PeriodManager from '@/components/timetable/PeriodManager'
+import RoomManager from '@/components/timetable/RoomManager'
+import HolidayManager from '@/components/timetable/HolidayManager'
+import TimetableAnalytics from '@/components/timetable/TimetableAnalytics'
+import VersionHistoryPanel from '@/components/timetable/VersionHistoryPanel'
+import SearchCommandPalette from '@/components/timetable/SearchCommandPalette'
+import ExportImportModal from '@/components/timetable/ExportImportModal'
+import AutoGeneratorModal from '@/components/timetable/AutoGeneratorModal'
+import BulkOperationsBar from '@/components/timetable/BulkOperationsBar'
+import TimetableGrid from '@/components/timetable/TimetableGrid'
+import UnscheduledPool from '@/components/timetable/UnscheduledPool'
+import useUndoRedo from '@/hooks/useUndoRedo'
+import useTimetableDrag from '@/hooks/useTimetableDrag'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
@@ -31,20 +54,18 @@ const classes = [
   'Class 12 Science', 'Class 12 Commerce'
 ];
 
-// Expanded to Sunday
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Enforced Subject colors
 const getSubjectColor = (subjectName) => {
   const name = (subjectName || '').toLowerCase()
-  if (name.includes('physics')) return '#3b82f6' // Blue
-  if (name.includes('chemistry')) return '#10b981' // Green
-  if (name.includes('math') || name.includes('algebra') || name.includes('calculus') || name.includes('mathematics')) return '#8b5cf6' // Purple
-  if (name.includes('english')) return '#f97316' // Orange
-  if (name.includes('computer') || name.includes('programming') || name.includes('it')) return '#06b6d4' // Cyan
-  if (name.includes('commerce') || name.includes('accounts') || name.includes('business')) return '#f59e0b' // Amber
-  if (name.includes('biology')) return '#14b8a6' // Teal
-  return '#64748b' // Slate / default
+  if (name.includes('physics')) return '#3b82f6'
+  if (name.includes('chemistry')) return '#10b981'
+  if (name.includes('math') || name.includes('algebra') || name.includes('calculus') || name.includes('mathematics')) return '#8b5cf6'
+  if (name.includes('english')) return '#f97316'
+  if (name.includes('computer') || name.includes('programming') || name.includes('it')) return '#06b6d4'
+  if (name.includes('commerce') || name.includes('accounts') || name.includes('business')) return '#f59e0b'
+  if (name.includes('biology')) return '#14b8a6'
+  return '#64748b'
 }
 
 // Reusable cell component for scheduled cards & empty cards - redesigned with specs typography & no truncations
@@ -138,20 +159,49 @@ export default function Timetable() {
   const [subjects, setSubjects] = useState([])
   const [teachers, setTeachers] = useState([])
   const [periods, setPeriods] = useState([])
+  const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Filters & State
+  // Views & Multi-Filters
+  const [viewMode, setViewMode] = useState('class') // 'class' | 'teacher' | 'room' | 'subject' | 'student' | 'department'
   const [classFilter, setClassFilter] = useState('Class 1')
   const [academicYearFilter, setAcademicYearFilter] = useState('2026-2027')
-  const [dayFilter, setDayFilter] = useState('') // Empty means "All Days"
-  const [printMode, setPrintMode] = useState('class') // 'class' or 'teacher'
+  const [dayFilter, setDayFilter] = useState('')
+  const [printMode, setPrintMode] = useState('class')
 
-  // Modals state
+  const [advancedFilters, setAdvancedFilters] = useState({
+    class: 'Class 1',
+    teacher: '',
+    subject: '',
+    room: '',
+    day: '',
+    academicYear: '2026-2027',
+    section: '',
+    semester: '',
+    department: '',
+    building: '',
+    floor: ''
+  })
+
+  // Enterprise Modals State
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isTeacherTimetableOpen, setIsTeacherTimetableOpen] = useState(false)
   const [isAddPeriodModalOpen, setIsAddPeriodModalOpen] = useState(false)
+
+  const [isPeriodManagerOpen, setIsPeriodManagerOpen] = useState(false)
+  const [isRoomManagerOpen, setIsRoomManagerOpen] = useState(false)
+  const [isHolidayManagerOpen, setIsHolidayManagerOpen] = useState(false)
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
+  const [isSearchPaletteOpen, setIsSearchPaletteOpen] = useState(false)
+  const [isExportImportOpen, setIsExportImportOpen] = useState(false)
+  const [isAutoGeneratorOpen, setIsAutoGeneratorOpen] = useState(false)
+
+  // Drag & Drop & Bulk Selection State
+  const [selectedSlotIds, setSelectedSlotIds] = useState([])
+  const [draggedSlot, setDraggedSlot] = useState(null)
   
   const [currentSlot, setCurrentSlot] = useState(null)
   const [selectedSlotForView, setSelectedSlotForView] = useState(null)
@@ -224,6 +274,16 @@ export default function Timetable() {
     } catch (err) {
       console.error('Failed to load active teachers:', err)
     }
+  }  // Load configured rooms
+  const fetchRooms = async () => {
+    try {
+      const res = await api.get('/rooms')
+      if (res && res.success && res.data) {
+        setRooms(res.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to load rooms:', err)
+    }
   }
 
   // Load configured periods
@@ -238,7 +298,80 @@ export default function Timetable() {
     }
   }
 
-  // Load global timetable slots
+  // Pool Collapsed & Viewspace State
+  const [isPoolCollapsed, setIsPoolCollapsed] = useState(false)
+  const [holidays, setHolidays] = useState([])
+
+  // Load holidays for drag conflict checking
+  useEffect(() => {
+    api.get('/holidays')
+      .then(res => res && res.data && setHolidays(res.data))
+      .catch(() => {})
+  }, [])
+
+  // Production-grade Drag and Drop Engine
+  const {
+    hoverCell,
+    handleDragStartSubject,
+    handleDragStartSlot,
+    handleDragOverCell,
+    handleDragLeaveCell,
+    executeDrop,
+    handleUndo,
+    handleRedo,
+    canUndo,
+    canRedo
+  } = useTimetableDrag({
+    timetableSlots,
+    allSlots: timetableSlots,
+    periods,
+    holidays,
+    teachers,
+    currentClass: classFilter,
+    academicYear: academicYearFilter,
+    onSlotsChange: (newSlots) => setTimetableSlots(newSlots),
+    onSubjectsRefresh: () => { fetchTimetable(); fetchSubjects(); },
+    showToast
+  })
+
+  // Bulk operation handlers
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedSlotIds.length} selected slots?`)) return
+    try {
+      await api.post('/timetable/bulk', { action: 'delete', slotIds: selectedSlotIds })
+      showToast('success', `Deleted ${selectedSlotIds.length} slots`)
+      setSelectedSlotIds([])
+      fetchTimetable()
+    } catch (err) {
+      showToast('error', err.message || 'Bulk delete failed')
+    }
+  }
+
+  const handleBulkReplaceTeacher = async () => {
+    const tId = prompt('Enter new Teacher ID or select from list:')
+    if (!tId) return
+    try {
+      await api.post('/timetable/bulk', { action: 'replace_teacher', slotIds: selectedSlotIds, data: { teacher: tId } })
+      showToast('success', 'Bulk teacher replaced successfully')
+      setSelectedSlotIds([])
+      fetchTimetable()
+    } catch (err) {
+      showToast('error', err.message || 'Bulk replace failed')
+    }
+  }
+
+  const handleBulkReplaceRoom = async () => {
+    const roomName = prompt('Enter new Room Name:')
+    if (!roomName) return
+    try {
+      await api.post('/timetable/bulk', { action: 'replace_room', slotIds: selectedSlotIds, data: { room: roomName } })
+      showToast('success', 'Bulk room replaced successfully')
+      setSelectedSlotIds([])
+      fetchTimetable()
+    } catch (err) {
+      showToast('error', err.message || 'Bulk replace failed')
+    }
+  }  // Load global timetable slots
   const fetchTimetable = async () => {
     setLoading(true)
     setError(null)
@@ -874,138 +1007,175 @@ export default function Timetable() {
             <span className="text-brand-blue-600">Timetable</span>
           </div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mt-1">
-            Timetable Management
+            Enterprise Timetable System
           </h2>
           <p className="text-[11px] font-bold text-slate-400 mt-1.5">
-            Manage weekly schedules, period rows, classrooms, and printable timetables
+            Manage weekly schedules, multi-views, period breaks, classroom capacities, and AI auto-generation
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSearchPaletteOpen(true)}
+            className="h-10 px-4 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-xs font-bold text-slate-600 flex items-center gap-2 shadow-xs cursor-pointer"
+            title="Search palette (Cmd+K)"
+          >
+            <Search className="h-4 w-4 text-brand-blue-600" />
+            <span>Search (Cmd+K)</span>
+          </button>
+
+          <button
+            onClick={() => setIsAutoGeneratorOpen(true)}
+            className="h-10 px-4 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+          >
+            <Cpu className="h-4 w-4" />
+            <span>Auto Generator</span>
+          </button>
         </div>
       </div>
 
-      {/* Stats CSS grid layout */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', 
-          gap: '16px' 
-        }} 
-        className="shrink-0 print:hidden"
-      >
-        <DashboardStatCard
-          title="Total Lectures"
-          value={totalLecturesCount}
-          subtitle="Scheduled Slots"
-          icon={Clock}
-          iconBgColor="bg-blue-50"
-          iconColor="text-blue-500"
-          className="py-3 px-5"
-        />
-        <DashboardStatCard
-          title="Free Slots"
-          value={freeSlotsCount}
-          subtitle="Available Cells"
-          icon={Calendar}
-          iconBgColor="bg-purple-50"
-          iconColor="text-purple-500"
-          valueColor="text-purple-650"
-          className="py-3 px-5"
-        />
-        <DashboardStatCard
-          title="Occupancy"
-          value={`${occupancyPercentRate}%`}
-          subtitle={`${totalLecturesCount} / ${maxWeeklySlotsCount} Slots`}
-          icon={Check}
-          iconBgColor="bg-emerald-50"
-          iconColor="text-emerald-500"
-          valueColor="text-emerald-600"
-          className="py-3 px-5"
+      {/* View Mode Tabs */}
+      <div className="shrink-0 print:hidden text-left">
+        <TimetableViewTabs activeView={viewMode} onChange={(v) => setViewMode(v)} />
+      </div>
+
+      {/* Multi-Filters Panel */}
+      <div className="shrink-0 print:hidden">
+        <TimetableFilters
+          filters={advancedFilters}
+          onFilterChange={(key, val) => {
+            setAdvancedFilters(prev => ({ ...prev, [key]: val }))
+            if (key === 'class') setClassFilter(val || 'Class 1')
+            if (key === 'academicYear') setAcademicYearFilter(val || '2026-2027')
+            if (key === 'day') setDayFilter(val || '')
+          }}
+          onResetFilters={() => {
+            setAdvancedFilters({
+              class: 'Class 1',
+              teacher: '',
+              subject: '',
+              room: '',
+              day: '',
+              academicYear: '2026-2027',
+              section: '',
+              semester: '',
+              department: '',
+              building: '',
+              floor: ''
+            })
+            setClassFilter('Class 1')
+            setAcademicYearFilter('2026-2027')
+            setDayFilter('')
+          }}
+          classes={classes}
+          teachers={teachers}
+          subjects={subjects}
+          rooms={rooms}
         />
       </div>
 
-      {/* 2. Controls & Filters Row */}
+      {/* Action Toolbar */}
       <div 
         style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="py-5 px-6 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0 print:hidden"
+        className="py-4 px-6 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden"
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="h-10 w-44 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-550 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            {classes.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-
-          <select
-            value={academicYearFilter}
-            onChange={(e) => setAcademicYearFilter(e.target.value)}
-            className="h-10 w-44 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-550 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="2026-2027">2026-2027</option>
-            <option value="2027-2028">2027-2028</option>
-          </select>
-
-          <select
-            value={dayFilter}
-            onChange={(e) => setDayFilter(e.target.value)}
-            className="h-10 w-44 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-555 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Days</option>
-            {daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-
-          <div className="h-6 w-[1px] bg-slate-200 mx-1 hidden md:block" />
-
-          {/* Trigger Add Period Modal dialog */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => {
-              setNewPeriodStart('')
-              setNewPeriodEnd('')
-              setAddPeriodError('')
-              setIsAddPeriodModalOpen(true)
-            }}
-            disabled={submitting}
-            className="h-10 px-4.5 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 rounded-full text-xs font-extrabold text-blue-600 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
+            onClick={() => setIsPeriodManagerOpen(true)}
+            className="h-9 px-4 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 rounded-full text-xs font-black text-blue-600 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
           >
-            <Plus className="h-4 w-4" />
-            <span>Add Period</span>
+            <Plus className="h-3.5 w-3.5" />
+            <span>Manage Periods & Breaks</span>
+          </button>
+
+          <button
+            onClick={() => setIsRoomManagerOpen(true)}
+            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+          >
+            <MapPin className="h-3.5 w-3.5 text-purple-500" />
+            <span>Rooms</span>
+          </button>
+
+          <button
+            onClick={() => setIsHolidayManagerOpen(true)}
+            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+          >
+            <Calendar className="h-3.5 w-3.5 text-amber-500" />
+            <span>Holidays</span>
+          </button>
+
+          <button
+            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
+            className={cn(
+              "h-9 px-4 rounded-full border text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors",
+              isAnalyticsOpen ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700" : "border-slate-200 hover:bg-slate-50 text-slate-700"
+            )}
+          >
+            <BarChart2 className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Analytics</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Replaced Period Settings with Teacher Timetable */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
+            title="Undo last drag operation (Ctrl+Z)"
+          >
+            <span>↩ Undo</span>
+          </button>
+
+          <button
+            onClick={handleRedo}
+            disabled={!canRedo}
+            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
+            title="Redo last operation (Ctrl+Y)"
+          >
+            <span>↪ Redo</span>
+          </button>
+
+          <button
+            onClick={() => setIsPoolCollapsed(!isPoolCollapsed)}
+            className={cn(
+              "h-9 px-4 rounded-full border text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer transition-all",
+              isPoolCollapsed
+                ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700"
+                : "border-slate-200 hover:bg-slate-50 text-slate-700"
+            )}
+            title="Toggle Unscheduled Pool Sidebar to Maximize Timetable Viewspace"
+          >
+            <Layers className="h-3.5 w-3.5 text-brand-blue-600" />
+            <span>{isPoolCollapsed ? 'Show Subject Pool' : 'Maximize Grid View'}</span>
+          </button>
+
           <button
             onClick={() => {
               setSelectedTeacherId(teachers[0]?._id || '')
               setIsTeacherTimetableOpen(true)
             }}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Open Teacher Timetable"
+            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
           >
-            <User className="h-4 w-4 text-blue-500" />
-            <span>Teacher Timetable</span>
+            <User className="h-3.5 w-3.5 text-blue-500" />
+            <span>Teacher View</span>
           </button>
-          
-          <div className="h-6 w-[1px] bg-slate-200 mx-1" />
 
           <button
-            onClick={handlePrintClassTimetable}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Print Timetable"
+            onClick={() => setIsExportImportOpen(true)}
+            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
           >
-            <Printer className="h-4 w-4" />
-            <span>Print</span>
-          </button>
-          <button
-            onClick={handlePrintClassTimetable}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Export Timetable as PDF Grid"
-          >
-            <FileText className="h-4 w-4 text-red-500" />
-            <span>PDF Export</span>
+            <Download className="h-3.5 w-3.5 text-red-500" />
+            <span>Export / Import</span>
           </button>
         </div>
       </div>
+
+      {/* Analytics Dashboard Drawer / Toggle */}
+      {isAnalyticsOpen && (
+        <div className="shrink-0 print:hidden">
+          <TimetableAnalytics academicYear={academicYearFilter} />
+        </div>
+      )}
 
       {/* 1. Print/PDF Header FOR CLASS TIMETABLE (Visible during printing only) */}
       <div className="hidden print:print-class-view flex items-center justify-between border-b border-slate-200 pb-4 mb-6 select-none w-full">
@@ -1043,109 +1213,50 @@ export default function Timetable() {
         </div>
       </div>
 
-      {/* 3. Main Weekly Grid Section (Horizontal Scroll, fixed card height) */}
-      <div 
-        style={{ borderRadius: '28px', border: '1px solid #ECECEC', padding: '28px' }}
-        className="bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex-grow flex flex-col justify-between overflow-hidden min-h-0 print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
-      >
-        {/* Horizontally scrollable wrapper */}
-        <div className="overflow-y-auto overflow-x-auto custom-scrollbar flex-grow min-h-0 pr-1 print:overflow-visible h-full flex flex-col">
-          <table className="w-full text-left min-w-[1810px] border-collapse flex flex-col h-full">
-            <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none block shrink-0">
-              <tr className="flex w-full items-center h-14">
-                {/* Sticky Hours header */}
-                <th className="pl-7 text-left flex items-center shrink-0 border-r border-slate-100 h-full sticky left-0 z-30 bg-slate-50" style={{ width: '130px' }}>Time / Period</th>
-                
-                {daysOfWeek.map(day => {
-                  const isFilteredOut = dayFilter && dayFilter !== day
-                  return (
-                    <th 
-                      key={day} 
-                      className={cn(
-                        "text-center flex-1 min-w-[230px] flex items-center justify-center border-r border-slate-100 tracking-widest font-black h-full",
-                        isFilteredOut && "opacity-30"
-                      )}
-                    >
-                      {day}
-                    </th>
-                  )
-                })}
-                <th className="text-center flex items-center justify-center shrink-0 print:hidden h-full" style={{ width: '70px' }}>Action</th>
-              </tr>
-            </thead>
+      {/* 3. Dual-Pane Drag & Drop Scheduling Workspace */}
+      <div className="flex flex-col lg:flex-row gap-6 flex-grow min-h-0">
+        {/* Left Sidebar: Unscheduled Class Pool */}
+        {!isPoolCollapsed && (
+          <div className="w-full lg:w-72 shrink-0 print:hidden transition-all duration-300">
+            <UnscheduledPool
+              subjects={subjects}
+              timetableSlots={timetableSlots}
+              currentClass={classFilter}
+              onDragStartSubject={handleDragStartSubject}
+              onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
+              onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
+            />
+          </div>
+        )}
 
-            {/* Distributed height rows with centered 64px cards */}
-            <tbody className="divide-y-0 flex flex-col flex-1 min-h-0">
-              {loading ? (
-                <tr className="print:hidden h-full flex items-center justify-center">
-                  <td className="text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <RefreshCw className="h-7 w-7 text-blue-500 animate-spin" />
-                      <span className="text-xs font-bold text-slate-400">Loading coaching slots...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : activePeriodsList.length === 0 ? (
-                <tr className="h-full flex items-center justify-center">
-                  <td className="text-center">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Calendar className="h-8 w-8 text-slate-350" />
-                      <span className="text-xs font-black text-slate-455">No coaching periods available.</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                activePeriodsList.map((periodObj) => (
-                  <tr 
-                    key={periodObj._id} 
-                    className="flex w-full items-stretch flex-1 min-h-[72px] transition-all duration-300 group hover:bg-slate-50/10"
-                  >
-                    {/* Sticky Period Column */}
-                    <td className="pl-7 font-extrabold text-slate-800 bg-white group-hover:bg-slate-50 border-r border-slate-200/80 text-left select-none pr-4 shrink-0 flex flex-col justify-center overflow-hidden h-full sticky left-0 z-10 transition-colors duration-200" style={{ width: '130px' }}>
-                      <div className="text-[13px] font-semibold tracking-tight text-brand-blue-700 leading-none">{periodObj.name}</div>
-                      <div className="text-[11px] font-medium text-slate-500 mt-2.5 flex items-center gap-1.5 leading-none">
-                        <span className="text-[11px] font-medium text-slate-400">🕓</span>
-                        <span className="whitespace-nowrap">{periodObj.startTime} – {periodObj.endTime}</span>
-                      </div>
-                    </td>
-
-                    {/* Weekly Columns */}
-                    {daysOfWeek.map((day) => {
-                      const isFilteredOut = dayFilter && dayFilter !== day
-                      const slot = timetableSlots.find(s => s.class === classFilter && s.day === day && (s.period?._id || s.period) === periodObj._id)
-
-                      return (
-                        <td 
-                          key={day}
-                          className={cn(
-                            "flex-1 min-w-[230px] px-2 border-r border-slate-100 text-center relative transition-all overflow-hidden flex flex-col justify-center h-full",
-                            isFilteredOut ? "opacity-20 cursor-not-allowed pointer-events-none" : "hover:bg-slate-50/50"
-                          )}
-                        >
-                          <TimetableCell
-                            slot={slot}
-                            isFilteredOut={isFilteredOut}
-                            onClick={() => !isFilteredOut && handleCellClick(day, periodObj)}
-                          />
-                        </td>
-                      )
-                    })}
-
-                    {/* Row Delete Column */}
-                    <td className="w-[70px] shrink-0 text-center flex items-center justify-center overflow-hidden print:hidden h-full" style={{ width: '70px' }}>
-                      <button
-                        onClick={() => handleDeletePeriod(periodObj)}
-                        className="h-8 w-8 rounded-full hover:bg-red-50 text-red-500 hover:text-red-750 flex items-center justify-center transition-all border border-transparent hover:border-red-100 cursor-pointer mx-auto"
-                        title={`Delete ${periodObj.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* Right Main Board: Interactive Timetable Grid */}
+        <div 
+          style={{ borderRadius: '28px', border: '1px solid #ECECEC', padding: '24px' }}
+          className="flex-1 min-w-0 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col justify-between overflow-hidden print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
+        >
+          <TimetableGrid
+            periods={periods}
+            days={daysOfWeek}
+            slots={timetableSlots.filter(s => s.class === classFilter)}
+            dayFilter={dayFilter}
+            loading={loading}
+            hoverCell={hoverCell}
+            onCellClick={(day, periodObj, slot) => {
+              if (slot) {
+                setSelectedSlotForView(slot)
+                setIsViewModalOpen(true)
+              } else {
+                handleCellClick(day, periodObj)
+              }
+            }}
+            onDragStart={handleDragStartSlot}
+            onDragOver={handleDragOverCell}
+            onDragLeave={handleDragLeaveCell}
+            onDrop={executeDrop}
+            onDeletePeriod={handleDeletePeriod}
+            selectedSlotIds={selectedSlotIds}
+            viewMode={viewMode}
+          />
         </div>
       </div>
 
@@ -1741,6 +1852,74 @@ export default function Timetable() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 9. ENTERPRISE MODALS & DRAWERS */}
+      <PeriodManager
+        isOpen={isPeriodManagerOpen}
+        onClose={() => setIsPeriodManagerOpen(false)}
+        periods={periods}
+        onRefresh={() => { fetchPeriods(); fetchTimetable(); }}
+      />
+
+      <RoomManager
+        isOpen={isRoomManagerOpen}
+        onClose={() => setIsRoomManagerOpen(false)}
+        onRefresh={fetchRooms}
+      />
+
+      <HolidayManager
+        isOpen={isHolidayManagerOpen}
+        onClose={() => setIsHolidayManagerOpen(false)}
+        onRefresh={fetchTimetable}
+      />
+
+      <SearchCommandPalette
+        isOpen={isSearchPaletteOpen}
+        onClose={() => setIsSearchPaletteOpen(false)}
+        teachers={teachers}
+        subjects={subjects}
+        rooms={rooms}
+        classes={classes}
+        onSelectResult={(type, val) => {
+          if (type === 'class') setClassFilter(val)
+          if (type === 'teacher') setAdvancedFilters(prev => ({ ...prev, teacher: val }))
+          if (type === 'subject') setAdvancedFilters(prev => ({ ...prev, subject: val }))
+          if (type === 'room') setAdvancedFilters(prev => ({ ...prev, room: val }))
+        }}
+      />
+
+      <ExportImportModal
+        isOpen={isExportImportOpen}
+        onClose={() => setIsExportImportOpen(false)}
+        slots={timetableSlots}
+        periods={periods}
+        currentClass={classFilter}
+        academicYear={academicYearFilter}
+        onImportSuccess={fetchTimetable}
+      />
+
+      <AutoGeneratorModal
+        isOpen={isAutoGeneratorOpen}
+        onClose={() => setIsAutoGeneratorOpen(false)}
+        currentClass={classFilter}
+        academicYear={academicYearFilter}
+        onGenerateSuccess={fetchTimetable}
+      />
+
+      <VersionHistoryPanel
+        isOpen={isVersionHistoryOpen}
+        onClose={() => setIsVersionHistoryOpen(false)}
+        slotId={selectedSlotForView?._id}
+        onRestore={fetchTimetable}
+      />
+
+      <BulkOperationsBar
+        selectedCount={selectedSlotIds.length}
+        onClearSelection={() => setSelectedSlotIds([])}
+        onBulkDelete={handleBulkDelete}
+        onBulkReplaceTeacher={handleBulkReplaceTeacher}
+        onBulkReplaceRoom={handleBulkReplaceRoom}
+      />
 
     </div>
   )

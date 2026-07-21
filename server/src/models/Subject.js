@@ -48,6 +48,35 @@ const subjectSchema = new mongoose.Schema({
     type: String,
     enum: ['Active', 'Inactive'],
     default: 'Active'
+  },
+  // ── Subject Planning Extensions ──
+  lectureType: {
+    type: String,
+    enum: ['Theory', 'Lab', 'Seminar', 'Tutorial', 'Workshop'],
+    default: 'Theory'
+  },
+  consecutivePeriods: {
+    type: Number,
+    default: 1,
+    min: 1
+  },
+  preferredRoom: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  assistantTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Teacher'
+  },
+  credits: {
+    type: Number,
+    default: 0
+  },
+  notes: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true

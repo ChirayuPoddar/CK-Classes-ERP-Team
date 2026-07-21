@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/common/Sidebar'
 import { Navbar } from '@/components/common/Navbar'
 import { AIChatWidget } from '@/components/common/AIChatWidget'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -22,6 +23,7 @@ export const DashboardLayout = () => {
 
   const isNoNavbarPage = [
     '/admin/students', '/admin/teachers', '/admin/subjects', '/admin/timetable', 
+    '/teacher/timetable', '/student/timetable',
     '/admin/attendance', '/admin/attendance/history', '/admin/attendance/analytics', 
     '/students', '/teachers', '/subjects', '/admin/fees', '/admin/homework', 
     '/teacher/homework', '/student/homework', '/admin/exams', '/teacher/exams', '/student/exams',
@@ -106,7 +108,9 @@ export const DashboardLayout = () => {
                 transition={{ duration: 0.22, ease: 'easeInOut' }}
                 className={cn(isNoNavbarPage && "h-full flex flex-col min-h-0")}
               >
-                <Outlet />
+                <ErrorBoundary key={location.pathname}>
+                  <Outlet />
+                </ErrorBoundary>
               </motion.div>
             </AnimatePresence>
           </div>
