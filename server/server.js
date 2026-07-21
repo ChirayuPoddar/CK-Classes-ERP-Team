@@ -38,5 +38,5 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
 })
-// Env reloaded with Total Students metric formatting
+// Env reloaded with primary data summary block
 
