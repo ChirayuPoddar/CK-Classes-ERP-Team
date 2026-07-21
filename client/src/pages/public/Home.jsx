@@ -110,13 +110,13 @@ export default function Home() {
 
       const latest = scrollYProgress.get()
 
-      // When scroll finishes (latest >= 0.85), play seamless ambient loop of EXACT last 2.0 seconds
+      // When scroll finishes (latest >= 0.85), play seamless ambient loop of EXACT last 1.0 second
       if (latest >= 0.85) {
-        const loopStart = Math.max(0, videoDuration - 2.0)
+        const loopStart = Math.max(0, videoDuration - 1.0)
         if (video.paused) {
           video.play().catch(() => {})
         }
-        if (video.currentTime >= videoDuration - 0.1 || video.currentTime < loopStart) {
+        if (video.currentTime >= videoDuration - 0.05 || video.currentTime < loopStart) {
           video.currentTime = loopStart
         }
       } else {
