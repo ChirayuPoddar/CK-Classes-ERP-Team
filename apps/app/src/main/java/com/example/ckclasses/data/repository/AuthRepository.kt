@@ -1,36 +1,63 @@
 package com.example.ckclasses.data.repository
 
+import android.util.Log
 import com.example.ckclasses.data.api.ApiService
 import com.example.ckclasses.data.api.RetrofitClient
 import com.example.ckclasses.data.models.*
 import com.example.ckclasses.utils.NetworkResult
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AuthRepository(private val apiService: ApiService) {
 
+    private val TAG = "AuthRepository"
+
     suspend fun login(request: LoginRequest): NetworkResult<User> =
         withContext(Dispatchers.IO) {
             try {
+                Log.d(TAG, "Attempting login for: ${request.email}")
                 val response = apiService.login(request)
-                if (response.isSuccessful && response.body()?.success == true) {
+                Log.d(TAG, "Login response code: ${response.code()}, isSuccessful: ${response.isSuccessful}")
+
+                if (response.isSuccessful) {
                     val body = response.body()
-                    val user = body?.user ?: body?.data?.user
-                    val token = body?.accessToken ?: body?.token
-                    if (!token.isNullOrEmpty()) {
-                        RetrofitClient.authToken = token
-                    }
-                    if (user != null) {
-                        NetworkResult.Success(user, response.body()?.message)
+                    Log.d(TAG, "Login body success=${body?.success}, user=${body?.user?.email}, accessToken=${body?.accessToken?.take(20)}")
+
+                    if (body?.success == true) {
+                        val user = body.user ?: body.data?.user
+                        val token = body.accessToken ?: body.token
+                        if (!token.isNullOrEmpty()) {
+                            RetrofitClient.authToken = token
+                            Log.d(TAG, "Auth token set: ${token.take(20)}...")
+                        } else {
+                            Log.w(TAG, "No access token in login response!")
+                        }
+                        if (user != null) {
+                            NetworkResult.Success(user, body.message)
+                        } else {
+                            Log.e(TAG, "Login response missing user data")
+                            NetworkResult.Error("Login response missing user data")
+                        }
                     } else {
-                        NetworkResult.Error("Login response missing user data")
+                        val errMsg = body?.getErrorMessage() ?: "Login failed"
+                        Log.e(TAG, "Login body success=false: $errMsg")
+                        NetworkResult.Error(errMsg)
                     }
                 } else {
-                    val errorMsg = response.body()?.getErrorMessage()
-                        ?: "Login failed (${response.code()})"
-                    NetworkResult.Error(errorMsg)
+                    // HTTP error (401, 500, etc.) - parse error body
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "Login HTTP error ${response.code()}: $errorBody")
+                    val errMsg = try {
+                        val errResponse = Gson().fromJson(errorBody, ApiResponse::class.java)
+                        errResponse?.getErrorMessage() ?: "Login failed (${response.code()})"
+                    } catch (e: Exception) {
+                        "Login failed (${response.code()})"
+                    }
+                    NetworkResult.Error(errMsg)
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Login exception: ${e.message}", e)
                 NetworkResult.Error(e.localizedMessage ?: "Network connection error")
             }
         }
