@@ -8,9 +8,12 @@ data class ApiResponse<T>(
     @SerializedName("message") val message: String? = null,
     @SerializedName("data") val data: T? = null,
     @SerializedName("user") val user: User? = null,
+    @SerializedName("accessToken") val accessToken: String? = null,
+    @SerializedName("token") val token: String? = null,
     @SerializedName("error") val errorElement: JsonElement? = null,
     @SerializedName("resetToken") val resetToken: String? = null
 ) {
+
     val error: String?
         get() = getErrorMessage()
 

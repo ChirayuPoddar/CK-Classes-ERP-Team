@@ -1,6 +1,7 @@
 package com.example.ckclasses.data.repository
 
 import com.example.ckclasses.data.api.ApiService
+import com.example.ckclasses.data.api.RetrofitClient
 import com.example.ckclasses.data.models.*
 import com.example.ckclasses.utils.NetworkResult
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +14,12 @@ class AuthRepository(private val apiService: ApiService) {
             try {
                 val response = apiService.login(request)
                 if (response.isSuccessful && response.body()?.success == true) {
-                    val user = response.body()?.user ?: response.body()?.data?.user
+                    val body = response.body()
+                    val user = body?.user ?: body?.data?.user
+                    val token = body?.accessToken ?: body?.token
+                    if (!token.isNullOrEmpty()) {
+                        RetrofitClient.authToken = token
+                    }
                     if (user != null) {
                         NetworkResult.Success(user, response.body()?.message)
                     } else {
@@ -34,7 +40,12 @@ class AuthRepository(private val apiService: ApiService) {
             try {
                 val response = apiService.getCurrentUser()
                 if (response.isSuccessful && response.body()?.success == true) {
-                    val user = response.body()?.user ?: response.body()?.data?.user
+                    val body = response.body()
+                    val user = body?.user ?: body?.data?.user
+                    val token = body?.accessToken ?: body?.token
+                    if (!token.isNullOrEmpty()) {
+                        RetrofitClient.authToken = token
+                    }
                     if (user != null) {
                         NetworkResult.Success(user)
                     } else {
@@ -52,12 +63,14 @@ class AuthRepository(private val apiService: ApiService) {
         withContext(Dispatchers.IO) {
             try {
                 val response = apiService.logout()
+                RetrofitClient.authToken = null
                 if (response.isSuccessful) {
                     NetworkResult.Success(Unit, "Logged out successfully")
                 } else {
                     NetworkResult.Error("Logout failed")
                 }
             } catch (e: Exception) {
+                RetrofitClient.authToken = null
                 NetworkResult.Error(e.localizedMessage ?: "Logout error")
             }
         }

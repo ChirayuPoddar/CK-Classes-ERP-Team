@@ -64,10 +64,11 @@ class LoginActivity : AppCompatActivity() {
                     binding.pbLoading.visibility = View.GONE
                     binding.btnLogin.isEnabled = true
                     result.data?.let { user ->
-                        sessionManager.saveUserSession(user)
+                        sessionManager.saveUserSession(user, com.example.ckclasses.data.api.RetrofitClient.authToken)
                         Toast.makeText(this, "Welcome ${user.name}!", Toast.LENGTH_SHORT).show()
                         navigateToMain()
-                    } ?: run {
+                    }
+ ?: run {
                         Toast.makeText(this, "Login error: user details missing", Toast.LENGTH_SHORT).show()
                     }
                 }

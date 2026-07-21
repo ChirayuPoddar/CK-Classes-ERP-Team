@@ -43,8 +43,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         sessionManager = SessionManager(this)
+        RetrofitClient.authToken = sessionManager.getAuthToken()
 
         setSupportActionBar(binding.toolbar)
+
         toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.toolbar,
             R.string.navigation_drawer_open, R.string.navigation_drawer_close
