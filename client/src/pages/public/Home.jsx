@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion'
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { 
   ArrowRight, 
   Sparkles, 
@@ -12,9 +12,7 @@ import {
   Award, 
   ChevronDown, 
   Zap, 
-  CheckCircle2, 
-  GraduationCap, 
-  Layers 
+  GraduationCap 
 } from 'lucide-react'
 
 // Self-contained Animated Counter component for metrics
@@ -52,75 +50,143 @@ const AnimatedCounter = ({ value, duration = 1.5 }) => {
 }
 
 export default function Home() {
-  const videoTrackRef = useRef(null)
+  const containerRef = useRef(null)
+  const canvasRef = useRef(null)
   const videoRef = useRef(null)
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false)
-  const [videoDuration, setVideoDuration] = useState(0)
 
-  // Scroll Progress tracking for the 300vh video section
+  const [videoLoaded, setVideoLoaded] = useState(false)
+  const durationRef = useRef(0)
+  const targetTimeRef = useRef(0)
+  const currentTimeRef = useRef(0)
+
+  // Track scroll progress over a 400vh container for maximum smooth scrubbing
   const { scrollYProgress } = useScroll({
-    target: videoTrackRef,
+    target: containerRef,
     offset: ['start start', 'end end']
   })
 
-  // Smooth spring physics for fluid video frame scrubbing
+  // Smooth physics spring for butter-smooth motion
   const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
+    stiffness: 120,
+    damping: 25,
+    mass: 0.2,
+    restDelta: 0.0001
   })
 
-  // Fade animations based on scroll progress
-  const videoOverlayOpacity = useTransform(smoothProgress, [0, 0.7, 0.95, 1], [0.5, 0.4, 0.85, 1])
-  const heroTextOpacity = useTransform(smoothProgress, [0, 0.3, 0.6], [1, 0.8, 0])
-  const heroTextY = useTransform(smoothProgress, [0, 0.5], [0, -60])
-  
-  const endCalloutOpacity = useTransform(smoothProgress, [0.5, 0.8, 0.95, 1], [0, 1, 1, 0])
-  const endCalloutScale = useTransform(smoothProgress, [0.5, 0.8, 1], [0.9, 1, 1.05])
+  // Fade out hero overlay as user scrolls down
+  const heroOpacity = useTransform(smoothProgress, [0, 0.25], [1, 0])
+  const heroY = useTransform(smoothProgress, [0, 0.25], [0, -50])
 
-  // Handle Video Metadata & Frame Scrubbing
+  // Fade in end callout right before video completes
+  const calloutOpacity = useTransform(smoothProgress, [0.6, 0.85, 0.95], [0, 1, 0])
+  const calloutScale = useTransform(smoothProgress, [0.6, 0.85, 0.95], [0.92, 1, 1.04])
+
+  // Full Screen Canvas Resize Handler with Object-Cover math
+  const renderFrame = () => {
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    if (!canvas || !video || video.readyState < 2) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const dpr = window.devicePixelRatio || 1
+    const width = window.innerWidth
+    const height = window.innerHeight
+
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+    }
+
+    ctx.scale(dpr, dpr)
+
+    // Calculate aspect ratio object-cover math
+    const vWidth = video.videoWidth || 1920
+    const vHeight = video.videoHeight || 1080
+    const vAspect = vWidth / vHeight
+    const cAspect = width / height
+
+    let drawW, drawH, drawX, drawY
+
+    if (cAspect > vAspect) {
+      drawW = width
+      drawH = width / vAspect
+      drawX = 0
+      drawY = (height - drawH) / 2
+    } else {
+      drawH = height
+      drawW = height * vAspect
+      drawX = (width - drawW) / 2
+      drawY = 0
+    }
+
+    ctx.clearRect(0, 0, width, height)
+    ctx.drawImage(video, drawX, drawY, drawW, drawH)
+  }
+
+  // Load video metadata
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
 
-    const handleLoadedMetadata = () => {
-      setVideoDuration(video.duration || 5)
-      setIsVideoLoaded(true)
+    const onLoaded = () => {
+      durationRef.current = video.duration || 5
+      setVideoLoaded(true)
+      video.currentTime = 0
+      setTimeout(renderFrame, 100)
     }
 
-    video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('loadedmetadata', onLoaded)
+    video.addEventListener('seeked', renderFrame)
+
     if (video.readyState >= 1) {
-      handleLoadedMetadata()
+      onLoaded()
     }
+
+    const onResize = () => {
+      renderFrame()
+    }
+    window.addEventListener('resize', onResize)
 
     return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('loadedmetadata', onLoaded)
+      video.removeEventListener('seeked', renderFrame)
+      window.removeEventListener('resize', onResize)
     }
   }, [])
 
-  // Sync scroll percentage to video currentTime
+  // Smooth RAF Lerp Loop
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !videoDuration) return
+    let animId
 
-    let animationFrameId
+    const updateLoop = () => {
+      const video = videoRef.current
+      if (video && durationRef.current) {
+        // High-precision lerp smoothing (0.12 factor)
+        const diff = targetTimeRef.current - currentTimeRef.current
+        if (Math.abs(diff) > 0.001) {
+          currentTimeRef.current += diff * 0.18
+          video.currentTime = currentTimeRef.current
+        }
+      }
+      animId = requestAnimationFrame(updateLoop)
+    }
 
-    const unsubscribe = smoothProgress.on('change', (latest) => {
-      if (videoDuration && isFinite(latest)) {
-        animationFrameId = requestAnimationFrame(() => {
-          const targetTime = Math.min(videoDuration - 0.05, Math.max(0, latest * videoDuration))
-          if (Math.abs(video.currentTime - targetTime) > 0.03) {
-            video.currentTime = targetTime
-          }
-        })
+    animId = requestAnimationFrame(updateLoop)
+
+    const unsub = smoothProgress.on('change', (progressVal) => {
+      if (durationRef.current) {
+        const clamped = Math.min(0.999, Math.max(0, progressVal))
+        targetTimeRef.current = clamped * durationRef.current
       }
     })
 
     return () => {
-      unsubscribe()
-      if (animationFrameId) cancelAnimationFrame(animationFrameId)
+      unsub()
+      if (animId) cancelAnimationFrame(animId)
     }
-  }, [smoothProgress, videoDuration])
+  }, [smoothProgress])
 
   const statItems = [
     { value: '10,000+', label: 'Students Enrolled' },
@@ -165,97 +231,99 @@ export default function Home() {
   return (
     <div className="relative min-h-screen w-full bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500 selection:text-white">
       
+      {/* Hidden HTML5 Video Source */}
+      <video
+        ref={videoRef}
+        src="/videos/classes.mp4"
+        muted
+        playsInline
+        preload="auto"
+        className="hidden"
+      />
+
       {/* ========================================================================= */}
-      {/* 1. SCROLL-DRIVEN VIDEO HERO TRACK (300vh Pinning Container)               */}
+      {/* 1. SCROLL-DRIVEN CANVAS VIDEO CONTAINER (400vh Pinning Container)         */}
       {/* ========================================================================= */}
-      <div ref={videoTrackRef} className="relative h-[300vh] w-full">
+      <div ref={containerRef} className="relative h-[400vh] w-full">
         
         {/* Sticky Fullscreen Frame */}
         <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center">
           
-          {/* HTML5 Video element */}
-          <video
-            ref={videoRef}
-            src="/videos/classes.mp4"
-            muted
-            playsInline
-            preload="auto"
-            className="absolute inset-0 h-full w-full object-cover object-center z-0 filter brightness-95 contrast-105"
+          {/* Hardware Accelerated Canvas for 60FPS Video Scrubbing */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full object-cover z-0 filter brightness-105 contrast-105"
           />
 
-          {/* Dynamic Ambient Gradient Overlays */}
-          <motion.div 
-            style={{ opacity: videoOverlayOpacity }}
-            className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/60 z-10 pointer-events-none" 
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,6,23,0.85)_100%)] z-10 pointer-events-none" />
+          {/* Vignette & Radial Darkening Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-transparent to-slate-950 z-10 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(2,6,23,0.85)_100%)] z-10 pointer-events-none" />
 
-          {/* Hero Content Overlay (Visible at Start of Scroll) */}
+          {/* Initial Hero Text Overlay */}
           <motion.div 
-            style={{ opacity: heroTextOpacity, y: heroTextY }}
+            style={{ opacity: heroOpacity, y: heroY }}
             className="relative z-20 max-w-5xl mx-auto px-6 text-center flex flex-col items-center select-none"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-xs font-bold text-indigo-300 mb-6 backdrop-blur-md shadow-lg">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/40 bg-indigo-500/20 text-xs font-bold text-indigo-300 mb-6 backdrop-blur-md shadow-2xl">
               <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
               <span>C.K. CLASSES INSTITUTIONAL ERP 2.0</span>
             </div>
 
-            <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08]">
+            <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] drop-shadow-2xl">
               Building Bright Futures, <br />
               <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-amber-300 bg-clip-text text-transparent">
                 One Student at a Time.
               </span>
             </h1>
 
-            <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl leading-relaxed font-normal">
-              Empowering students from Class 1 to 12 in Science & Commerce through expert faculty, real-time AI analytics, and institutional management.
+            <p className="mt-6 text-base sm:text-xl text-slate-200 max-w-2xl leading-relaxed font-medium drop-shadow-lg">
+              Empowering students from Class 1 to 12 in Science & Commerce through expert teaching, personalized learning, and academic excellence.
             </p>
 
-            {/* Scroll Indicator */}
             <motion.div 
               animate={{ y: [0, 8, 0] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="mt-12 flex flex-col items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-widest"
+              className="mt-12 flex flex-col items-center gap-2 text-indigo-300 text-xs font-semibold uppercase tracking-widest bg-slate-900/60 px-4 py-2 rounded-full border border-indigo-500/30 backdrop-blur-md"
             >
-              <span>Scroll down to continue</span>
-              <ChevronDown className="h-5 w-5 text-indigo-400" />
+              <span>Scroll down to play video</span>
+              <ChevronDown className="h-5 w-5 text-amber-300" />
             </motion.div>
           </motion.div>
 
-          {/* End Callout Overlay (Fades in near end of video scroll) */}
+          {/* End Callout Overlay (Appears right before scroll transition) */}
           <motion.div
-            style={{ opacity: endCalloutOpacity, scale: endCalloutScale }}
+            style={{ opacity: calloutOpacity, scale: calloutScale }}
             className="absolute z-20 max-w-3xl mx-auto px-6 text-center flex flex-col items-center pointer-events-none"
           >
-            <div className="h-14 w-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 backdrop-blur-xl flex items-center justify-center mb-4 shadow-2xl">
-              <GraduationCap className="h-8 w-8 text-amber-300" />
+            <div className="h-16 w-16 rounded-2xl bg-indigo-600/40 border border-indigo-400/50 backdrop-blur-xl flex items-center justify-center mb-4 shadow-2xl">
+              <GraduationCap className="h-9 w-9 text-amber-300" />
             </div>
-            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-2xl">
               Welcome to C.K. Classes ERP
             </h2>
-            <p className="mt-3 text-sm sm:text-lg text-slate-300 max-w-xl">
-              Scroll further to explore our AI-powered portal and academic management features.
+            <p className="mt-3 text-sm sm:text-lg text-slate-200 max-w-xl font-medium drop-shadow-md">
+              Keep scrolling to enter our AI-powered portal and explore institutional features.
             </p>
           </motion.div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. TRANSITION & ERP LANDING CONTENT SECTION                                */}
+      {/* 2. ERP LANDING PAGE CONTENT (Flows in seamlessly after video ends)         */}
       {/* ========================================================================= */}
-      <div className="relative z-30 bg-slate-950 border-t border-slate-800/80 text-slate-100 pt-20 pb-24">
+      <div className="relative z-30 bg-slate-950 border-t border-indigo-500/20 text-slate-100 pt-24 pb-28">
         
         {/* Background Grid Accent */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-24">
 
-          {/* Call to Actions & Launch Banner */}
-          <div className="bg-gradient-to-r from-indigo-900/50 via-purple-900/40 to-slate-900 p-8 sm:p-12 rounded-3xl border border-indigo-500/20 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 backdrop-blur-xl">
+          {/* Launch ERP Management CTA Banner */}
+          <div className="bg-gradient-to-r from-indigo-900/60 via-purple-900/50 to-slate-900 p-8 sm:p-14 rounded-3xl border border-indigo-500/30 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 backdrop-blur-2xl">
             <div className="space-y-3 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold border border-indigo-500/30">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold border border-indigo-500/40">
                 <Zap className="h-3.5 w-3.5 text-amber-300" />
-                <span>Live Portal Active</span>
+                <span>ERP Portal Active & Online</span>
               </div>
               <h3 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
                 Ready to Access the ERP Management Portal?
@@ -268,14 +336,14 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 shrink-0 w-full sm:w-auto">
               <a
                 href="/login"
-                className="px-8 h-13 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/30 transition-all duration-200 active:scale-95 cursor-pointer"
+                className="px-8 h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-600/40 transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 <span>Launch ERP Management</span>
                 <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#features"
-                className="px-6 h-13 rounded-2xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200"
+                className="px-6 h-14 rounded-2xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200"
               >
                 <BookOpen className="h-4 w-4 text-slate-400" />
                 <span>Explore Features</span>
