@@ -65,8 +65,8 @@ export default function Home() {
 
   // Smooth physics spring for ultra-smooth video scrubbing
   const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 120,
-    damping: 30,
+    stiffness: 80,
+    damping: 25,
     restDelta: 0.001
   })
 
@@ -100,26 +100,37 @@ export default function Home() {
     }
   }, [])
 
+  // Silky-smooth 60fps/120fps continuous lerp loop for video frame scrubbing
   useEffect(() => {
     const video = videoRef.current
     if (!video || !videoDuration) return
 
-    let animId
+    video.pause() // Pause video so native playback motor doesn't conflict with scrubbing
 
-    const unsubscribe = smoothProgress.on('change', (latest) => {
+    let animationFrameId
+
+    const updateFrame = () => {
+      const latest = smoothProgress.get()
       if (videoDuration && isFinite(latest)) {
-        animId = requestAnimationFrame(() => {
-          const targetTime = Math.min(videoDuration - 0.05, Math.max(0, latest * videoDuration))
-          if (Math.abs(video.currentTime - targetTime) > 0.03) {
-            video.currentTime = targetTime
+        const targetTime = Math.min(videoDuration - 0.05, Math.max(0, latest * videoDuration))
+        const diff = targetTime - video.currentTime
+
+        // Linear interpolation (lerp) for liquid smooth scrubbing without keyframe stutter
+        if (Math.abs(diff) > 0.001) {
+          if ('fastSeek' in video && Math.abs(diff) > 0.3) {
+            video.fastSeek(targetTime)
+          } else {
+            video.currentTime += diff * 0.18
           }
-        })
+        }
       }
-    })
+      animationFrameId = requestAnimationFrame(updateFrame)
+    }
+
+    animationFrameId = requestAnimationFrame(updateFrame)
 
     return () => {
-      unsubscribe()
-      if (animId) cancelAnimationFrame(animId)
+      if (animationFrameId) cancelAnimationFrame(animationFrameId)
     }
   }, [smoothProgress, videoDuration])
 
@@ -226,14 +237,14 @@ export default function Home() {
         {/* Sticky Fullscreen Frame */}
         <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-black">
           
-          {/* HTML5 Video element */}
+          {/* HTML5 Video element with GPU hardware acceleration */}
           <video
             ref={videoRef}
             src="/videos/classes.mp4"
             muted
             playsInline
             preload="auto"
-            className="absolute inset-0 h-full w-full object-cover object-center z-0"
+            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform"
           />
 
           {/* Dynamic Darken Overlay on transition */}
