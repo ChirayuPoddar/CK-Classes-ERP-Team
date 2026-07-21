@@ -14,7 +14,8 @@ class StudentRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Student>(preferredKey = "students") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch students")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: ${res.errorBody()?.string()?.take(100) ?: "Failed to fetch students"}"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -43,7 +44,8 @@ class TeacherRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Teacher>(preferredKey = "teachers") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch teachers")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: ${res.errorBody()?.string()?.take(100) ?: "Failed to fetch teachers"}"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -72,7 +74,8 @@ class SubjectRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Subject>(preferredKey = "subjects") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch subjects")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch subjects"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -101,7 +104,8 @@ class AttendanceRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<AttendanceRecord>(preferredKey = "attendance") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch attendance")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch attendance"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -130,7 +134,8 @@ class FeeRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<FeeRecord>(preferredKey = "fees") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch fee records")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch fee records"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -159,7 +164,8 @@ class HomeworkRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Homework>(preferredKey = "homework") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch homework")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch homework"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -188,7 +194,8 @@ class ExamRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Exam>(preferredKey = "exams") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch exams")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch exams"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -217,7 +224,8 @@ class AnnouncementRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<Announcement>(preferredKey = "announcements") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch announcements")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch announcements"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -246,7 +254,8 @@ class ResourceRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<DigitalResource>(preferredKey = "resources") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch resources")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch resources"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -275,7 +284,8 @@ class UserRepository(private val apiService: ApiService) {
                 val list = res.body()?.parseList<User>(preferredKey = "users") ?: emptyList()
                 NetworkResult.Success(list)
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to fetch users")
+                val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch users"
+                NetworkResult.Error(err)
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
