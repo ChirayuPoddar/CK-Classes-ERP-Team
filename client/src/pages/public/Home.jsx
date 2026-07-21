@@ -14,35 +14,60 @@ import {
   ShieldCheck
 } from 'lucide-react'
 
-// Self-contained Animated Counter component for metrics
-const AnimatedCounter = ({ value, duration = 1.5 }) => {
+// Scroll-triggered High-Speed Animated Counter component
+const AnimatedCounter = ({ value, duration = 2.4 }) => {
   const [count, setCount] = useState(0)
+  const ref = useRef(null)
+  const [hasAnimated, setHasAnimated] = useState(false)
 
   useEffect(() => {
-    let start = 0
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true)
+        }
+      },
+      { threshold: 0.15 }
+    )
+
+    if (ref.current) {
+      observer.observe(ref.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasAnimated])
+
+  useEffect(() => {
+    if (!hasAnimated) return
+
     const end = parseInt(value.replace(/[^0-9]/g, ''), 10)
     if (isNaN(end)) return
 
-    const totalSteps = 60
-    const increment = end / totalSteps
-    const intervalTime = (duration * 1000) / totalSteps
+    let startTime = null
 
-    const timer = setInterval(() => {
-      start += increment
-      if (start >= end) {
-        setCount(end)
-        clearInterval(timer)
+    const animateCount = (timestamp) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1)
+
+      // Energetic fast-motion easeOutQuad curve
+      const easeProgress = 1 - Math.pow(1 - progress, 2)
+      const currentCount = Math.floor(easeProgress * end)
+
+      setCount(currentCount)
+
+      if (progress < 1) {
+        requestAnimationFrame(animateCount)
       } else {
-        setCount(Math.ceil(start))
+        setCount(end)
       }
-    }, intervalTime)
+    }
 
-    return () => clearInterval(timer)
-  }, [value, duration])
+    requestAnimationFrame(animateCount)
+  }, [hasAnimated, value, duration])
 
   const suffix = value.replace(/[0-9,]/g, '')
   return (
-    <span>
+    <span ref={ref}>
       {count.toLocaleString()}{suffix}
     </span>
   )
