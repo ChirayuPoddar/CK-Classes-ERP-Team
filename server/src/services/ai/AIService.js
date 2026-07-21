@@ -58,7 +58,7 @@ class AIService {
       if (['admin', 'staff', 'teacher', 'superadmin'].includes(role)) {
         try {
           if (typeof StudentService.getAllStudents === 'function') {
-            const studentsRes = await StudentService.getAllStudents({ limit: 20 }, user)
+            const studentsRes = await StudentService.getAllStudents({ limit: 5 }, user)
             const studentList = studentsRes.students || studentsRes.data || (Array.isArray(studentsRes) ? studentsRes : [])
             if (studentList.length > 0) {
               contextLines.push('\n[Enrolled Students Sample Records]:')
@@ -73,7 +73,7 @@ class AIService {
 
         try {
           if (typeof TeacherService.getAllTeachers === 'function') {
-            const teachersRes = await TeacherService.getAllTeachers({ limit: 20 }, user)
+            const teachersRes = await TeacherService.getAllTeachers({ limit: 5 }, user)
             const teacherList = teachersRes.teachers || teachersRes.data || (Array.isArray(teachersRes) ? teachersRes : [])
             if (teacherList.length > 0) {
               contextLines.push('\n[Faculty Mentors Snapshot]:')
@@ -94,7 +94,7 @@ class AIService {
     // 1. Fetch Announcements & Homework
     try {
       if (typeof AnnouncementService.getAllAnnouncements === 'function') {
-        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 10 }, user)
+        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 3 }, user)
         const announcementsList = announcementsRes.announcements || announcementsRes.data || []
         if (announcementsList.length > 0) {
           contextLines.push('\n[Recent System Announcements]:')
@@ -106,7 +106,7 @@ class AIService {
       }
 
       if (typeof HomeworkService.getAllHomeworks === 'function') {
-        const hwRes = await HomeworkService.getAllHomeworks({ limit: 10 }, user)
+        const hwRes = await HomeworkService.getAllHomeworks({ limit: 3 }, user)
         const hwList = hwRes.homework || hwRes.data || []
         if (hwList.length > 0) {
           contextLines.push(`\n[Assigned Homework Records]:`)
@@ -136,7 +136,7 @@ class AIService {
     // Student Fee Records
     try {
       if (typeof StudentFeeService.getAllStudentFees === 'function') {
-        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 10 })
+        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 3 })
         const feeList = feeRes.fees || feeRes.studentFees || (Array.isArray(feeRes) ? feeRes : [])
         if (feeList.length > 0) {
           contextLines.push(`\n[Student Fee Summaries]:`)
