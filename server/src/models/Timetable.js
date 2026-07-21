@@ -45,9 +45,82 @@ const timetableSchema = new mongoose.Schema({
     type: String,
     default: '2026-2027',
     trim: true
+  },
+
+  // ── Enterprise Extensions (all optional, backwards-compatible) ──
+
+  section: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  semester: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  department: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  building: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  floor: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  lectureType: {
+    type: String,
+    enum: ['Theory', 'Lab', 'Seminar', 'Workshop', 'Tutorial'],
+    default: 'Theory'
+  },
+  credits: {
+    type: Number,
+    default: 0
+  },
+  color: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  assistantTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Teacher'
+  },
+  substituteTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Teacher'
+  },
+  originalTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Teacher'
+  },
+  isSubstituted: {
+    type: Boolean,
+    default: false
+  },
+  version: {
+    type: Number,
+    default: 1
+  },
+  templateId: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true
 })
+
+// ── Compound indexes for performant conflict queries ──
+timetableSchema.index({ day: 1, period: 1, teacher: 1, academicYear: 1 })
+timetableSchema.index({ day: 1, period: 1, class: 1, academicYear: 1 })
+timetableSchema.index({ day: 1, period: 1, room: 1, academicYear: 1 })
+timetableSchema.index({ academicYear: 1, class: 1 })
 
 module.exports = mongoose.model('Timetable', timetableSchema)
