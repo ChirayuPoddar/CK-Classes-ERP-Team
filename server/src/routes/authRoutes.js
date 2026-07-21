@@ -139,7 +139,7 @@ router.post('/login', async (req, res, next) => {
           const prevUser = await User.findById(decodedPrev.id)
           if (prevUser) {
             prevUser.sessions = (prevUser.sessions || []).filter(s => s.sessionId !== decodedPrev.sessionId)
-            await prevUser.save()
+            await User.updateOne({ _id: prevUser._id }, { $set: { sessions: prevUser.sessions } })
           }
         }
       } catch (err) {
@@ -187,7 +187,7 @@ router.post('/login', async (req, res, next) => {
 
     user.sessions.push(newSession)
     user.lastLogin = now
-    await user.save()
+    await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions, lastLogin: now } })
 
     setCookies(res, accessToken, refreshToken)
 
@@ -262,7 +262,7 @@ router.post('/refresh', async (req, res, next) => {
 
     if (new Date(session.expiresAt) <= now) {
       user.sessions = user.sessions.filter(s => s.sessionId !== decoded.sessionId)
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
       return res.status(401).json({
         success: false,
         code: 'SESSION_EXPIRED',
@@ -273,7 +273,7 @@ router.post('/refresh', async (req, res, next) => {
     const incomingHash = hashToken(refreshToken)
     if (session.refreshTokenHash && session.refreshTokenHash !== incomingHash) {
       user.sessions = user.sessions.filter(s => s.sessionId !== decoded.sessionId)
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
       return res.status(401).json({
         success: false,
         code: 'REFRESH_TOKEN_REUSED',
@@ -285,7 +285,7 @@ router.post('/refresh', async (req, res, next) => {
 
     session.refreshTokenHash = hashToken(newRefreshToken)
     session.lastActiveAt = now
-    await user.save()
+    await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
 
     setCookies(res, newAccessToken, newRefreshToken)
 
@@ -322,7 +322,7 @@ router.post('/logout', async (req, res, next) => {
         const user = await User.findById(decoded.id)
         if (user && decoded.sessionId) {
           user.sessions = (user.sessions || []).filter(s => s.sessionId !== decoded.sessionId)
-          await user.save()
+          await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
         }
       } catch {
         // Suppress decode error
@@ -352,7 +352,7 @@ router.post('/logout-all', verifyToken, async (req, res, next) => {
     const user = await User.findById(req.user.id)
     if (user) {
       user.sessions = []
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: [] } })
     }
 
     const accessCookieName = process.env.JWT_ACCESS_COOKIE_NAME || 'ck_access_token'
