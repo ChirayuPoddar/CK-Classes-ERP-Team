@@ -19,20 +19,27 @@ const seedAll = async () => {
     console.log('Connected to MongoDB successfully.')
 
     // 1. Seed Admin User
+    const bcrypt = require('bcryptjs')
+    const salt = await bcrypt.genSalt(10)
+    const passwordHash = await bcrypt.hash('password123', salt)
+
     let admin = await User.findOne({ email: 'admin@ckclasses.com' })
     if (!admin) {
       admin = new User({
         firstName: 'Chirayu',
         lastName: 'Poddar',
         email: 'admin@ckclasses.com',
-        password: 'password123',
+        passwordHash,
         role: 'admin',
-        isVerified: true
+        isActive: true
       })
       await admin.save()
       console.log('Created Admin User: admin@ckclasses.com')
     } else {
-      console.log('Admin User exists: admin@ckclasses.com')
+      admin.passwordHash = passwordHash
+      admin.isActive = true
+      await admin.save()
+      console.log('Updated Admin User passwordHash: admin@ckclasses.com')
     }
 
     // 2. Seed Subjects
