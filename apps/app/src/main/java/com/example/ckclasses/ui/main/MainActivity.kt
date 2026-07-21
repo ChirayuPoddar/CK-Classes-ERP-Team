@@ -106,12 +106,14 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             authRepo.logout()
             sessionManager.clearSession()
+            RetrofitClient.authToken = null
             RetrofitClient.cookieJar.clear()
             Toast.makeText(this@MainActivity, "Signed out successfully", Toast.LENGTH_SHORT).show()
             startActivity(Intent(this@MainActivity, LoginActivity::class.java))
             finish()
         }
     }
+
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (toggle.onOptionsItemSelected(item)) {
