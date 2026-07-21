@@ -44,9 +44,9 @@ export const AIChatWidget = () => {
 
   const suggestedPrompts = [
     "What announcements were published recently?",
-    "Check my upcoming homework assignments",
-    "What is my current fee status?",
-    "When are the next scheduled exams?"
+    "हाल ही में कौन से नोटिस जारी हुए हैं?",
+    "माझे फी स्टेटस आणि परीक्षा कधी आहेत?",
+    "Check my upcoming homework assignments"
   ]
 
   const speakText = (text, index) => {
@@ -68,7 +68,18 @@ export const AIChatWidget = () => {
     const utterance = new SpeechSynthesisUtterance(cleanText)
     utterance.rate = 1.0
     utterance.pitch = 1.0
-    utterance.lang = 'en-US'
+
+    // Detect script for accurate TTS voice selection (Hindi / Marathi / Gujarati / English)
+    const isHindiOrMarathi = /[\u0900-\u097F]/.test(cleanText)
+    const isGujarati = /[\u0A80-\u0AFF]/.test(cleanText)
+
+    if (isHindiOrMarathi) {
+      utterance.lang = 'hi-IN'
+    } else if (isGujarati) {
+      utterance.lang = 'gu-IN'
+    } else {
+      utterance.lang = 'en-IN'
+    }
 
     utterance.onstart = () => {
       setSpeakingIndex(index)

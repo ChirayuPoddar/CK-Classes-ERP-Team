@@ -1,4 +1,5 @@
-require('dotenv').config({ path: '../../.env' })
+const path = require('path')
+require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 const User = require('../models/User')
@@ -7,33 +8,37 @@ const seedAdmin = async () => {
   const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ck_classes'
   
   try {
+    console.log(`Connecting to MongoDB: ${mongoUri.replace(/:[^:@]+@/, ':****@')}`)
     await mongoose.connect(mongoUri)
-    console.log('Connected to MongoDB for seeding...')
+    console.log('Connected to MongoDB for admin setup...')
 
     const email = 'admin@ckclasses.com'
-    const existing = await User.findOne({ email })
-
-    if (existing) {
-      console.log(`Admin user ${email} already exists.`)
-      process.exit(0)
-    }
-
     const salt = await bcrypt.genSalt(10)
     const passwordHash = await bcrypt.hash('password123', salt)
 
-    const admin = new User({
-      email,
-      passwordHash,
-      role: 'admin',
-      firstName: 'Chirayu',
-      lastName: 'Poddar',
-      isActive: true
-    })
+    let admin = await User.findOne({ email })
 
-    await admin.save()
-    console.log('Admin user successfully seeded:')
-    console.log(`Email: ${email}`)
-    console.log('Password: password123')
+    if (admin) {
+      admin.passwordHash = passwordHash
+      admin.firstName = 'Chirayu'
+      admin.lastName = 'Poddar'
+      admin.role = 'admin'
+      admin.isActive = true
+      await admin.save()
+      console.log(`Updated admin passwordHash for ${email} to 'password123'.`)
+    } else {
+      admin = new User({
+        email,
+        passwordHash,
+        role: 'admin',
+        firstName: 'Chirayu',
+        lastName: 'Poddar',
+        isActive: true
+      })
+      await admin.save()
+      console.log(`Created admin user ${email} with password 'password123'.`)
+    }
+
     process.exit(0)
   } catch (error) {
     console.error('Error seeding admin user:', error)

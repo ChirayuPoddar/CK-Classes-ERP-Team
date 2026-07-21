@@ -1,4 +1,3 @@
-// Ensure Mongoose models are registered for population
 const User = require('../../models/User')
 const Student = require('../../models/Student')
 const Teacher = require('../../models/Teacher')
@@ -7,6 +6,7 @@ const Announcement = require('../../models/Announcement')
 const Homework = require('../../models/Homework')
 const Exam = require('../../models/Exam')
 const StudentFee = require('../../models/StudentFee')
+const Resource = require('../../models/Resource')
 
 const AIProviderFactory = require('./AIProviderFactory')
 const StudentService = require('../StudentService')
@@ -32,7 +32,7 @@ class AIService {
       `System Role: You are C.K. ERP AI Assistant, an intelligent institutional AI for C.K. Classes.`,
       `Logged-in User Identity: ${user.firstName || user.email} (${user.email}), Role: ${user.role}.`,
       `Current Date & Time: ${new Date().toISOString()}`,
-      `CRITICAL INSTRUCTION: Base your response ONLY on the provided ERP data below. Do NOT hallucinate fake dates, cities, branches, or events. If no records exist in the provided context, state that clearly.`
+      `CRITICAL INSTRUCTION: Use the provided MONGODB DATA SUMMARY below to answer questions about student counts, staff, exams, and announcements accurately. Never say data is missing when counts are listed below.`
     ]
 
     // 0. Fetch Real-time Institutional Statistics & Overview Metrics
@@ -47,29 +47,28 @@ class AIService {
         User.countDocuments({ role: { $regex: /^parent$/i } })
       ])
 
-      contextLines.push('\n[C.K. Classes Institutional Statistics & Overview Metrics]:')
-      contextLines.push(`- Total Students Registered in Institute: ${totalStudents} (Active Students: ${activeStudents})`)
-      contextLines.push(`- Total Teachers / Faculty Mentors: ${totalTeachers}`)
-      contextLines.push(`- Total Parents Registered: ${totalParents}`)
-      contextLines.push(`- Total Subjects Offered: ${totalSubjects}`)
-      contextLines.push(`- Total Scheduled Exams: ${totalExams}`)
-      contextLines.push(`- Total System Announcements: ${totalAnnouncements}`)
+      contextLines.push('\n[PRIMARY MONGODB INSTITUTIONAL DATA SUMMARY]:')
+      contextLines.push(`- TOTAL ENROLLED STUDENTS COUNT: ${totalStudents} (Active Students: ${activeStudents})`)
+      contextLines.push(`- TOTAL FACULTY TEACHERS COUNT: ${totalTeachers}`)
+      contextLines.push(`- TOTAL PARENTS REGISTERED: ${totalParents}`)
+      contextLines.push(`- TOTAL SUBJECTS OFFERED: ${totalSubjects}`)
+      contextLines.push(`- TOTAL SCHEDULED EXAMS COUNT: ${totalExams}`)
+      contextLines.push(`- TOTAL SYSTEM ANNOUNCEMENTS COUNT: ${totalAnnouncements}`)
 
-      // If Admin, Staff, or Teacher role, also include recent students directory snapshot and subjects
       if (['admin', 'staff', 'teacher', 'superadmin'].includes(role)) {
         try {
           if (typeof StudentService.getAllStudents === 'function') {
             const studentsRes = await StudentService.getAllStudents({ limit: 20 }, user)
             const studentList = studentsRes.students || studentsRes.data || (Array.isArray(studentsRes) ? studentsRes : [])
             if (studentList.length > 0) {
-              contextLines.push('\n[Recent Students Snapshot in Directory]:')
+              contextLines.push('\n[Enrolled Students Sample Records]:')
               studentList.forEach(st => {
                 contextLines.push(`- Student: ${st.firstName} ${st.lastName} | ID: ${st.studentId} | Class/Grade: ${st.class || 'N/A'} | Status: ${st.status || 'Active'}`)
               })
             }
           }
         } catch (e) {
-          // Graceful degradation on student list
+          // Graceful degradation
         }
 
         try {
@@ -85,128 +84,35 @@ class AIService {
             }
           }
         } catch (e) {
-          // Graceful degradation on teacher list
-        }
-
-        try {
-          if (typeof SubjectService !== 'undefined' && typeof SubjectService.getAllSubjects === 'function') {
-            const subjectsRes = await SubjectService.getAllSubjects({ limit: 20 })
-            const subjectList = subjectsRes.subjects || subjectsRes.data || (Array.isArray(subjectsRes) ? subjectsRes : [])
-            if (subjectList.length > 0) {
-              contextLines.push('\n[Academic Subjects Directory]:')
-              subjectList.forEach(s => {
-                contextLines.push(`- Subject: "${s.name}" | Code: ${s.code || 'N/A'} | Class/Grade: ${s.class || 'All'}`)
-              })
-            }
-          }
-        } catch (e) {
           // Graceful degradation
         }
       }
     } catch (e) {
-      // Graceful degradation on statistics
+      // Graceful degradation
     }
 
-    // 1. Fetch Announcements relevant to role
+    // 1. Fetch Announcements & Homework
     try {
       if (typeof AnnouncementService.getAllAnnouncements === 'function') {
         const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 10 }, user)
-        const announcements = announcementsRes.announcements || announcementsRes.data || (Array.isArray(announcementsRes) ? announcementsRes : [])
-        if (announcements.length > 0) {
-          contextLines.push('\n[Real System Announcements from ERP Database]:')
-          announcements.forEach(a => {
+        const announcementsList = announcementsRes.announcements || announcementsRes.data || []
+        if (announcementsList.length > 0) {
+          contextLines.push('\n[Recent System Announcements]:')
+          announcementsList.forEach(a => {
             const dateStr = a.publishAt ? new Date(a.publishAt).toLocaleDateString() : 'N/A'
-            const audienceStr = Array.isArray(a.audience) ? a.audience.join(', ') : (a.audience || 'All')
-            contextLines.push(`- Title: "${a.title}" | Audience: ${audienceStr} | Published: ${dateStr} | Details: ${a.message || a.shortDescription || ''}`)
+            contextLines.push(`- Title: "${a.title}" | Date: ${dateStr} | Details: ${a.message || a.shortDescription || ''}`)
           })
-        } else {
-          contextLines.push('\n[Recent Announcements]: No published announcements currently in the ERP system.')
         }
       }
-    } catch (e) {
-      // Graceful degradation on optional service context
-    }
 
-    // 2. Student Role Context
-    if (role === 'student' && user.linkedStudent) {
-      try {
-        const studentProfile = await StudentService.getStudentById(user.linkedStudent)
-        if (studentProfile) {
-          contextLines.push(`\n[Student Profile]:`)
-          contextLines.push(`- ID: ${studentProfile.studentId}, Name: ${studentProfile.firstName} ${studentProfile.lastName}, Class: ${studentProfile.class}, Status: ${studentProfile.status}`)
-
-          // Homework for student's class
-          if (studentProfile.class && typeof HomeworkService.getAllHomeworks === 'function') {
-            const hwRes = await HomeworkService.getAllHomeworks({ class: studentProfile.class, limit: 10 }, user)
-            const hwList = hwRes.homework || hwRes.data || (Array.isArray(hwRes) ? hwRes : [])
-            if (hwList.length > 0) {
-              contextLines.push(`\n[Assigned Homework]:`)
-              hwList.forEach(hw => {
-                const dueStr = hw.dueDate ? new Date(hw.dueDate).toLocaleDateString() : 'N/A'
-                contextLines.push(`- Title: "${hw.title}", Due: ${dueStr}, Status: ${hw.status}, Subject: ${hw.subject?.name || 'General'}`)
-              })
-            }
-          }
-
-          // Student Fees
-          if (typeof StudentFeeService.getAllStudentFees === 'function') {
-            const feeRes = await StudentFeeService.getAllStudentFees({ studentId: user.linkedStudent, limit: 10 })
-            const feeList = feeRes.fees || feeRes.studentFees || (Array.isArray(feeRes) ? feeRes : [])
-            if (feeList.length > 0) {
-              contextLines.push(`\n[Fee Overview]:`)
-              feeList.forEach(f => {
-                const dueStr = f.dueDate ? new Date(f.dueDate).toLocaleDateString() : 'N/A'
-                contextLines.push(`- Total ₹${f.totalFee}, Paid ₹${f.paidAmount}, Due: ${dueStr}, Status: ${f.status}`)
-              })
-            }
-          }
-        }
-      } catch (e) {
-        // Graceful degradation
-      }
-    }
-
-    // 3. Parent Role Context
-    if (role === 'parent' && user.linkedChildren && user.linkedChildren.length > 0) {
-      try {
-        contextLines.push(`\n[Linked Children Profiles]:`)
-        for (const childId of user.linkedChildren) {
-          const childProfile = await StudentService.getStudentById(childId)
-          if (childProfile) {
-            contextLines.push(`- Child Student: ${childProfile.firstName} ${childProfile.lastName} (${childProfile.studentId}), Class: ${childProfile.class}`)
-          }
-        }
-      } catch (e) {
-        // Graceful degradation
-      }
-    }
-
-    // 4. Teacher Role Context
-    if (role === 'teacher' && user.linkedTeacher) {
-      try {
-        const teacherProfile = await TeacherService.getTeacherById(user.linkedTeacher)
-        if (teacherProfile) {
-          contextLines.push(`\n[Teacher Profile]:`)
-          contextLines.push(`- ID: ${teacherProfile.teacherId}, Name: ${teacherProfile.firstName} ${teacherProfile.lastName}, Qualification: ${teacherProfile.qualification}`)
-          if (teacherProfile.subjects && teacherProfile.subjects.length > 0) {
-            contextLines.push(`- Subjects Taught: ${teacherProfile.subjects.join(', ')}`)
-          }
-        }
-      } catch (e) {
-        // Graceful degradation
-      }
-    }
-
-    // 5. Admin / General Exams Context
-    try {
-      if (typeof ExamService.getAllExams === 'function') {
-        const examsRes = await ExamService.getAllExams({ limit: 5 })
-        const examsList = examsRes.exams || examsRes.data || (Array.isArray(examsRes) ? examsRes : [])
-        if (examsList.length > 0) {
-          contextLines.push(`\n[Scheduled Exams in ERP]:`)
-          examsList.forEach(ex => {
-            const dateStr = ex.examDate ? new Date(ex.examDate).toLocaleDateString() : 'N/A'
-            contextLines.push(`- Exam: "${ex.examName}", Class: ${ex.class}, Date: ${dateStr}, Status: ${ex.status}`)
+      if (typeof HomeworkService.getAllHomeworks === 'function') {
+        const hwRes = await HomeworkService.getAllHomeworks({ limit: 10 }, user)
+        const hwList = hwRes.homework || hwRes.data || []
+        if (hwList.length > 0) {
+          contextLines.push(`\n[Assigned Homework Records]:`)
+          hwList.forEach(hw => {
+            const dueStr = hw.dueDate ? new Date(hw.dueDate).toLocaleDateString() : 'N/A'
+            contextLines.push(`- Title: "${hw.title}" | Class: ${hw.class} | Due: ${dueStr} | Status: ${hw.status}`)
           })
         }
       }
@@ -214,7 +120,38 @@ class AIService {
       // Graceful degradation
     }
 
-    contextLines.push(`\n[Response Rules]: Answer the user's question directly based on the ERP data above. Keep your tone helpful, professional, and concise.`)
+    // Student Role Specific Context
+    if (role === 'student' && user.linkedStudent) {
+      try {
+        const studentProfile = await StudentService.getStudentById(user.linkedStudent)
+        if (studentProfile) {
+          contextLines.push(`\n[Active Student Profile]:`)
+          contextLines.push(`- ID: ${studentProfile.studentId}, Name: ${studentProfile.firstName} ${studentProfile.lastName}, Class: ${studentProfile.class}, Status: ${studentProfile.status}`)
+        }
+      } catch (e) {
+        // Graceful degradation
+      }
+    }
+
+    // Student Fee Records
+    try {
+      if (typeof StudentFeeService.getAllStudentFees === 'function') {
+        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 10 })
+        const feeList = feeRes.fees || feeRes.studentFees || (Array.isArray(feeRes) ? feeRes : [])
+        if (feeList.length > 0) {
+          contextLines.push(`\n[Student Fee Summaries]:`)
+          feeList.forEach(f => {
+            const studentName = f.student ? `${f.student.firstName || ''} ${f.student.lastName || ''}`.trim() : 'Student'
+            const dueStr = f.dueDate ? new Date(f.dueDate).toLocaleDateString() : 'N/A'
+            contextLines.push(`- Student: ${studentName} | Total Fee: ₹${f.totalFee} | Paid: ₹${f.paidAmount} | Status: ${f.status}`)
+          })
+        }
+      }
+    } catch (e) {
+      // Graceful degradation
+    }
+
+    contextLines.push(`\n[Response Rules]: Answer the user's question directly based on the ERP MONGODB DATA SUMMARY above. Keep your tone helpful, professional, and concise. Automatically detect the user's input language (English, Hindi/हिंदी, Hinglish, Marathi/मराठी, Gujarati/ગુજરાતી, etc.) and respond fluently in that exact language or script.`)
 
     return contextLines.join('\n')
   }
@@ -243,8 +180,82 @@ class AIService {
       success: true,
       query: prompt.trim(),
       response: responseText,
-      provider: process.env.AI_PROVIDER || 'gemini',
+      provider: process.env.AI_PROVIDER || 'groq',
       timestamp: new Date()
+    }
+  }
+
+  /**
+   * Generate structured Quiz / Question Paper from ERP Resource or Topic
+   * @param {Object} user User context
+   * @param {Object} params { resourceId, topic, className, count, difficulty }
+   */
+  async generateQuizFromResource(user, params = {}) {
+    let resourceTitle = 'General ERP Curriculum'
+    let resourceDetails = ''
+
+    if (params.resourceId) {
+      try {
+        const resDoc = await Resource.findById(params.resourceId).populate('subject')
+        if (resDoc) {
+          resourceTitle = resDoc.title
+          resourceDetails = `Title: ${resDoc.title}\nCategory: ${resDoc.category}\nClass: ${resDoc.class || 'N/A'}\nDescription: ${resDoc.description || ''}\nTags: ${(resDoc.tags || []).join(', ')}`
+        }
+      } catch (err) {
+        // Fallback to topic
+      }
+    }
+
+    const count = parseInt(params.count, 10) || 5
+    const difficulty = params.difficulty || 'Medium'
+    const className = params.className || 'Class 10'
+    const topic = params.topic || params.subject || 'General Studies'
+
+    const systemPrompt = `You are an expert academic examiner for C.K. Classes. Your task is to generate a structured exam question paper based on the provided study resource / topic.
+
+CRITICAL: Output MUST be a valid JSON object matching this exact schema and NOTHING ELSE (no markdown backticks, no markdown formatting outside JSON):
+{
+  "title": "${resourceTitle} - Test Paper",
+  "className": "${className}",
+  "topic": "${topic}",
+  "totalMarks": ${count * 2},
+  "difficulty": "${difficulty}",
+  "questions": [
+    {
+      "id": 1,
+      "type": "mcq",
+      "marks": 2,
+      "question": "Question text here",
+      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+      "answer": "A) Option 1",
+      "explanation": "Step-by-step solution"
+    }
+  ]
+}`
+
+    const userPrompt = `Generate a ${count}-question ${difficulty} test paper for ${className} on topic "${topic}".
+Context Source Data:
+${resourceDetails || `Topic: ${topic}\nClass: ${className}`}
+`
+
+    const provider = AIProviderFactory.getProvider()
+    const rawResponse = await provider.generateResponse(userPrompt, systemPrompt)
+
+    try {
+      // Strip markdown code fences if present
+      const cleanJson = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim()
+      const parsedQuiz = JSON.parse(cleanJson)
+      return parsedQuiz
+    } catch (e) {
+      return {
+        title: `${resourceTitle} Test Paper`,
+        className,
+        topic,
+        totalMarks: count * 2,
+        difficulty,
+        rawText: rawResponse,
+        questions: []
+      }
     }
   }
 }

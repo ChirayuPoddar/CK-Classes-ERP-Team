@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/contexts/AuthContext'
 import DashboardStatCard from '@/components/common/DashboardStatCard'
 import { TableHeadSort, TableHeaderFilter, TablePagination, TableRowActions } from '@/components/common/DataTable'
+import AIQuizGeneratorModal from '@/components/common/AIQuizGeneratorModal'
 
 const classes = [
   'Play Group', 'Nursery', 'LKG', 'UKG',
@@ -98,6 +99,7 @@ export default function Resources() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false)
   const [currentResource, setCurrentResource] = useState(null) // null for create
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
   // Upload & File removal state
@@ -735,6 +737,14 @@ export default function Resources() {
 
         {/* Top-Right Header controls */}
         <div className="flex items-center gap-3 select-none">
+          <button
+            onClick={() => { setCurrentResource(null); setIsQuizModalOpen(true); }}
+            className="h-10 px-5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-xs font-extrabold text-white shadow-premium-2 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0 font-sans"
+          >
+            <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+            <span>AI Quiz Generator</span>
+          </button>
+
           {isTeacherOrAdmin && (
             <button
               onClick={handleOpenCreate}
@@ -1603,6 +1613,13 @@ export default function Resources() {
           </div>
         </div>
       </Modal>
+
+      {/* AI Quiz & Test Generator Modal */}
+      <AIQuizGeneratorModal
+        isOpen={isQuizModalOpen}
+        onClose={() => setIsQuizModalOpen(false)}
+        initialResource={currentResource}
+      />
 
     </div>
   )
