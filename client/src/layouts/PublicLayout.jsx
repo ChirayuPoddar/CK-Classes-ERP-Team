@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Outlet, Link } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 
 export const PublicLayout = () => {
+  const location = useLocation()
+  const isHomePage = location.pathname === '/'
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -13,6 +15,10 @@ export const PublicLayout = () => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  if (isHomePage) {
+    return <Outlet />
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col selection:bg-brand-blue-500 selection:text-white">
@@ -65,7 +71,7 @@ export const PublicLayout = () => {
         </div>
       </motion.header>
 
-      {/* Main Page View (Adds top padding to prevent content overlap with sticky navbar) */}
+      {/* Main Page View */}
       <main className="flex-grow">
         <Outlet />
       </main>
