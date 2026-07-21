@@ -59,8 +59,13 @@ class AIService {
       if (typeof StudentService.getAllStudents === 'function') {
         const studentsRes = await StudentService.getAllStudents({ limit: 10 })
         const studentsList = studentsRes.students || (Array.isArray(studentsRes) ? studentsRes : [])
+        const totalCount = studentsRes.total !== undefined ? studentsRes.total : (studentsRes.stats?.totalStudents || studentsList.length)
+        
+        contextLines.push(`\n[Institutional Metrics]:`)
+        contextLines.push(`- Total Enrolled Students in ERP: ${totalCount}`)
+        
         if (studentsList.length > 0) {
-          contextLines.push(`\n[Enrolled Students Records in MongoDB (Total: ${studentsRes.total || studentsList.length})]:`)
+          contextLines.push(`\n[Sample Enrolled Students Records in MongoDB]:`)
           studentsList.forEach(s => {
             contextLines.push(`- Student ID: ${s.studentId} | Name: ${s.firstName} ${s.lastName} | Class: ${s.class} | Status: ${s.status}`)
           })
