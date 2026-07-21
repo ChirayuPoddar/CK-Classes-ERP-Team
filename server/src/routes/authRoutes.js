@@ -193,6 +193,8 @@ router.post('/login', async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -210,7 +212,10 @@ router.post('/login', async (req, res, next) => {
 // POST: Refresh Token Route
 router.post('/refresh', async (req, res, next) => {
   const refreshCookieName = process.env.JWT_REFRESH_COOKIE_NAME || 'ck_refresh_token'
-  const refreshToken = req.cookies[refreshCookieName] || req.cookies.ck_refresh_token
+  let refreshToken = req.cookies[refreshCookieName] || req.cookies.ck_refresh_token || req.body?.refreshToken
+  if (!refreshToken && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    refreshToken = req.headers.authorization.split(' ')[1]
+  }
   const refreshSecret = process.env.JWT_REFRESH_SECRET
   const accessSecret = process.env.JWT_ACCESS_SECRET
 
@@ -291,6 +296,8 @@ router.post('/refresh', async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       user: {
         id: user._id,
         email: user.email,

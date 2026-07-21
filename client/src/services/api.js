@@ -24,9 +24,15 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Request Interceptor: Browser automatically attaches HttpOnly cookies (withCredentials: true)
+// Request Interceptor: Attach Bearer token from localStorage or let browser attach HttpOnly cookies
 api.interceptors.request.use(
   (config) => {
+    try {
+      const token = localStorage.getItem('ck_access_token') || localStorage.getItem('ck_token')
+      if (token && !config.headers.Authorization && !config.headers.authorization) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    } catch {}
     return config
   },
   (error) => {
@@ -66,26 +72,44 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // Trigger refresh request (browser sends HttpOnly refresh cookie)
-        await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true })
-        
+        const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('ck_refresh_token') : null
+        const refreshData = await axios.post(
+          `${API_URL}/auth/refresh`,
+          storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+          {
+            withCredentials: true,
+            headers: storedRefreshToken ? { Authorization: `Bearer ${storedRefreshToken}` } : {}
+          }
+        )
+
+        const resBody = refreshData?.data || {}
+        if (resBody.accessToken && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('ck_access_token', resBody.accessToken)
+            if (resBody.refreshToken) localStorage.setItem('ck_refresh_token', resBody.refreshToken)
+          } catch {}
+        }
+
         isRefreshing = false
         processQueue(null)
-        
-        // Retry the original request
+
         return api(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
         processQueue(refreshError, null)
-        
-        // Wipe legacy token if present
-        try { localStorage.removeItem('ck_token') } catch {}
-        
-        // Refresh token is expired too - wipe local auth and redirect
+
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('ck_token')
+            localStorage.removeItem('ck_access_token')
+            localStorage.removeItem('ck_refresh_token')
+          }
+        } catch {}
+
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
           window.location.href = '/auth/login?session_expired=true'
         }
-        
+
         return Promise.reject(refreshError)
       }
     }
