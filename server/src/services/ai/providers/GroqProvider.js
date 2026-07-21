@@ -35,7 +35,7 @@ class GroqProvider extends BaseAIProvider {
     }
 
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -44,7 +44,22 @@ class GroqProvider extends BaseAIProvider {
         body: JSON.stringify(requestBody)
       })
 
-      const data = await response.json()
+      let data = await response.json()
+
+      // Automatic fallback to high-quota llama-3.1-8b-instant if 70b hits daily TPD limit (HTTP 429)
+      if (response.status === 429 && requestBody.model !== 'llama-3.1-8b-instant') {
+        console.log('Groq 70b rate limit hit (429). Retrying automatically with llama-3.1-8b-instant...')
+        requestBody.model = 'llama-3.1-8b-instant'
+        response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        })
+        data = await response.json()
+      }
 
       if (!response.ok) {
         const errorMsg = data?.error?.message || 'Failed to generate response from Groq API.'
