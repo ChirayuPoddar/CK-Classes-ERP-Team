@@ -15,6 +15,103 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
+// HTML5 Canvas Light Particle & Electric Energy Filament Engine
+const LightParticlesCanvas = () => {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animId
+
+    let width = (canvas.width = canvas.parentElement.offsetWidth)
+    let height = (canvas.height = canvas.parentElement.offsetHeight)
+
+    const handleResize = () => {
+      if (!canvas || !canvas.parentElement) return
+      width = canvas.width = canvas.parentElement.offsetWidth
+      height = canvas.height = canvas.parentElement.offsetHeight
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    // Generate glowing golden light particles
+    const particleCount = 70
+    const particles = []
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 2.5 + 0.8,
+        color: Math.random() > 0.35 ? 'rgba(251, 191, 36, ' : 'rgba(245, 158, 11, ',
+        alpha: Math.random() * 0.7 + 0.25,
+        speedX: (Math.random() - 0.5) * 0.7,
+        speedY: (Math.random() - 0.5) * 0.7 - 0.3,
+        pulseSpeed: Math.random() * 0.02 + 0.005
+      })
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height)
+
+      // Draw light beam energy filaments between nearby particles
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+
+          if (dist < 120) {
+            ctx.beginPath()
+            ctx.strokeStyle = `rgba(251, 191, 36, ${0.18 * (1 - dist / 120)})`
+            ctx.lineWidth = 0.9
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.stroke()
+          }
+        }
+      }
+
+      // Draw glowing light particles
+      for (let p of particles) {
+        p.x += p.speedX
+        p.y += p.speedY
+        p.alpha += Math.sin(Date.now() * p.pulseSpeed) * 0.01
+
+        if (p.x < 0) p.x = width
+        if (p.x > width) p.x = 0
+        if (p.y < 0) p.y = height
+        if (p.y > height) p.y = 0
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
+        ctx.fillStyle = `${p.color}${Math.max(0.15, Math.min(0.95, p.alpha))})`
+        ctx.shadowColor = 'rgba(251, 191, 36, 0.9)'
+        ctx.shadowBlur = 14
+        ctx.fill()
+      }
+
+      animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (animId) cancelAnimationFrame(animId)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none z-10"
+    />
+  )
+}
+
 // Self-contained Animated Counter component for metrics
 const AnimatedCounter = ({ value, duration = 1.5 }) => {
   const [count, setCount] = useState(0)
@@ -188,9 +285,9 @@ export default function Home() {
   ]
 
   return (
-    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-amber-500 selection:text-slate-950">
+    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
       
-      {/* Dynamic Dark Modern Navbar */}
+      {/* Dynamic Dark Modern Navbar (Fades in when scrolling into content) */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ 
@@ -198,17 +295,17 @@ export default function Home() {
           y: showNavbar ? 0 : -20 
         }}
         transition={{ duration: 0.3 }}
-        className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#030712]/95 backdrop-blur-xl border-b border-amber-500/30 shadow-2xl flex items-center justify-between px-8 md:px-16 w-full pointer-events-auto"
+        className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#030712]/95 backdrop-blur-xl border-b border-amber-500/20 shadow-2xl flex items-center justify-between px-8 md:px-16 w-full pointer-events-auto"
       >
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-amber-500/40 group-hover:scale-105 transition-transform duration-200">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-amber-500/30 group-hover:scale-105 transition-transform duration-200">
               CK
             </div>
-            <span className="font-sketch font-bold text-lg tracking-tight text-white">C.K. Classes</span>
+            <span className="font-bold text-base tracking-tight text-white">C.K. Classes</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-sketch font-bold text-slate-100">
+          <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-100">
             <a href="#home" className="hover:text-amber-400 transition-colors">Home</a>
             <a href="#courses" className="hover:text-amber-400 transition-colors">Courses</a>
             <a href="#features" className="hover:text-amber-400 transition-colors">ERP Features</a>
@@ -219,13 +316,13 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <Link 
               to="/login" 
-              className="font-sketch text-sm font-bold text-slate-100 hover:text-amber-300 transition-colors px-3 py-2"
+              className="text-xs font-bold text-slate-100 hover:text-amber-300 transition-colors px-3 py-2"
             >
               Login
             </Link>
             <a 
               href="/login" 
-              className="px-4.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 active:scale-95 transition-all font-sketch text-sm font-black"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 active:scale-95 transition-all text-xs font-black"
             >
               Get Admission
             </a>
@@ -254,7 +351,7 @@ export default function Home() {
           {/* Initial Subtle Scroll Hint at Bottom (Fades out as user scrolls) */}
           <motion.div 
             style={{ opacity: initialScrollHintOpacity }}
-            className="absolute bottom-10 z-20 flex flex-col items-center gap-2 text-white font-sketch text-xs sm:text-sm font-bold uppercase tracking-widest pointer-events-none bg-black/60 backdrop-blur-md px-5 py-2.5 rounded-full border border-amber-400/50 shadow-2xl"
+            className="absolute bottom-10 z-20 flex flex-col items-center gap-2 text-white text-xs font-bold uppercase tracking-widest pointer-events-none bg-black/60 backdrop-blur-md px-5 py-2.5 rounded-full border border-amber-400/40 shadow-2xl"
           >
             <span>Scroll to play video & enter website</span>
             <ChevronDown className="h-4 w-4 text-amber-300 animate-bounce" />
@@ -263,55 +360,65 @@ export default function Home() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. GOLDEN SHINING LIGHT BEAMS & STUDENT HANDWRITING UI                    */}
+      {/* 2. GOLDEN LIGHT & LIGHTNING BEAMS CINEMATIC UI                            */}
       {/* ========================================================================= */}
       <div 
         id="home"
-        className="relative z-30 min-h-screen bg-[#030712] text-white pt-16 pb-24 border-t-2 border-amber-400/50 shadow-[0_-20px_60px_rgba(245,158,11,0.35)]"
+        className="relative z-30 min-h-screen bg-[#030712] text-white pt-16 pb-24 border-t border-amber-500/30 shadow-[0_-15px_50px_rgba(245,158,11,0.25)] overflow-hidden"
       >
-        {/* Animated Radiant Golden Light Beams (Matching classes.mp4 video light rays) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[700px] bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(245,158,11,0.35),transparent_100%)] z-0 pointer-events-none animate-beam-shine" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[400px] bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(251,191,36,0.45),transparent_100%)] z-0 filter blur-[50px] pointer-events-none animate-light-pulse" />
+        {/* Canvas Floating Light Particles & Energy Filaments */}
+        <LightParticlesCanvas />
+
+        {/* Radiant Golden Light Beams (Matching classes.mp4 video light rays) */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[650px] bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(245,158,11,0.35),transparent_100%)] z-0 pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[350px] bg-[radial-gradient(ellipse_50%_35%_at_50%_0%,rgba(251,191,36,0.4),transparent_100%)] z-0 filter blur-[40px] pointer-events-none" />
         
-        {/* Shining Golden Laser Line under top border */}
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-amber-300 to-transparent z-10 shadow-[0_0_40px_rgba(251,191,36,1)]" />
+        {/* Animated Electric Lightning Beams */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[-10%] left-[18%] w-[3px] h-[750px] bg-gradient-to-b from-amber-300 via-amber-400 to-transparent rotate-[32deg] blur-[1px] opacity-80 animate-pulse shadow-[0_0_20px_#fbbf24]" />
+          <div className="absolute top-[-10%] right-[20%] w-[2.5px] h-[700px] bg-gradient-to-b from-yellow-200 via-amber-400 to-transparent rotate-[-28deg] blur-[1px] opacity-75 animate-pulse delay-700 shadow-[0_0_20px_#f59e0b]" />
+          <div className="absolute top-[-5%] left-[46%] w-[4px] h-[600px] bg-gradient-to-b from-amber-200 via-yellow-300 to-transparent rotate-[10deg] blur-[1px] opacity-90 shadow-[0_0_25px_#fbbf24]" />
+        </div>
+
+        {/* Top Golden Light Beam Line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent z-10 shadow-[0_0_35px_rgba(251,191,36,0.9)]" />
 
         {/* Dark Space Grid Accent */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_10%,#000_70%,transparent_100%)] z-0 opacity-60 pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-24">
+        <div className="max-w-7xl mx-auto px-6 relative z-20 space-y-24">
           
           {/* Main Hero Section */}
           <div className="text-center flex flex-col items-center pt-8">
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-amber-400/60 bg-amber-500/20 text-xs font-bold text-amber-200 mb-6 shadow-xl shadow-amber-500/20 backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 px-4.5 py-1.5 rounded-full border border-amber-400/60 bg-amber-500/20 text-xs font-bold text-amber-200 mb-6 shadow-xl shadow-amber-500/20 backdrop-blur-md">
               <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
-              <span className="font-sketch text-base sm:text-lg tracking-wide text-amber-200">Surat's Premier Coaching Academy & Institutional ERP 2.0</span>
+              <span className="font-sketch text-sm sm:text-base tracking-wide text-amber-200">Surat's Premier Coaching Academy & Institutional ERP 2.0</span>
             </div>
 
-            <h1 className="max-w-4xl font-handwriting text-5xl sm:text-8xl tracking-wide font-black leading-[1.05] drop-shadow-2xl">
-              <span className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]">Building Bright Futures,</span> <br />
-              <span className="bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-200 bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(245,158,11,0.8)]">
+            <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] drop-shadow-2xl">
+              Building Bright Futures, <br />
+              <span className="font-handwriting text-5xl sm:text-8xl tracking-wide bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-200 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(245,158,11,0.6)] font-bold">
                 One Student at a Time.
               </span>
             </h1>
 
-            <p className="mt-6 font-sketch text-lg sm:text-2xl text-[#F8FAFC] max-w-2xl leading-relaxed font-semibold drop-shadow-md">
+            <p className="mt-6 text-base sm:text-xl text-[#F8FAFC] max-w-2xl leading-relaxed font-semibold drop-shadow-md">
               Empowering students from Class 1 to 12 in Science and Commerce through expert faculty, real-time AI analytics, and academic excellence.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <a
                 href="/login"
-                className="px-8 h-13 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-sketch text-lg font-black flex items-center justify-center gap-2.5 shadow-xl shadow-amber-500/40 transition-all duration-200 active:scale-95 cursor-pointer"
+                className="px-8 h-13 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-amber-500/30 transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 Enroll Now
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#courses"
-                className="px-6 h-13 rounded-2xl border border-amber-500/50 bg-slate-900/90 text-amber-200 hover:bg-slate-800 font-sketch text-lg font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-lg"
+                className="px-6 h-13 rounded-2xl border border-amber-500/40 bg-slate-900/90 text-amber-200 hover:bg-slate-800 font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-lg"
               >
-                <BookOpen className="h-5 w-5 text-amber-300" />
+                <BookOpen className="h-4 w-4 text-amber-300" />
                 Explore Courses
               </a>
             </div>
@@ -324,13 +431,13 @@ export default function Home() {
                 key={idx}
                 whileHover={{ y: -4, scale: 1.02 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="p-6 bg-[#0B132B] border border-amber-500/40 rounded-2xl shadow-2xl flex flex-col items-center text-center relative group overflow-hidden"
+                className="p-6 bg-[#0B132B] border border-amber-500/30 rounded-2xl shadow-2xl flex flex-col items-center text-center relative group overflow-hidden"
               >
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 rounded-t-full shadow-[0_0_20px_rgba(251,191,36,1)]" />
-                <h3 className="font-handwriting text-4xl sm:text-6xl font-black text-amber-300 tracking-tight drop-shadow-md">
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 rounded-t-full shadow-[0_0_15px_rgba(251,191,36,0.8)]" />
+                <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                   <AnimatedCounter value={item.value} />
                 </h3>
-                <p className="font-sketch text-xs sm:text-sm text-indigo-200 font-extrabold uppercase tracking-widest mt-2">
+                <p className="text-xs text-amber-300 font-extrabold uppercase tracking-widest mt-2">
                   {item.label}
                 </p>
               </motion.div>
@@ -340,11 +447,11 @@ export default function Home() {
           {/* ERP Core Features Section */}
           <div id="features" className="space-y-10 pt-6">
             <div className="text-center space-y-3 max-w-2xl mx-auto">
-              <span className="font-handwriting text-3xl font-bold text-amber-300 tracking-wide">✨ Institutional Intelligence</span>
-              <h2 className="font-handwriting text-4xl sm:text-6xl font-black text-white tracking-tight drop-shadow-lg">
+              <span className="font-handwriting text-2xl font-bold text-amber-300 tracking-wide">✨ Institutional Intelligence</span>
+              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
                 AI-Powered ERP Modules for School & Coaching Control
               </h2>
-              <p className="font-sketch text-base sm:text-xl text-[#F1F5F9] font-medium">
+              <p className="text-sm sm:text-base text-[#F1F5F9] font-medium">
                 Integrated Groq Llama 3.3 AI, MongoDB Atlas, and modern academic management workflows.
               </p>
             </div>
@@ -353,12 +460,12 @@ export default function Home() {
               {erpFeatures.map((feat, i) => (
                 <div 
                   key={i} 
-                  className="p-6 bg-[#0B132B] border border-slate-800 rounded-2xl hover:border-amber-400/70 transition duration-300 space-y-4 hover:shadow-2xl hover:shadow-amber-500/25 group"
+                  className="p-6 bg-[#0B132B] border border-slate-800 rounded-2xl hover:border-amber-400/60 transition duration-300 space-y-4 hover:shadow-2xl hover:shadow-amber-500/20 group"
                 >
-                  <div className="h-12 w-12 rounded-xl bg-slate-800/90 border border-amber-500/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="h-12 w-12 rounded-xl bg-slate-800/90 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                     {feat.icon}
                   </div>
-                  <h4 className="font-handwriting text-2xl font-black text-amber-200 tracking-tight">{feat.title}</h4>
+                  <h4 className="text-lg font-black text-white tracking-tight">{feat.title}</h4>
                   <p className="text-xs sm:text-sm text-[#E2E8F0] leading-relaxed font-normal">{feat.desc}</p>
                 </div>
               ))}
@@ -366,28 +473,28 @@ export default function Home() {
           </div>
 
           {/* Role Access Section */}
-          <div id="portals" className="bg-gradient-to-b from-[#0B132B] via-slate-950 to-black p-8 sm:p-12 rounded-3xl border border-amber-500/40 space-y-8 text-center shadow-2xl">
+          <div id="portals" className="bg-gradient-to-b from-[#0B132B] via-slate-950 to-black p-8 sm:p-12 rounded-3xl border border-amber-500/30 space-y-8 text-center shadow-2xl">
             <div className="space-y-2">
-              <h3 className="font-handwriting text-4xl sm:text-6xl font-black text-white tracking-tight">Role-Based Access Portals</h3>
-              <p className="font-sketch text-base sm:text-lg text-[#F1F5F9] font-medium">Log in with role-specific permissions and scope</p>
+              <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight">Role-Based Access Portals</h3>
+              <p className="text-xs sm:text-sm text-[#F1F5F9] font-medium">Log in with role-specific permissions and scope</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
               <div className="p-6 rounded-2xl bg-[#0B132B] border border-slate-800 space-y-3">
                 <div className="h-10 w-10 rounded-full bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 font-black text-sm">1</div>
-                <h4 className="font-handwriting text-2xl font-black text-amber-200">Admin Portal</h4>
+                <h4 className="font-black text-white">Admin Portal</h4>
                 <p className="text-xs sm:text-sm text-[#E2E8F0] font-normal">Complete institutional oversight, financial reports, faculty management & system settings.</p>
               </div>
 
               <div className="p-6 rounded-2xl bg-[#0B132B] border border-slate-800 space-y-3">
                 <div className="h-10 w-10 rounded-full bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center text-yellow-300 font-black text-sm">2</div>
-                <h4 className="font-handwriting text-2xl font-black text-yellow-200">Faculty Portal</h4>
+                <h4 className="font-black text-white">Faculty Portal</h4>
                 <p className="text-xs sm:text-sm text-[#E2E8F0] font-normal">Attendance entry, 1-click AI exam paper generator, homework assignments & student feedback logs.</p>
               </div>
 
               <div className="p-6 rounded-2xl bg-[#0B132B] border border-slate-800 space-y-3">
                 <div className="h-10 w-10 rounded-full bg-amber-400/20 border border-amber-300/50 flex items-center justify-center text-amber-200 font-black text-sm">3</div>
-                <h4 className="font-handwriting text-2xl font-black text-amber-100">Student & Parent Portal</h4>
+                <h4 className="font-black text-white">Student & Parent Portal</h4>
                 <p className="text-xs sm:text-sm text-[#E2E8F0] font-normal">Check academic performance, view assigned homework, fee payment receipts & exam schedules.</p>
               </div>
             </div>
@@ -395,16 +502,16 @@ export default function Home() {
             <div className="pt-2">
               <Link 
                 to="/login"
-                className="inline-flex items-center gap-2 px-8 h-13 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-sketch text-lg font-black shadow-xl shadow-amber-500/40 transition"
+                className="inline-flex items-center gap-2 px-8 h-12 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/30 transition"
               >
                 Access ERP Management Portal
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
 
           {/* Footer */}
-          <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm font-sketch text-slate-300 font-bold gap-4">
+          <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-300 font-medium gap-4">
             <p>© {new Date().getFullYear()} C.K. Classes ERP Platform. Parvat Patiya, Surat, India. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <Link to="/login" className="hover:text-amber-300 transition">Portal Login</Link>
