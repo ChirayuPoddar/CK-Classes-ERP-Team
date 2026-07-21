@@ -53,24 +53,16 @@ export default function Home() {
   const videoTrackRef = useRef(null)
   const videoRef = useRef(null)
   const [videoDuration, setVideoDuration] = useState(0)
-  const [scrolledNav, setScrolledNav] = useState(false)
+  const [showNavbar, setShowNavbar] = useState(false)
 
-  // Scroll Progress tracking for the 300vh pure video track
+  // Scroll Progress tracking for the 200vh pure video track
   const { scrollYProgress } = useScroll({
     target: videoTrackRef,
     offset: ['start start', 'end end']
   })
 
   // Fade out pure video scroll indicator as user scrolls
-  const initialScrollHintOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0])
-  
-  // Transition website content in swiftly as scroll reaches 0.5 - 0.75 so text is 100% solid & crystal clear
-  const pageTransitionOpacity = useTransform(scrollYProgress, [0.45, 0.75], [0, 1])
-  const pageTransitionY = useTransform(scrollYProgress, [0.45, 0.75], [40, 0])
-  const pageTransitionScale = useTransform(scrollYProgress, [0.45, 0.75], [0.98, 1])
-  
-  // Darken video background into dark obsidian space as transition completes
-  const videoDarkenOverlay = useTransform(scrollYProgress, [0.45, 0.75], [0, 0.85])
+  const initialScrollHintOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0])
 
   // Handle Video Metadata
   useEffect(() => {
@@ -91,7 +83,7 @@ export default function Home() {
     }
   }, [])
 
-  // Scrubbing & Exact Last 2-Seconds Ambient Video Loop
+  // Scrubbing & Exact Last 1-Second Ambient Video Loop
   useEffect(() => {
     const video = videoRef.current
     if (!video || !videoDuration) return
@@ -110,7 +102,7 @@ export default function Home() {
 
       const latest = scrollYProgress.get()
 
-      // When scroll finishes (latest >= 0.85), play seamless ambient loop of EXACT last 1.0 second
+      // When scroll reaches end of video track (latest >= 0.85), play seamless ambient loop of EXACT last 1.0 second
       if (latest >= 0.85) {
         const loopStart = Math.max(0, videoDuration - 1.0)
         if (video.paused) {
@@ -146,10 +138,10 @@ export default function Home() {
     }
   }, [scrollYProgress, videoDuration])
 
-  // Track window scroll for sticky navbar styling after transition
+  // Show navbar when user scrolls into website content section
   useEffect(() => {
     const handleScroll = () => {
-      setScrolledNav(window.scrollY > window.innerHeight * 1.5)
+      setShowNavbar(window.scrollY > window.innerHeight * 0.6)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
@@ -198,15 +190,15 @@ export default function Home() {
   return (
     <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-indigo-500 selection:text-white">
       
-      {/* Dynamic Dark Modern Navbar */}
+      {/* Dynamic Dark Modern Navbar (Fades in when scrolling into content) */}
       <motion.header
-        style={{ opacity: pageTransitionOpacity }}
-        className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300 flex items-center justify-between px-8 md:px-16 w-full border-b border-transparent pointer-events-auto",
-          scrolledNav 
-            ? "bg-[#030712] border-b-slate-800/90 shadow-2xl shadow-black/90" 
-            : "bg-[#030712]/80 backdrop-blur-md border-b-white/10"
-        )}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ 
+          opacity: showNavbar ? 1 : 0, 
+          y: showNavbar ? 0 : -20 
+        }}
+        transition={{ duration: 0.3 }}
+        className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#030712]/95 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl flex items-center justify-between px-8 md:px-16 w-full pointer-events-auto"
       >
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
@@ -244,7 +236,7 @@ export default function Home() {
       {/* ========================================================================= */}
       {/* 1. PURE SCROLL-DRIVEN VIDEO SECTION (No navbar, no headers on initial load)  */}
       {/* ========================================================================= */}
-      <div ref={videoTrackRef} className="relative h-[300vh] w-full">
+      <div ref={videoTrackRef} className="relative h-[220vh] w-full">
         
         {/* Sticky Fullscreen Frame */}
         <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-black">
@@ -256,13 +248,7 @@ export default function Home() {
             muted
             playsInline
             preload="auto"
-            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-95 contrast-105"
-          />
-
-          {/* Dynamic Darken Overlay on transition */}
-          <motion.div 
-            style={{ opacity: videoDarkenOverlay }}
-            className="absolute inset-0 bg-[#030712] z-10 pointer-events-none" 
+            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-100 contrast-105"
           />
 
           {/* Initial Subtle Scroll Hint at Bottom (Fades out as user scrolls) */}
@@ -277,16 +263,11 @@ export default function Home() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. DARK CINEMATIC WEBSITE CONTENT (Transitions in AFTER video scroll finishes) */}
+      {/* 2. SOLID DARK CINEMATIC WEBSITE CONTENT (100% Solid Opacity & Visible Text)  */}
       {/* ========================================================================= */}
-      <motion.div 
-        style={{ 
-          opacity: pageTransitionOpacity, 
-          y: pageTransitionY,
-          scale: pageTransitionScale
-        }}
+      <div 
         id="home"
-        className="relative z-30 min-h-screen bg-[#030712] text-white pt-20 pb-24 -mt-20 border-t border-slate-800/80"
+        className="relative z-30 min-h-screen bg-[#030712] text-white pt-16 pb-24 border-t border-slate-800/80"
       >
         {/* Dark Space Grid Accent */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_10%,#000_70%,transparent_100%)] z-0 opacity-60 pointer-events-none" />
@@ -427,7 +408,7 @@ export default function Home() {
           </footer>
 
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
