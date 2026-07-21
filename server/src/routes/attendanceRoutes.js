@@ -1,0 +1,23 @@
+const express = require('express')
+const router = express.Router()
+const AttendanceController = require('../controllers/AttendanceController')
+const { verifyToken, requirePermission } = require('../middlewares/authMiddleware')
+const { enforceStudentScope } = require('../middlewares/scopeMiddleware')
+const { PERMISSIONS } = require('../config/permissions')
+
+router.get('/', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getSessions)
+router.get('/timetable-status', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getTimetableSlotsStatus)
+router.get('/analytics', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_REPORTS), AttendanceController.getAnalytics)
+router.get('/analytics/roster', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_REPORTS), AttendanceController.getRoster)
+router.get('/student/:id', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), enforceStudentScope, AttendanceController.getStudentProfile)
+router.get('/settings', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getSettings)
+router.put('/settings', verifyToken, requirePermission(PERMISSIONS.SETTINGS_UPDATE), AttendanceController.updateSettings)
+router.get('/timeline', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getTimeline)
+router.post('/bulk', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_UPDATE), AttendanceController.bulkUpdate)
+router.get('/:id', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getSessionById)
+router.post('/', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_MARK), AttendanceController.createSession)
+router.put('/:id', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_UPDATE), AttendanceController.updateSession)
+router.delete('/:id', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_UPDATE), AttendanceController.deleteSession)
+router.get('/:id/override-history', verifyToken, requirePermission(PERMISSIONS.ATTENDANCE_VIEW), AttendanceController.getOverrideHistory)
+
+module.exports = router
