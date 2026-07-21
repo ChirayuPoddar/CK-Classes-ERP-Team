@@ -4,6 +4,11 @@ const http = require('http')
 const app = require('./src/app')
 const connectDB = require('./src/config/db')
 const { Server } = require('socket.io')
+const { getAllowedOrigins } = require('./src/config/corsOrigins')
+const { attachRedisAdapter } = require('./src/config/socketAdapter')
+
+// Bootstrap background queue workers
+require('./src/queues/workers')
 
 const PORT = process.env.PORT || 5050
 
@@ -14,18 +19,19 @@ connectDB()
 const server = http.createServer(app)
 
 // Initialize Socket.io Server with CORS matching the Express CLIENT_URL configuration
-// (single source of truth - see allowedOrigins in src/app.js)
-const socketOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map((o) => o.trim()).filter(Boolean)
-  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173'])
-
+// (single source of truth using getAllowedOrigins helper)
 const io = new Server(server, {
   cors: {
-    origin: socketOrigins,
+    origin: getAllowedOrigins(),
     methods: ['GET', 'POST'],
     credentials: true
   }
 })
+
+// Attach Redis adapter for Socket.IO horizontal scaling ONLY if REDIS_URL is configured
+if (process.env.REDIS_URL) {
+  attachRedisAdapter(io)
+}
 
 // Setup base socket connections
 io.on('connection', (socket) => {
@@ -39,6 +45,6 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT} (Accessible on local Wi-Fi IP)`)
 })
-// Env reloaded with primary data summary block
+// Env reloaded with strict admin credential auto-sync
 
 

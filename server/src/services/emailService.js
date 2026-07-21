@@ -77,6 +77,32 @@ class EmailService {
       throw new ApiError('Failed to dispatch OTP email. Please try again later.', 500, 'OTP_DELIVERY_FAILED')
     }
   }
+
+  /**
+   * Dispatches general/bulk email template via SMTP
+   */
+  async sendEmail({ to, subject, html, text }) {
+    const transporter = this.getTransporter()
+    if (!transporter) {
+      throw new ApiError('SMTP email provider is not configured.', 500, 'EMAIL_DELIVERY_FAILED')
+    }
+
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@ckclasses.com'
+
+    try {
+      await transporter.sendMail({
+        from: `C.K. Classes <${fromAddress}>`,
+        to,
+        subject: subject || 'Notification from C.K. Classes ERP',
+        html: html || `<div style="font-family: Arial, sans-serif;">${text || ''}</div>`,
+        text: text || ''
+      })
+      return { success: true }
+    } catch (err) {
+      console.error('[EmailService Error]:', err.message)
+      throw new ApiError('Failed to dispatch email. Please try again later.', 500, 'EMAIL_DELIVERY_FAILED')
+    }
+  }
 }
 
 module.exports = new EmailService()

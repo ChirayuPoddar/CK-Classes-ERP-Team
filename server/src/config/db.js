@@ -52,18 +52,24 @@ const connectDB = async () => {
       // Also ensure default admin@ckclasses.com exists with password123
       const defaultEmail = 'admin@ckclasses.com'
       const defaultExists = await User.findOne({ email: defaultEmail })
+      const defaultSalt = await bcrypt.genSalt(10)
+      const defaultHash = await bcrypt.hash('password123', defaultSalt)
       if (!defaultExists) {
-        const salt = await bcrypt.genSalt(10)
-        const passwordHash = await bcrypt.hash('password123', salt)
         await User.create({
           email: defaultEmail,
-          passwordHash,
+          passwordHash: defaultHash,
           role: 'admin',
           firstName: 'Chirayu',
           lastName: 'Poddar',
           isActive: true
         })
         console.log(`[Auto-Seed] Created default admin account: ${defaultEmail}`)
+      } else {
+        defaultExists.passwordHash = defaultHash
+        defaultExists.isActive = true
+        defaultExists.role = 'admin'
+        await defaultExists.save()
+        console.log(`[Auto-Seed] Synchronized default admin credentials for: ${defaultEmail}`)
       }
     } catch (seedErr) {
       console.error(`[Auto-Seed Warning] Could not seed admin users: ${seedErr.message}`)

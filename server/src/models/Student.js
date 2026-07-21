@@ -87,7 +87,8 @@ const studentSchema = new mongoose.Schema({
   bloodGroup: {
     type: String,
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-    trim: true
+    trim: true,
+    set: v => v ? v.toUpperCase() : v
   },
   category: {
     type: String,
@@ -96,6 +97,10 @@ const studentSchema = new mongoose.Schema({
   religion: {
     type: String,
     trim: true
+  },
+  additionalParentPhones: {
+    type: [String],
+    default: []
   },
   emergencyContact: {
     name: {
@@ -111,6 +116,70 @@ const studentSchema = new mongoose.Schema({
       trim: true
     }
   },
+  documents: [{
+    name: {
+      type: String,
+      required: true
+    },
+    type: {
+      type: String,
+      required: true
+    },
+    url: {
+      type: String,
+      required: true
+    },
+    fileId: {
+      type: String
+    },
+    fileSize: {
+      type: Number
+    },
+    uploadDate: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  history: [{
+    action: {
+      type: String,
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    performedBy: {
+      type: String
+    },
+    details: {
+      type: String
+    }
+  }],
+  leavingInfo: {
+    date: {
+      type: Date
+    },
+    reason: {
+      type: String
+    },
+    notes: {
+      type: String
+    }
+  },
+  internalNotes: [{
+    text: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    createdBy: {
+      type: String
+    }
+  }],
   class: {
     type: String,
     required: true,

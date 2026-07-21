@@ -8,7 +8,8 @@ class StudentController {
    */
   async createStudent(req, res, next) {
     try {
-      const student = await StudentService.createStudent(req.body)
+      const performedByStr = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email : 'Admin'
+      const student = await StudentService.createStudent({ ...req.body, performedBy: performedByStr })
       res.status(201).json({
         success: true,
         message: 'Student profile created successfully',
@@ -59,7 +60,8 @@ class StudentController {
    */
   async updateStudent(req, res, next) {
     try {
-      const student = await StudentService.updateStudent(req.params.id, req.body)
+      const performedByStr = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email : 'Admin'
+      const student = await StudentService.updateStudent(req.params.id, { ...req.body, performedBy: performedByStr })
       res.status(200).json({
         success: true,
         message: 'Student profile updated successfully',
@@ -236,6 +238,115 @@ class StudentController {
           error.message.includes('cannot be promoted')) {
         return res.status(400).json({ success: false, message: error.message })
       }
+      next(error)
+    }
+  }
+
+  async bulkUpdateStatus(req, res, next) {
+    try {
+      const { studentIds, status } = req.body
+      if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'No student IDs provided' })
+      }
+      if (!['Active', 'Inactive', 'Graduated'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid status value' })
+      }
+
+      let performedBy = 'Admin'
+      if (req.user) {
+        performedBy = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email
+      }
+
+      const updatedCount = await StudentService.bulkUpdateStatus(studentIds, status, performedBy)
+      res.status(200).json({
+        success: true,
+        message: `Successfully updated status to ${status} for ${updatedCount} students.`,
+        updatedCount
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Toggle student user portal access
+   */
+  async togglePortalAccess(req, res, next) {
+    try {
+      const { active } = req.body
+      const result = await StudentService.togglePortalAccess(req.params.id, active, req.user)
+      res.status(200).json({
+        success: true,
+        message: `Portal access ${active ? 'enabled' : 'disabled'} successfully`,
+        data: result
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Upload student document
+   */
+  async uploadDocument(req, res, next) {
+    try {
+      const { name, type } = req.body
+      const student = await StudentService.uploadDocument(req.params.id, req.file, name, type)
+      res.status(200).json({
+        success: true,
+        message: 'Document uploaded successfully',
+        data: student
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Delete student document
+   */
+  async deleteDocument(req, res, next) {
+    try {
+      const student = await StudentService.deleteDocument(req.params.id, req.params.docId)
+      res.status(200).json({
+        success: true,
+        message: 'Document deleted successfully',
+        data: student
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Add internal staff note to student profile
+   */
+  async addInternalNote(req, res, next) {
+    try {
+      const { text } = req.body
+      const student = await StudentService.addInternalNote(req.params.id, text, req.user)
+      res.status(200).json({
+        success: true,
+        message: 'Internal note added successfully',
+        data: student
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Delete internal staff note from student profile
+   */
+  async deleteInternalNote(req, res, next) {
+    try {
+      const student = await StudentService.deleteInternalNote(req.params.id, req.params.noteId)
+      res.status(200).json({
+        success: true,
+        message: 'Internal note deleted successfully',
+        data: student
+      })
+    } catch (error) {
       next(error)
     }
   }

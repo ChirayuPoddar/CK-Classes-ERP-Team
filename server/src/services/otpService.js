@@ -3,6 +3,7 @@ const Otp = require('../models/Otp')
 const ApiError = require('../utils/ApiError')
 const emailService = require('./emailService')
 const smsService = require('./smsService')
+const emailTransactionalQueue = require('../queues/emailTransactionalQueue')
 
 class OtpService {
   /**
@@ -100,7 +101,11 @@ class OtpService {
 
     // 5. Dispatch via specified delivery channel
     if (channel === 'email') {
-      await emailService.sendOtpEmail({ to: cleanIdentifier, otp: rawOtp, purpose, expiresMinutes: 5 })
+      if (process.env.REDIS_URL) {
+        await emailTransactionalQueue.add('send-otp', { to: cleanIdentifier, otp: rawOtp, purpose, expiresMinutes: 5 })
+      } else {
+        await emailService.sendOtpEmail({ to: cleanIdentifier, otp: rawOtp, purpose, expiresMinutes: 5 })
+      }
     } else if (channel === 'sms') {
       await smsService.sendOtpSms({ phone: cleanIdentifier, otp: rawOtp, purpose })
     }

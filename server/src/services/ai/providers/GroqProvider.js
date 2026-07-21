@@ -1,23 +1,28 @@
 const BaseAIProvider = require('./BaseAIProvider')
 const ApiError = require('../../../utils/ApiError')
+const GeminiProvider = require('./GeminiProvider')
 
 class GroqProvider extends BaseAIProvider {
   constructor() {
     super()
     this.apiKey = process.env.GROQ_API_KEY
     this.modelName = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
-    // Fallback chain models (deduplicated and active supported models only)
+    // Fallback chain models (active supported models only)
     this.modelChain = Array.from(new Set([
       this.modelName,
       'llama-3.3-70b-versatile',
       'llama-3.1-8b-instant',
-      'llama3-70b-8192',
-      'llama3-8b-8192',
       'gemma2-9b-it'
     ]))
   }
 
   async generateResponse(prompt, systemContext = '', options = {}) {
+    if (!this.apiKey && process.env.GEMINI_API_KEY) {
+      console.warn('[Groq AI] GROQ_API_KEY missing. Falling back to GeminiProvider...')
+      const gemini = new GeminiProvider()
+      return await gemini.generateResponse(prompt, systemContext, options)
+    }
+
     if (!this.apiKey) {
       throw new ApiError('Groq API key is not configured on the server.', 500, 'AI_CONFIG_ERROR')
     }
@@ -43,7 +48,7 @@ class GroqProvider extends BaseAIProvider {
       max_tokens: options.maxTokens || 4096
     }
 
-    // Try models sequentially on rate limit (429) or model unavailability/decommissioned errors
+    // Try Groq models sequentially on rate limit (429) or model unavailability errors
     for (let i = 0; i < this.modelChain.length; i++) {
       requestBody.model = this.modelChain[i]
       
@@ -104,6 +109,13 @@ class GroqProvider extends BaseAIProvider {
         }
         throw err
       }
+    }
+
+    // Fail-safe: If all Groq models fail or are rate-limited, fall back to Gemini
+    if (process.env.GEMINI_API_KEY) {
+      console.warn('[Groq AI] All Groq models exhausted. Falling back to GeminiProvider...')
+      const gemini = new GeminiProvider()
+      return await gemini.generateResponse(prompt, systemContext, options)
     }
 
     throw new ApiError('All Groq fallback models exhausted or unavailable.', 429, 'AI_PROVIDER_RATE_LIMIT')
