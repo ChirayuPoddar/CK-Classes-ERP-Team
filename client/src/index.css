@@ -67,6 +67,24 @@ body {
   font-family: 'Architects Daughter', 'Caveat', cursive;
 }
 
+@keyframes beamShine {
+  0%, 100% { opacity: 0.45; transform: scaleX(0.92) translateY(0); }
+  50% { opacity: 0.95; transform: scaleX(1.15) translateY(-8px); }
+}
+
+@keyframes lightPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.08); }
+}
+
+.animate-beam-shine {
+  animation: beamShine 3.5s ease-in-out infinite;
+}
+
+.animate-light-pulse {
+  animation: lightPulse 4s ease-in-out infinite;
+}
+
 .glass-effect {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
