@@ -28,6 +28,7 @@ export default function Activate() {
 
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [errorCode, setErrorCode] = useState(null)
   const [infoMsg, setInfoMsg] = useState(null)
   const [cooldown, setCooldown] = useState(0)
 
@@ -55,14 +56,11 @@ export default function Activate() {
   // Step 1: Request Activation OTP by Institution ID
   const handleRequestOtp = async (e) => {
     if (e) e.preventDefault()
-    if (!institutionId.trim()) {
-      setErrorMsg(roleType === 'staff' ? 'Please enter your Teacher ID.' : 'Please enter your Student ID.')
-      return
-    }
+    if (!institutionId.trim()) return
 
     setLoading(true)
     setErrorMsg(null)
-    setInfoMsg(null)
+    setErrorCode(null)
 
     try {
       const payload = {
@@ -73,17 +71,21 @@ export default function Activate() {
 
       const res = await api.post('/activation/request-otp', payload)
       if (res && res.success) {
-        setMaskedEmail(res.maskedEmail || 'e*****@domain.com')
-        setIdentifier(res.identifier || '')
-        setTargetName(res.studentName || res.teacherName || '')
-        setExistingParentUser(!!res.existingParentUser)
-        setCooldown(60)
+        setMaskedEmail(res.maskedEmail || 'registered email')
+        setIdentifier(res.identifier)
+        setCooldown(res.resendCooldownSeconds || 60)
+        setTargetName(res.targetName || '')
+        if (res.accountExists && roleType === 'parent') {
+          setExistingParentUser(true)
+        }
         setStep(2)
       } else {
-        setErrorMsg('Invalid or unavailable activation credentials.')
+        setErrorMsg('Failed to process request.')
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data?.error?.message || 'Invalid or unavailable activation credentials.'
+      const code = err.response?.data?.code || err.response?.data?.error?.code
+      const msg = err.response?.data?.message || err.response?.data?.error?.message || 'Invalid Institution ID or record not found.'
+      setErrorCode(code)
       setErrorMsg(msg)
     } finally {
       setLoading(false)
@@ -110,15 +112,13 @@ export default function Activate() {
 
   // Step 2: Verify Activation OTP
   const handleVerifyOtp = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     const otpCode = otp.join('')
-    if (otpCode.length !== 6) {
-      setErrorMsg('Please enter the complete 6-digit verification code.')
-      return
-    }
+    if (otpCode.length !== 6) return
 
     setLoading(true)
     setErrorMsg(null)
+    setErrorCode(null)
 
     try {
       const payload = {
@@ -143,7 +143,9 @@ export default function Activate() {
         setErrorMsg('Verification failed. Please try again.')
       }
     } catch (err) {
+      const code = err.response?.data?.code || err.response?.data?.error?.code
       const msg = err.response?.data?.message || err.response?.data?.error?.message || 'Invalid or expired verification code.'
+      setErrorCode(code)
       setErrorMsg(msg)
     } finally {
       setLoading(false)
@@ -160,6 +162,7 @@ export default function Activate() {
 
     setLoading(true)
     setErrorMsg(null)
+    setErrorCode(null)
 
     try {
       const payload = {
@@ -179,7 +182,9 @@ export default function Activate() {
         setErrorMsg(res.message || 'Failed to complete account activation.')
       }
     } catch (err) {
+      const code = err.response?.data?.code || err.response?.data?.error?.code
       const msg = err.response?.data?.message || err.response?.data?.error?.message || 'Failed to complete account activation.'
+      setErrorCode(code)
       setErrorMsg(msg)
     } finally {
       setLoading(false)
@@ -206,11 +211,42 @@ export default function Activate() {
         </p>
       </div>
 
-      {/* ERROR ALERT */}
+      {/* STRUCTURED ERROR ALERT WITH ACTIONS */}
       {errorMsg && (
-        <div className="p-3 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{errorMsg}</span>
+        <div className="p-3.5 text-xs font-semibold bg-red-50 border border-red-200 rounded-xl space-y-2">
+          <div className="flex items-start gap-2 text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+
+          {(errorCode === 'ACCOUNT_ALREADY_ACTIVATED' || errorCode === 'STUDENT_ACCOUNT_ALREADY_EXISTS' || errorCode === 'STAFF_ACCOUNT_ALREADY_EXISTS' || errorCode === 'ACTIVATION_TOKEN_USED') && (
+            <div className="flex items-center gap-2 pt-1">
+              <Link 
+                to="/auth/login"
+                className="px-3 py-1.5 rounded-lg bg-brand-blue-500 text-white font-extrabold text-[11px] hover:bg-brand-blue-600 transition-colors"
+              >
+                Go to Sign In
+              </Link>
+              <Link 
+                to="/auth/forgot-password"
+                className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-extrabold text-[11px] hover:bg-slate-300 transition-colors"
+              >
+                Forgot Password
+              </Link>
+            </div>
+          )}
+
+          {(errorCode === 'ACTIVATION_TOKEN_EXPIRED' || errorCode === 'ACTIVATION_EXPIRED') && (
+            <div className="pt-1">
+              <button 
+                type="button"
+                onClick={() => { setStep(1); setErrorMsg(null); setErrorCode(null); }}
+                className="px-3 py-1.5 rounded-lg bg-brand-blue-500 text-white font-extrabold text-[11px] hover:bg-brand-blue-600 transition-colors"
+              >
+                Restart Activation
+              </button>
+            </div>
+          )}
         </div>
       )}
 

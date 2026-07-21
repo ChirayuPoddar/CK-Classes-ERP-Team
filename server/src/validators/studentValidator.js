@@ -41,8 +41,21 @@ const validateCreateStudent = [
   body('dateOfBirth')
     .notEmpty()
     .withMessage('Date of birth is required')
-    .isISO8601()
-    .withMessage('Date of birth must be a valid ISO8601 date (YYYY-MM-DD)'),
+    .customSanitizer(value => {
+      if (!value) return value
+      const match = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+      if (match) {
+        return new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10))
+      }
+      return value
+    })
+    .custom(value => {
+      const d = new Date(value)
+      if (isNaN(d.getTime())) {
+        throw new Error('Date of birth must be a valid date (DD/MM/YYYY)')
+      }
+      return true
+    }),
 
   body('email')
     .trim()
@@ -58,6 +71,22 @@ const validateCreateStudent = [
     .withMessage('Phone number is required')
     .matches(/^[0-9]{10}$/)
     .withMessage('Phone number must be exactly 10 digits'),
+
+  body('parentPhone')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Parent phone must be exactly 10 digits'),
+
+  body('additionalParentPhones')
+    .optional()
+    .isArray()
+    .withMessage('Additional parent phones must be an array'),
+
+  body('additionalParentPhones.*')
+    .trim()
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Each additional parent phone must be exactly 10 digits'),
 
   body('address')
     .optional({ checkFalsy: true })
@@ -92,6 +121,7 @@ const validateCreateStudent = [
   body('bloodGroup')
     .optional({ checkFalsy: true })
     .trim()
+    .customSanitizer(v => v ? v.toUpperCase() : v)
     .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
     .withMessage('Blood group must be a valid option (A+, A-, B+, B-, AB+, AB-, O+, O-)'),
 
@@ -104,8 +134,8 @@ const validateCreateStudent = [
   body('emergencyContact.phone')
     .optional({ checkFalsy: true })
     .trim()
-    .isString()
-    .withMessage('Emergency contact phone must be a string'),
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Emergency contact phone must be exactly 10 digits'),
 
   body('emergencyContact.relation')
     .optional({ checkFalsy: true })
@@ -128,8 +158,21 @@ const validateCreateStudent = [
 
   body('admissionDate')
     .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage('Admission date must be a valid ISO8601 date'),
+    .customSanitizer(value => {
+      if (!value) return value
+      const match = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+      if (match) {
+        return new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10))
+      }
+      return value
+    })
+    .custom(value => {
+      const d = new Date(value)
+      if (isNaN(d.getTime())) {
+        throw new Error('Admission date must be a valid date (DD/MM/YYYY)')
+      }
+      return true
+    }),
 
   body('status')
     .optional({ checkFalsy: true })
@@ -174,8 +217,21 @@ const validateUpdateStudent = [
 
   body('dateOfBirth')
     .optional()
-    .isISO8601()
-    .withMessage('Date of birth must be a valid ISO8601 date (YYYY-MM-DD)'),
+    .customSanitizer(value => {
+      if (!value) return value
+      const match = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+      if (match) {
+        return new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10))
+      }
+      return value
+    })
+    .custom(value => {
+      const d = new Date(value)
+      if (isNaN(d.getTime())) {
+        throw new Error('Date of birth must be a valid date (DD/MM/YYYY)')
+      }
+      return true
+    }),
 
   body('email')
     .optional()
@@ -227,6 +283,7 @@ const validateUpdateStudent = [
   body('bloodGroup')
     .optional()
     .trim()
+    .customSanitizer(v => v ? v.toUpperCase() : v)
     .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
     .withMessage('Blood group must be a valid option (A+, A-, B+, B-, AB+, AB-, O+, O-)'),
 
@@ -239,8 +296,8 @@ const validateUpdateStudent = [
   body('emergencyContact.phone')
     .optional()
     .trim()
-    .isString()
-    .withMessage('Emergency contact phone must be a string'),
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Emergency contact phone must be exactly 10 digits'),
 
   body('emergencyContact.relation')
     .optional()
@@ -262,8 +319,21 @@ const validateUpdateStudent = [
 
   body('admissionDate')
     .optional()
-    .isISO8601()
-    .withMessage('Admission date must be a valid ISO8601 date'),
+    .customSanitizer(value => {
+      if (!value) return value
+      const match = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+      if (match) {
+        return new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10))
+      }
+      return value
+    })
+    .custom(value => {
+      const d = new Date(value)
+      if (isNaN(d.getTime())) {
+        throw new Error('Admission date must be a valid date (DD/MM/YYYY)')
+      }
+      return true
+    }),
 
   body('status')
     .optional()
@@ -272,7 +342,19 @@ const validateUpdateStudent = [
     .withMessage('Status must be either Active, Inactive, or Graduated'),
 
   body('middleName').optional({ checkFalsy: true }).trim(),
-  body('parentPhone').optional({ checkFalsy: true }).trim(),
+  body('parentPhone')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Parent phone must be exactly 10 digits'),
+  body('additionalParentPhones')
+    .optional()
+    .isArray()
+    .withMessage('Additional parent phones must be an array'),
+  body('additionalParentPhones.*')
+    .trim()
+    .matches(/^[0-9]{10}$/)
+    .withMessage('Each additional parent phone must be exactly 10 digits'),
   body('category').optional({ checkFalsy: true }).trim(),
   body('religion').optional({ checkFalsy: true }).trim(),
   body('fatherName').optional({ checkFalsy: true }).trim(),

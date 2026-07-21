@@ -57,8 +57,9 @@ api.interceptors.response.use(
 
     // If request failed with 401 and hasn't been retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // If we are currently checking for a session refresh on the auth routes, don't loop
-      if (originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')) {
+      // If we are currently checking for a session refresh or on public auth check without refresh tokens, don't loop
+      const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('ck_refresh_token') : null
+      if (originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login') || (originalRequest.url.includes('/auth/me') && !storedRefreshToken)) {
         return Promise.reject(error)
       }
 
@@ -129,6 +130,11 @@ api.interceptors.response.use(
       'An unexpected error occurred'
     
     const customError = new Error(errorMessage)
+    customError.code = error.response?.data?.code || error.response?.data?.error?.code || error.code
+    customError.status = error.response?.status
+    customError.statusCode = error.response?.status
+    customError.response = error.response
+    customError.data = error.response?.data
     if (error.response?.data?.errors) {
       customError.errors = error.response.data.errors
     }
