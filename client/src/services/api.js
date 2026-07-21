@@ -47,6 +47,29 @@ api.interceptors.request.use(
   }
 )
 
+const formatApiError = (error) => {
+  if (error instanceof Error && error.statusCode) {
+    return error
+  }
+  const errorMessage = 
+    error.response?.data?.message || 
+    error.response?.data?.error?.message || 
+    (typeof error.response?.data?.error === 'string' ? error.response.data.error : null) || 
+    error.message || 
+    'An unexpected error occurred'
+  
+  const customError = new Error(errorMessage)
+  customError.code = error.response?.data?.code || error.response?.data?.error?.code || error.code
+  customError.status = error.response?.status
+  customError.statusCode = error.response?.status
+  customError.response = error.response
+  customError.data = error.response?.data
+  if (error.response?.data?.errors) {
+    customError.errors = error.response.data.errors
+  }
+  return customError
+}
+
 // Response Interceptor with automatic queueing for access token rotation
 api.interceptors.response.use(
   (response) => {
@@ -60,7 +83,7 @@ api.interceptors.response.use(
       // If we are currently checking for a session refresh or on public auth check without refresh tokens, don't loop
       const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('ck_refresh_token') : null
       if (originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login') || (originalRequest.url.includes('/auth/me') && !storedRefreshToken)) {
-        return Promise.reject(error)
+        return Promise.reject(formatApiError(error))
       }
 
       if (isRefreshing) {
@@ -72,7 +95,7 @@ api.interceptors.response.use(
             return api(originalRequest)
           })
           .catch((err) => {
-            return Promise.reject(err)
+            return Promise.reject(formatApiError(err))
           })
       }
 
@@ -104,7 +127,7 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
-        processQueue(refreshError, null)
+        processQueue(formatApiError(refreshError), null)
 
         try {
           if (typeof localStorage !== 'undefined') {
@@ -118,27 +141,11 @@ api.interceptors.response.use(
           window.location.href = '/auth/login?session_expired=true'
         }
 
-        return Promise.reject(refreshError)
+        return Promise.reject(formatApiError(refreshError))
       }
     }
 
-    const errorMessage = 
-      error.response?.data?.message || 
-      error.response?.data?.error?.message || 
-      error.response?.data?.error || 
-      error.message || 
-      'An unexpected error occurred'
-    
-    const customError = new Error(errorMessage)
-    customError.code = error.response?.data?.code || error.response?.data?.error?.code || error.code
-    customError.status = error.response?.status
-    customError.statusCode = error.response?.status
-    customError.response = error.response
-    customError.data = error.response?.data
-    if (error.response?.data?.errors) {
-      customError.errors = error.response.data.errors
-    }
-    return Promise.reject(customError)
+    return Promise.reject(formatApiError(error))
   }
 )
 
