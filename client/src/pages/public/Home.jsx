@@ -112,10 +112,9 @@ export default function Home() {
   // Fade out pure video scroll indicator as user scrolls
   const initialScrollHintOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0])
 
-  // 3D BACK-TO-FRONT ZOOM TRANSFORMS
-  // Video scales up & blurs slightly into background as user scrolls
-  const videoScale = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1.25, 1.5])
-  const videoBlur = useTransform(scrollYProgress, [0.35, 0.85], ['blur(0px)', 'blur(6px)'])
+  // Video scales up cleanly into background with crystal-clear focus as user scrolls
+  const videoScale = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1.25, 1.4])
+  const videoBlur = useTransform(scrollYProgress, [0.35, 0.85], ['blur(0px)', 'blur(1px)'])
   
   // Hero UI emerges FROM DEEP BACK (scale 0.6, opacity 0) TO FRONT (scale 1.0, opacity 1) and remains 100% visible till end
   const uiScale = useTransform(scrollYProgress, [0.15, 0.55], [0.6, 1])
@@ -316,11 +315,11 @@ export default function Home() {
               scale: videoScale,
               filter: videoBlur
             }}
-            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-90 contrast-105"
+            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-105 contrast-110"
           />
 
-          {/* Radial Dark Contrast Vignette */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,7,18,0.75)_0%,rgba(3,7,18,0.45)_55%,rgba(3,7,18,0.2)_100%)] z-10 pointer-events-none" />
+          {/* Subtle Radial Contrast Vignette (Keeps video bright & crystal clear while preserving text readability) */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,7,18,0.45)_0%,rgba(3,7,18,0.25)_55%,transparent_100%)] z-10 pointer-events-none" />
 
           {/* DEEP BOTTOM FADE GRADIENT (Fades bottom 65% of video frame to solid 100% pure black #030712) */}
           <div className="absolute bottom-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-transparent via-[#030712]/80 to-[#030712] z-10 pointer-events-none" />
