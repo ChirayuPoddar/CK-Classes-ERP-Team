@@ -192,12 +192,12 @@ export default function TimetableGrid({
   const safeSelectedIds = selectedSlotIds || []
 
   return (
-    <div className="overflow-y-auto overflow-x-auto custom-scrollbar flex-grow min-h-0 pr-1 h-full flex flex-col">
+    <div className="overflow-y-auto overflow-x-auto custom-scrollbar flex-grow min-h-0 h-full flex flex-col">
       <table className="w-full text-left min-w-[1810px] border-collapse flex flex-col h-full">
-        <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none block shrink-0">
-          <tr className="flex w-full items-center h-14">
-            <th className="pl-7 text-left flex items-center shrink-0 border-r border-slate-100 h-full sticky left-0 z-30 bg-slate-50" style={{ width: '130px' }}>
-              Time / Period
+        <thead className="bg-slate-100/80 border-b-2 border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest select-none block shrink-0">
+          <tr className="flex w-full items-center h-11">
+            <th className="pl-5 text-left flex items-center shrink-0 border-r border-slate-200/80 h-full sticky left-0 z-30 bg-slate-100/80" style={{ width: '120px' }}>
+              Period
             </th>
             {safeDays.map(day => {
               const isFilteredOut = dayFilter && dayFilter !== day
@@ -205,7 +205,7 @@ export default function TimetableGrid({
                 <th
                   key={day}
                   className={cn(
-                    "text-center flex-1 min-w-[230px] flex items-center justify-center border-r border-slate-100 tracking-widest font-black h-full",
+                    "text-center flex-1 min-w-[230px] flex items-center justify-center border-r border-slate-200/80 tracking-widest font-black h-full",
                     isFilteredOut && "opacity-30"
                   )}
                 >
@@ -213,8 +213,7 @@ export default function TimetableGrid({
                 </th>
               )
             })}
-            <th className="text-center flex items-center justify-center shrink-0 print:hidden h-full" style={{ width: '70px' }}>
-              Action
+            <th className="text-center flex items-center justify-center shrink-0 print:hidden h-full" style={{ width: '60px' }}>
             </th>
           </tr>
         </thead>
@@ -236,17 +235,16 @@ export default function TimetableGrid({
                 <tr
                   key={periodObj._id}
                   className={cn(
-                    "flex w-full items-stretch flex-1 min-h-[72px] transition-all duration-300 group",
-                    isBreak ? "bg-amber-50/30" : "hover:bg-slate-50/10"
+                    "flex w-full items-stretch flex-1 min-h-[68px] transition-all duration-200 group border-b border-slate-100/80",
+                    isBreak ? "bg-amber-50/40" : "even:bg-slate-50/30 hover:bg-blue-50/20"
                   )}
                 >
                   {/* Period Sticky Label */}
-                  <td className="pl-7 font-extrabold text-slate-800 bg-white group-hover:bg-slate-50 border-r border-slate-200/80 text-left select-none pr-4 shrink-0 flex flex-col justify-center overflow-hidden h-full sticky left-0 z-10 transition-colors duration-200" style={{ width: '130px' }}>
-                    <div className="text-[13px] font-semibold tracking-tight text-brand-blue-700 leading-none flex items-center gap-1.5">
-                      <span>{periodObj.name}</span>
+                  <td className="pl-5 font-extrabold text-slate-800 bg-white group-hover:bg-slate-50/80 border-r border-slate-200/80 text-left select-none pr-3 shrink-0 flex flex-col justify-center overflow-hidden h-full sticky left-0 z-10 transition-colors duration-200" style={{ width: '120px' }}>
+                    <div className="text-[12px] font-bold tracking-tight text-slate-800 leading-none">
+                      {periodObj.name}
                     </div>
-                    <div className="text-[11px] font-medium text-slate-500 mt-2.5 flex items-center gap-1.5 leading-none">
-                      <span className="text-[11px] font-medium text-slate-400">🕓</span>
+                    <div className="text-[10px] font-medium text-slate-400 mt-1.5 leading-none">
                       <span className="whitespace-nowrap">{periodObj.startTime} – {periodObj.endTime}</span>
                     </div>
                   </td>
@@ -311,14 +309,14 @@ export default function TimetableGrid({
                   })}
 
                   {/* Delete Period Action */}
-                  <td className="w-[70px] shrink-0 text-center flex items-center justify-center overflow-hidden print:hidden h-full">
+                  <td className="w-[60px] shrink-0 text-center flex items-center justify-center overflow-hidden print:hidden h-full">
                     {onDeletePeriod && (
                       <button
                         onClick={() => onDeletePeriod(periodObj)}
-                        className="h-8 w-8 rounded-full hover:bg-red-50 text-red-500 flex items-center justify-center transition-all cursor-pointer mx-auto"
+                        className="h-7 w-7 rounded-full hover:bg-red-50 text-red-400 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer mx-auto opacity-0 group-hover:opacity-100"
                         title={`Delete ${periodObj.name}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </td>

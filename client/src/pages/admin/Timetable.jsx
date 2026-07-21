@@ -41,7 +41,6 @@ import AutoGeneratorModal from '@/components/timetable/AutoGeneratorModal'
 import BulkOperationsBar from '@/components/timetable/BulkOperationsBar'
 import TimetableGrid from '@/components/timetable/TimetableGrid'
 import UnscheduledPool from '@/components/timetable/UnscheduledPool'
-import useUndoRedo from '@/hooks/useUndoRedo'
 import useTimetableDrag from '@/hooks/useTimetableDrag'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
@@ -312,11 +311,7 @@ export default function Timetable() {
     handleDragStartSlot,
     handleDragOverCell,
     handleDragLeaveCell,
-    executeDrop,
-    handleUndo,
-    handleRedo,
-    canUndo,
-    canRedo
+    executeDrop
   } = useTimetableDrag({
     timetableSlots,
     allSlots: timetableSlots,
@@ -829,7 +824,7 @@ export default function Timetable() {
     : 'No Teacher Selected'
 
   return (
-    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
+    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-2 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
       
       {/* Inject print-only stylesheet to force Landscape formatting on a single page */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -921,7 +916,7 @@ export default function Timetable() {
         }
       `}} />
 
-      {/* Custom Scrollbar and layout transitions stylesheet */}
+      {/* Custom Scrollbar + Dynamic print view switch */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar {
           height: 6px;
@@ -931,16 +926,12 @@ export default function Timetable() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1; /* slate-300 */
+          background: #cbd5e1;
           border-radius: 9999px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8; /* slate-400 */
+          background: #94a3b8;
         }
-      `}} />
-
-      {/* Dynamic Print Container Switch based on printMode state */}
-      <style dangerouslySetInnerHTML={{__html: `
         @media print {
           .print-class-view {
             display: ${viewMode === 'class' ? 'block' : 'none'} !important;
@@ -951,17 +942,15 @@ export default function Timetable() {
         }
       `}} />
 
-      {/* Toast notifications */}
+      {/* Toast Notifications */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={cn(
-              "fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-[20px] shadow-premium-3 flex items-center gap-3 border text-xs font-black tracking-wide bg-white max-w-sm select-none print:hidden",
-              toast.type === 'success' ? "border-emerald-200 text-slate-850" : "border-red-200 text-slate-850"
-            )}
+            initial={{ opacity: 0, y: -16, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -16, x: '-50%' }}
+            transition={spring}
+            className="fixed top-5 left-1/2 z-50 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2.5 text-slate-700 print:hidden"
           >
             <div className={cn(
               "h-6.5 w-6.5 rounded-full flex items-center justify-center shrink-0",
@@ -974,29 +963,99 @@ export default function Timetable() {
         )}
       </AnimatePresence>
 
-      {/* 1. Header & Breadcrumbs Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden">
-        <div className="text-left space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
-            <span>Admin</span>
-            <span>/</span>
-            <span className="text-brand-blue-600">Timetable</span>
+      {/* ═══════════ UNIFIED HEADER BAR ═══════════ */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 shrink-0 print:hidden">
+        {/* Left: Title + View Tabs */}
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="text-left shrink-0">
+            <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
+              <span>Admin</span>
+              <span>/</span>
+              <span className="text-brand-blue-600">Timetable</span>
+            </div>
+            <h2 className="text-lg font-black text-slate-800 tracking-tight leading-none mt-0.5">
+              Enterprise Timetable
+            </h2>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mt-1">
-            Enterprise Timetable System
-          </h2>
-          <p className="text-[11px] font-bold text-slate-400 mt-1.5">
-            Manage weekly schedules, multi-views, period breaks, classroom capacities, and AI auto-generation
-          </p>
+          <div className="hidden md:block">
+            <TimetableViewTabs activeView={viewMode} onChange={(v) => setViewMode(v)} />
+          </div>
+        </div>
+
+        {/* Right: All action buttons on one row */}
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => setIsSearchPaletteOpen(true)}
+            className="h-8 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-[11px] font-bold text-slate-600 flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Search palette (Cmd+K)"
+          >
+            <Search className="h-3 w-3 text-brand-blue-600" />
+            <span className="hidden sm:inline">Search</span>
+          </button>
+
+          <button
+            onClick={() => setIsAutoGeneratorOpen(true)}
+            className="h-8 px-3 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-[11px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+          >
+            <Cpu className="h-3 w-3" />
+            <span className="hidden sm:inline">Generate</span>
+          </button>
+
+          <div className="h-5 w-px bg-slate-200 hidden md:block" />
+
+          <button
+            onClick={() => setIsPeriodManagerOpen(true)}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-600 flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+          >
+            <Clock className="h-3 w-3 text-blue-500" />
+            <span className="hidden lg:inline">Periods</span>
+          </button>
+
+          <button
+            onClick={() => setIsRoomManagerOpen(true)}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-600 flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+          >
+            <MapPin className="h-3 w-3 text-purple-500" />
+            <span className="hidden lg:inline">Rooms</span>
+          </button>
+
+          <button
+            onClick={() => setIsHolidayManagerOpen(true)}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-600 flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+          >
+            <Calendar className="h-3 w-3 text-amber-500" />
+            <span className="hidden lg:inline">Holidays</span>
+          </button>
+
+          <button
+            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
+            className={cn(
+              "h-8 px-3 rounded-full border text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors",
+              isAnalyticsOpen ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700" : "border-slate-200 hover:bg-slate-50 text-slate-600"
+            )}
+          >
+            <BarChart2 className="h-3 w-3 text-emerald-500" />
+            <span className="hidden lg:inline">Analytics</span>
+          </button>
+
+          <div className="h-5 w-px bg-slate-200 hidden md:block" />
+
+          <button
+            onClick={() => setIsExportImportOpen(true)}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-600 flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+          >
+            <Download className="h-3 w-3 text-red-500" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
         </div>
       </div>
 
-      {/* View Mode Tabs */}
-      <div className="shrink-0 print:hidden text-left">
+      {/* Mobile View Tabs (shown below header on small screens) */}
+      <div className="md:hidden shrink-0 print:hidden">
         <TimetableViewTabs activeView={viewMode} onChange={(v) => setViewMode(v)} />
       </div>
 
-      {/* Multi-Filters Panel */}
+      {/* ═══════════ COLLAPSIBLE FILTERS ═══════════ */}
       <div className="shrink-0 print:hidden">
         <TimetableFilters
           filters={advancedFilters}
@@ -1029,94 +1088,6 @@ export default function Timetable() {
           subjects={subjects}
           rooms={rooms}
         />
-      </div>
-
-      {/* Action Toolbar */}
-      <div 
-        style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="py-4 px-6 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsSearchPaletteOpen(true)}
-            className="h-9 px-4 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-xs font-bold text-slate-600 flex items-center gap-2 shadow-xs cursor-pointer"
-            title="Search palette (Cmd+K)"
-          >
-            <Search className="h-3.5 w-3.5 text-brand-blue-600" />
-            <span>Search</span>
-          </button>
-
-          <button
-            onClick={() => setIsAutoGeneratorOpen(true)}
-            className="h-9 px-4 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Cpu className="h-3.5 w-3.5" />
-            <span>Auto Generator</span>
-          </button>
-
-          <button
-            onClick={() => setIsPeriodManagerOpen(true)}
-            className="h-9 px-4 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 rounded-full text-xs font-black text-blue-600 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Periods</span>
-          </button>
-
-          <button
-            onClick={() => setIsRoomManagerOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <MapPin className="h-3.5 w-3.5 text-purple-500" />
-            <span>Rooms</span>
-          </button>
-
-          <button
-            onClick={() => setIsHolidayManagerOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Calendar className="h-3.5 w-3.5 text-amber-500" />
-            <span>Holidays</span>
-          </button>
-
-          <button
-            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
-            className={cn(
-              "h-9 px-4 rounded-full border text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors",
-              isAnalyticsOpen ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700" : "border-slate-200 hover:bg-slate-50 text-slate-700"
-            )}
-          >
-            <BarChart2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Analytics</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
-            title="Undo last drag operation (Ctrl+Z)"
-          >
-            <span>↩ Undo</span>
-          </button>
-
-          <button
-            onClick={handleRedo}
-            disabled={!canRedo}
-            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
-            title="Redo last operation (Ctrl+Y)"
-          >
-            <span>↪ Redo</span>
-          </button>
-
-          <button
-            onClick={() => setIsExportImportOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Download className="h-3.5 w-3.5 text-red-500" />
-            <span>Export / Import</span>
-          </button>
-        </div>
       </div>
 
       {/* Analytics Dashboard Drawer / Toggle */}
@@ -1163,9 +1134,9 @@ export default function Timetable() {
       </div>
 
       {/* 3. Dual-Pane Drag & Drop Scheduling Workspace */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-grow min-h-0">
+      <div className="flex flex-col lg:flex-row gap-3 flex-grow min-h-0">
         {/* Left Sidebar: Unscheduled Class Pool */}
-        <div className="w-full lg:w-72 shrink-0 print:hidden transition-all duration-300">
+        <div className="w-full lg:w-60 shrink-0 print:hidden transition-all duration-300 overflow-y-auto">
           <UnscheduledPool
             subjects={subjects}
             timetableSlots={timetableSlots}
@@ -1178,8 +1149,8 @@ export default function Timetable() {
 
         {/* Right Main Board: Interactive Timetable Grid */}
         <div 
-          style={{ borderRadius: '28px', border: '1px solid #ECECEC', padding: '24px' }}
-          className="flex-1 min-w-0 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col justify-between overflow-hidden print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
+          style={{ borderRadius: '20px', border: '1px solid #E2E8F0', padding: '16px' }}
+          className="flex-1 min-w-0 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
         >
           <TimetableGrid
             periods={periods}
