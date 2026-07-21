@@ -20,6 +20,54 @@ const connectDB = async () => {
     console.log(`[Database] Host: ${conn.connection.host}`)
     console.log(`[Database] Database: ${conn.connection.name}`)
     console.log(`[Database] Connection type: ${connType}`)
+
+    try {
+      const bcrypt = require('bcryptjs')
+      const User = require('../models/User')
+
+      // Auto-seed Keerthi Admin
+      const keerthiEmail = 'keerthi@ckclasses.com'
+      const keerthiExists = await User.findOne({ email: keerthiEmail })
+      if (!keerthiExists) {
+        const salt = await bcrypt.genSalt(10)
+        const passwordHash = await bcrypt.hash('kk123', salt)
+        await User.create({
+          email: keerthiEmail,
+          passwordHash,
+          role: 'admin',
+          firstName: 'Keerthi',
+          lastName: 'Kumar',
+          isActive: true
+        })
+        console.log(`[Auto-Seed] Created admin account: ${keerthiEmail}`)
+      } else {
+        const salt = await bcrypt.genSalt(10)
+        keerthiExists.passwordHash = await bcrypt.hash('kk123', salt)
+        keerthiExists.role = 'admin'
+        keerthiExists.isActive = true
+        await keerthiExists.save()
+        console.log(`[Auto-Seed] Synchronized admin credentials for: ${keerthiEmail}`)
+      }
+
+      // Also ensure default admin@ckclasses.com exists with password123
+      const defaultEmail = 'admin@ckclasses.com'
+      const defaultExists = await User.findOne({ email: defaultEmail })
+      if (!defaultExists) {
+        const salt = await bcrypt.genSalt(10)
+        const passwordHash = await bcrypt.hash('password123', salt)
+        await User.create({
+          email: defaultEmail,
+          passwordHash,
+          role: 'admin',
+          firstName: 'Chirayu',
+          lastName: 'Poddar',
+          isActive: true
+        })
+        console.log(`[Auto-Seed] Created default admin account: ${defaultEmail}`)
+      }
+    } catch (seedErr) {
+      console.error(`[Auto-Seed Warning] Could not seed admin users: ${seedErr.message}`)
+    }
   } catch (error) {
     console.error(`[Database Error] MongoDB Connection Error: ${error.message}`)
     process.exit(1)

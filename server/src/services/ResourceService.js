@@ -64,9 +64,12 @@ class ResourceService {
     // 1. Validation size limit checks
     if (file) {
       const isVideo = file.mimetype.startsWith('video/')
-      const limit = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024
+      const limit = isVideo ? 500 * 1024 * 1024 : 4 * 1024 * 1024
       if (file.size > limit) {
-        throw new Error(isVideo ? 'Video file size exceeds the 500MB limit.' : 'File size exceeds the 50MB limit.')
+        const err = new Error(isVideo ? 'Video file size exceeds the 500MB limit.' : 'File size exceeds the maximum supported 4MB serverless upload limit.')
+        err.statusCode = 400
+        err.code = 'FILE_TOO_LARGE'
+        throw err
       }
 
       // Sanitize upload filename

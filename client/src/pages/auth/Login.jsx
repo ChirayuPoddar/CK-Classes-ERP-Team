@@ -10,8 +10,8 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  email: z.string().min(1, { message: "Email or username is required" }),
+  password: z.string().min(1, { message: "Password is required" }),
   rememberMe: z.boolean().optional()
 })
 
@@ -62,12 +62,12 @@ export default function Login() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Email input with icon wrapper */}
+        {/* Email or Username input with icon wrapper */}
         <div className="relative">
           <Input
-            label="Email Address"
-            type="email"
-            placeholder="admin@ckclasses.com"
+            label="Email or Username"
+            type="text"
+            placeholder="keerthi@ckclasses.com or keerthi"
             error={errors.email?.message}
             className="pl-9"
             {...register('email')}

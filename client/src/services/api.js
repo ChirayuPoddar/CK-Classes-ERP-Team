@@ -33,6 +33,13 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`
       }
     } catch {}
+
+    // Ensure FormData requests automatically generate boundary headers
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+      delete config.headers['content-type']
+    }
+
     return config
   },
   (error) => {
@@ -106,7 +113,7 @@ api.interceptors.response.use(
           }
         } catch {}
 
-        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth') && !originalRequest?.url?.includes('/auth/me')) {
           window.location.href = '/auth/login?session_expired=true'
         }
 

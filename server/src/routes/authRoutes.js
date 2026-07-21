@@ -103,7 +103,13 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() })
+    const cleanInput = email.toLowerCase().trim()
+    const user = await User.findOne({
+      $or: [
+        { email: cleanInput },
+        { email: `${cleanInput}@ckclasses.com` }
+      ]
+    })
     if (!user) {
       return res.status(401).json({
         success: false,

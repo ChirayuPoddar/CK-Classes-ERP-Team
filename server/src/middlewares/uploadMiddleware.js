@@ -88,13 +88,42 @@ const resourceFilter = (req, file, cb) => {
 const uploadResource = multer({
   storage: storage,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB
+    fileSize: 4 * 1024 * 1024 // 4MB (fits Vercel serverless request body limit of 4.5MB)
   },
   fileFilter: resourceFilter
 })
 
+const handleUploadResource = (req, res, next) => {
+  uploadResource.single('file')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            code: 'FILE_TOO_LARGE',
+            message: 'File size exceeds maximum supported upload limit of 4MB.'
+          })
+        }
+        return res.status(400).json({
+          success: false,
+          code: 'UPLOAD_ERROR',
+          message: err.message
+        })
+      }
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_FILE',
+        message: err.message || 'File upload failed'
+      })
+    }
+    next()
+  })
+}
+
 module.exports = {
   uploadPhoto,
   uploadDocument,
-  uploadResource
+  uploadResource,
+  handleUploadResource
 }
+

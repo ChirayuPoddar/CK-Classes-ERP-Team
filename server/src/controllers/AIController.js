@@ -25,12 +25,27 @@ class AIController {
   }
 
   /**
+   * POST /api/v1/ai/generate-quiz
+   */
+  async handleGenerateQuiz(req, res, next) {
+    try {
+      const quiz = await AIService.generateQuizFromResource(req.user, req.body)
+      res.status(200).json({
+        success: true,
+        data: quiz
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
    * GET /api/v1/ai/status
    * Check active AI Provider configuration status
    */
   async getStatus(req, res, next) {
     try {
-      const provider = process.env.AI_PROVIDER || 'gemini'
+      const provider = process.env.AI_PROVIDER || 'groq'
       res.status(200).json({
         success: true,
         provider,

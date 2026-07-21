@@ -3,7 +3,7 @@ const router = express.Router()
 const ResourceController = require('../controllers/ResourceController')
 const { verifyToken, requirePermission } = require('../middlewares/authMiddleware')
 const { PERMISSIONS } = require('../config/permissions')
-const { uploadResource } = require('../middlewares/uploadMiddleware')
+const { uploadResource, handleUploadResource } = require('../middlewares/uploadMiddleware')
 const { validateCreateResource, validateUpdateResource } = require('../validators/resourceValidator')
 
 // Read-only paths
@@ -14,8 +14,8 @@ router.post('/:id/download', verifyToken, requirePermission(PERMISSIONS.RESOURCE
 router.post('/:id/view', verifyToken, requirePermission(PERMISSIONS.RESOURCES_VIEW), ResourceController.incrementView)
 
 // CRUD modification paths
-router.post('/', verifyToken, requirePermission(PERMISSIONS.RESOURCES_CREATE), uploadResource.single('file'), validateCreateResource, ResourceController.createResource)
-router.put('/:id', verifyToken, requirePermission(PERMISSIONS.RESOURCES_UPDATE), uploadResource.single('file'), validateUpdateResource, ResourceController.updateResource)
+router.post('/', verifyToken, requirePermission(PERMISSIONS.RESOURCES_CREATE), handleUploadResource, validateCreateResource, ResourceController.createResource)
+router.put('/:id', verifyToken, requirePermission(PERMISSIONS.RESOURCES_UPDATE), handleUploadResource, validateUpdateResource, ResourceController.updateResource)
 router.delete('/:id', verifyToken, requirePermission(PERMISSIONS.RESOURCES_DELETE), ResourceController.deleteResource)
 
 // Star / Duplicate paths
