@@ -1,6 +1,6 @@
 import React from 'react'
 import { cn } from '@/utils/cn'
-import { Edit3, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 // Subject color palette fallback
 const getSubjectColor = (subjectName) => {
@@ -45,7 +45,11 @@ export function TimetableCell({
           onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default",
           isFilteredOut && "opacity-25 pointer-events-none",
           isSelected && "border-blue-600 bg-blue-50/90 ring-2 ring-blue-400",
-          !isHovered && "border-slate-300 bg-slate-50/55 hover:border-blue-500 hover:bg-blue-50/65",
+          !isHovered && (
+            showTeacherView 
+              ? "border-emerald-200/80 bg-emerald-50/30 hover:border-emerald-400 hover:bg-emerald-50/60"
+              : "border-slate-300 bg-slate-50/55 hover:border-blue-500 hover:bg-blue-50/65"
+          ),
           isHovered && isValid && "border-2 border-emerald-500 bg-emerald-50/90 shadow-md ring-2 ring-emerald-300",
           isHovered && !isValid && "border-2 border-rose-500 bg-rose-50/90 ring-2 ring-rose-300"
         )}
@@ -62,6 +66,8 @@ export function TimetableCell({
               </span>
             )}
           </div>
+        ) : showTeacherView ? (
+          <span className="text-[10px] font-extrabold tracking-wider text-emerald-600/90 uppercase">FREE PERIOD</span>
         ) : onClick ? (
           <>
             <span className="text-[12px] font-medium text-slate-400 group-hover:text-blue-550 leading-none transition-colors mb-0.5">+</span>
@@ -77,7 +83,36 @@ export function TimetableCell({
   const subColor = slot.subject?.color || getSubjectColor(slot.subject?.name)
 
   // Specialized view mode cards
-  if (showTeacherView || showRoomView || showSubjectView) {
+  if (showTeacherView) {
+    return (
+      <div
+        draggable={true}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={cn(
+          "group relative rounded-xl p-2.5 h-[64px] max-h-[64px] w-full flex flex-col justify-center text-left shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-200 select-none overflow-hidden cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01]",
+          isSelected && "ring-2 ring-blue-500",
+          isHovered && isValid && "ring-4 ring-indigo-400 bg-indigo-50/90",
+          isHovered && !isValid && "ring-4 ring-rose-400 bg-rose-50/90"
+        )}
+        style={{ backgroundColor: isHovered ? undefined : `${subColor}15` }}
+      >
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-md" style={{ backgroundColor: subColor }} />
+        <div className="pl-1 space-y-0.5 min-w-0">
+          <span className="text-[11px] font-black text-slate-800 truncate leading-none block">
+            {slot.subject?.name || 'Subject'}
+          </span>
+          <span className="text-[9.5px] font-bold text-slate-600 truncate leading-none block mt-1">
+            {slot.class} • {slot.room || 'No Room'}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (showRoomView || showSubjectView) {
     return (
       <div
         draggable={true}
@@ -96,10 +131,10 @@ export function TimetableCell({
         <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-md" style={{ backgroundColor: subColor }} />
         <div className="pl-1.5 space-y-1">
           <span className="text-[11px] font-black text-slate-800 truncate leading-none block uppercase">
-            {showTeacherView ? slot.class : showRoomView ? slot.class : `${slot.class} • ${slot.teacher ? `${slot.teacher.firstName || ''}` : 'Unassigned'}`}
+            {showRoomView ? slot.class : `${slot.class} • ${slot.teacher ? `${slot.teacher.firstName || ''}` : 'Unassigned'}`}
           </span>
           <span className="text-[8.5px] font-bold text-slate-500 truncate leading-none block">
-            {showTeacherView ? (slot.room || 'No Room') : showRoomView ? (slot.subject?.name || 'Subject') : (slot.room || 'No Room')}
+            {showRoomView ? (slot.subject?.name || 'Subject') : (slot.room || 'No Room')}
           </span>
         </div>
       </div>
@@ -114,51 +149,26 @@ export function TimetableCell({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      onClick={onClick}
       className={cn(
-        "group relative rounded-xl p-3 h-[64px] max-h-[64px] w-full flex flex-col justify-between text-left shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-200 select-none cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md hover:border-blue-400",
-        isSelected && "ring-2 ring-blue-500 bg-blue-100/50",
-        isHovered && isValid && "border-2 border-indigo-500 bg-indigo-50/95 ring-2 ring-indigo-300 shadow-md",
-        isHovered && !isValid && "border-2 border-rose-500 bg-rose-50/95 ring-2 ring-rose-300 shadow-md"
+        "group relative rounded-xl p-3 h-[64px] max-h-[64px] w-full flex flex-col justify-between text-left shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-200 select-none overflow-hidden cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01]",
+        isSelected && "ring-2 ring-blue-500",
+        isHovered && isValid && "ring-4 ring-indigo-400 bg-indigo-50/90",
+        isHovered && !isValid && "ring-4 ring-rose-400 bg-rose-50/90"
       )}
       style={{ backgroundColor: isHovered ? undefined : `${subColor}15` }}
     >
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-md" style={{ backgroundColor: subColor }} />
-
-      {isHovered ? (
-        <div className="pl-1.5 flex flex-col justify-center h-full">
-          {isValid ? (
-            <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wider flex items-center gap-1">
-              🔄 Swap / Overwrite
-            </span>
-          ) : (
-            <span className="text-[9px] font-black text-rose-700 leading-tight block truncate" title={reason}>
-              🚫 {reason || 'Invalid'}
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="pl-1.5 flex flex-col justify-between h-full py-0.5">
-          <span className="text-[13px] font-semibold text-slate-800 leading-none block tracking-tight whitespace-nowrap">
-            {slot.subject?.name || 'Subject'}
-          </span>
-
-          <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 leading-none mt-1 whitespace-nowrap">
-            <span className="pr-2">
-              {slot.teacher ? `${slot.teacher.firstName || ''} ${slot.teacher.lastName || ''}`.trim() : 'Unassigned'}
-            </span>
-            <span className="shrink-0 uppercase font-bold text-slate-600">
-              {slot.room || 'No Room'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {onClick && !isHovered && (
-        <div className="absolute right-2.5 bottom-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
-          <Edit3 className="h-3 w-3 text-blue-500 hover:text-blue-600 shrink-0" />
-        </div>
-      )}
+      <div className="pl-1.5 space-y-1">
+        <span className="text-[11px] font-black text-slate-800 truncate leading-none block uppercase">
+          {slot.subject?.name || 'Unassigned'}
+        </span>
+        <span className="text-[8.5px] font-bold text-slate-500 truncate leading-none block">
+          {slot.teacher ? `${slot.teacher.firstName || ''} ${slot.teacher.lastName || ''}`.trim() : 'No Teacher'}
+        </span>
+      </div>
+      <div className="pl-1.5 flex items-center justify-between text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">
+        <span>{slot.room || 'No Room'}</span>
+      </div>
     </div>
   )
 }
@@ -264,14 +274,12 @@ export default function TimetableGrid({
                       <td
                         key={day}
                         onDragOver={(e) => {
-                          console.log("GRID dragOver")
                           if (!isFilteredOut && onDragOver) onDragOver(e, day, periodObj, slot)
                         }}
                         onDragLeave={(e) => {
                           if (!isFilteredOut && onDragLeave) onDragLeave(e)
                         }}
                         onDrop={(e) => {
-                          console.log("GRID drop")
                           if (!isFilteredOut && onDrop) onDrop(e, day, periodObj, slot)
                         }}
                         className={cn(
@@ -286,18 +294,15 @@ export default function TimetableGrid({
                           hoverState={cellHover}
                           onClick={() => !isFilteredOut && onCellClick && onCellClick(day, periodObj, slot)}
                           onDragStart={(e) => {
-                            console.log("GRID dragStart")
                             if (slot && onDragStart) onDragStart(e, slot)
                           }}
                           onDragOver={(e) => {
-                            console.log("GRID dragOver (cell)")
                             if (!isFilteredOut && onDragOver) onDragOver(e, day, periodObj, slot)
                           }}
                           onDragLeave={(e) => {
                             if (!isFilteredOut && onDragLeave) onDragLeave(e)
                           }}
                           onDrop={(e) => {
-                            console.log("GRID drop (cell)")
                             if (!isFilteredOut && onDrop) onDrop(e, day, periodObj, slot)
                           }}
                           showTeacherView={viewMode === 'teacher'}

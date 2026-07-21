@@ -30,6 +30,7 @@ import SearchableSelect from '@/components/common/SearchableSelect'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import TimetableViewTabs from '@/components/timetable/TimetableViewTabs'
+import TeacherInfoHeader from '@/components/timetable/TeacherInfoHeader'
 import PeriodManager from '@/components/timetable/PeriodManager'
 import RoomManager from '@/components/timetable/RoomManager'
 import HolidayManager from '@/components/timetable/HolidayManager'
@@ -168,6 +169,26 @@ export default function Timetable() {
   const [academicYearFilter, setAcademicYearFilter] = useState('2026-2027')
   const [dayFilter, setDayFilter] = useState('')
 
+  // Teacher Timetable View State
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState([])
+  const [activeTeacherId, setActiveTeacherId] = useState('')
+
+  const handleSelectTeacher = (teacherId) => {
+    if (!teacherId) return
+    if (!selectedTeacherIds.includes(teacherId)) {
+      setSelectedTeacherIds(prev => [...prev, teacherId])
+    }
+    setActiveTeacherId(teacherId)
+  }
+
+  const handleRemoveTeacher = (teacherId) => {
+    const updated = selectedTeacherIds.filter(id => id !== teacherId)
+    setSelectedTeacherIds(updated)
+    if (activeTeacherId === teacherId) {
+      setActiveTeacherId(updated[0] || '')
+    }
+  }
+
   const [advancedFilters, setAdvancedFilters] = useState({
     class: 'Class 1',
     teacher: '',
@@ -266,7 +287,13 @@ export default function Timetable() {
         params: { page: 1, limit: 1000, status: 'Active' }
       })
       if (res && res.success && res.data && res.data.teachers) {
-        setTeachers(res.data.teachers)
+        const teacherList = res.data.teachers
+        setTeachers(teacherList)
+        if (teacherList.length > 0) {
+          const firstId = teacherList[0]._id
+          setSelectedTeacherIds(prev => prev.length === 0 ? [firstId] : prev)
+          setActiveTeacherId(prev => prev || firstId)
+        }
       }
     } catch (err) {
       console.error('Failed to load active teachers:', err)
@@ -814,7 +841,7 @@ export default function Timetable() {
 
 
   // Selected teacher's read-only slots list (used for Print View)
-  const printTeacherId = advancedFilters.teacher
+  const printTeacherId = activeTeacherId
   const selectedTeacherSlots = timetableSlots.filter(s => 
     s.teacher && ((s.teacher._id || s.teacher) === printTeacherId)
   )
@@ -1099,19 +1126,35 @@ export default function Timetable() {
         </div>
       )}
 
-      {/* ═══════════ 2. HORIZONTAL AVAILABLE CLASS POOL (ABOVE GRID) ═══════════ */}
-      <div className="shrink-0 print:hidden">
-        <UnscheduledPool
-          subjects={subjects}
-          timetableSlots={timetableSlots}
-          currentClass={classFilter}
-          onClassChange={(c) => setClassFilter(c)}
-          classes={classes}
-          onDragStartSubject={handleDragStartSubject}
-          onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
-          onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
-        />
-      </div>
+      {/* ═══════════ 2. HEADER BAR (CLASS POOL OR TEACHER PROFILE) ═══════════ */}
+      {viewMode === 'teacher' ? (
+        <div className="shrink-0 print:hidden">
+          <TeacherInfoHeader
+            teachers={teachers}
+            subjects={subjects}
+            timetableSlots={timetableSlots}
+            periods={periods}
+            selectedTeacherIds={selectedTeacherIds}
+            activeTeacherId={activeTeacherId}
+            onSelectTeacher={handleSelectTeacher}
+            onRemoveTeacher={handleRemoveTeacher}
+            onSetActiveTeacher={setActiveTeacherId}
+          />
+        </div>
+      ) : (
+        <div className="shrink-0 print:hidden">
+          <UnscheduledPool
+            subjects={subjects}
+            timetableSlots={timetableSlots}
+            currentClass={classFilter}
+            onClassChange={(c) => setClassFilter(c)}
+            classes={classes}
+            onDragStartSubject={handleDragStartSubject}
+            onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
+            onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
+          />
+        </div>
+      )}
 
       {/* 1. Print/PDF Header FOR CLASS TIMETABLE */}
       <div className="hidden print:print-class-view flex items-center justify-between border-b border-slate-200 pb-4 mb-6 select-none w-full">
@@ -1159,7 +1202,7 @@ export default function Timetable() {
           days={daysOfWeek}
           slots={
             viewMode === 'teacher'
-              ? timetableSlots.filter(s => advancedFilters.teacher && s.teacher && (s.teacher._id === advancedFilters.teacher || s.teacher === advancedFilters.teacher))
+              ? timetableSlots.filter(s => s.teacher && ((s.teacher._id || s.teacher) === activeTeacherId))
               : timetableSlots.filter(s => s.class === classFilter)
           }
           dayFilter={dayFilter}
