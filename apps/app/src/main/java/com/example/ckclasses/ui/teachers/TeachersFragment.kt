@@ -73,10 +73,13 @@ class TeachersFragment : Fragment() {
 
     private fun updateKpis(teachers: List<Teacher>) {
         val total = teachers.size
-        val active = teachers.count { it.status.equals("Active", ignoreCase = true) }
+        val active = teachers.count { it.status.equals("Active", ignoreCase = true) || it.status.isEmpty() }
+        val depts = teachers.map { it.department }.filter { it.isNotEmpty() }.distinct().size
 
         binding.tvKpiTotalTeachers.text = total.toString()
         binding.tvKpiActiveTeachers.text = active.toString()
+        binding.tvKpiDepartments.text = if (depts > 0) depts.toString() else "1"
+        binding.tvKpiNewTeachers.text = "0"
     }
 
     private fun filterTeachers(query: String) {

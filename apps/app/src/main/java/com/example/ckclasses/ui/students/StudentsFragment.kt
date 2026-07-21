@@ -73,7 +73,7 @@ class StudentsFragment : Fragment() {
 
     private fun updateKpis(students: List<Student>) {
         val total = students.size
-        val active = students.count { it.status.equals("Active", ignoreCase = true) }
+        val active = students.count { it.status.equals("Active", ignoreCase = true) || it.status.isEmpty() }
         val inactive = students.count { it.status.equals("Inactive", ignoreCase = true) }
 
         binding.tvKpiTotalStudents.text = total.toString()
