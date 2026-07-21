@@ -19,7 +19,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://192.168.1.33:5050/api/v1/\"")
+            buildConfigField("String", "BASE_URL", "\"https://ck-classes-erp-team.onrender.com/api/v1/\"")
         }
         release {
             isMinifyEnabled = false
@@ -27,7 +27,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://api.ckclasses.com/api/v1/\"")
+            buildConfigField("String", "BASE_URL", "\"https://ck-classes-erp-team.onrender.com/api/v1/\"")
         }
     }
 
