@@ -8,15 +8,19 @@ import kotlinx.coroutines.withContext
 
 class AuthRepository(private val apiService: ApiService) {
 
-    suspend fun login(request: LoginRequest): NetworkResult<LoginResponseData> =
+    suspend fun login(request: LoginRequest): NetworkResult<User> =
         withContext(Dispatchers.IO) {
             try {
                 val response = apiService.login(request)
                 if (response.isSuccessful && response.body()?.success == true) {
-                    NetworkResult.Success(response.body()?.data, response.body()?.message)
+                    val user = response.body()?.user ?: response.body()?.data?.user
+                    if (user != null) {
+                        NetworkResult.Success(user, response.body()?.message)
+                    } else {
+                        NetworkResult.Error("Login response missing user data")
+                    }
                 } else {
-                    val errorMsg = response.body()?.error
-                        ?: response.body()?.message
+                    val errorMsg = response.body()?.getErrorMessage()
                         ?: "Login failed (${response.code()})"
                     NetworkResult.Error(errorMsg)
                 }
@@ -25,14 +29,19 @@ class AuthRepository(private val apiService: ApiService) {
             }
         }
 
-    suspend fun getCurrentUser(): NetworkResult<LoginResponseData> =
+    suspend fun getCurrentUser(): NetworkResult<User> =
         withContext(Dispatchers.IO) {
             try {
                 val response = apiService.getCurrentUser()
                 if (response.isSuccessful && response.body()?.success == true) {
-                    NetworkResult.Success(response.body()?.data)
+                    val user = response.body()?.user ?: response.body()?.data?.user
+                    if (user != null) {
+                        NetworkResult.Success(user)
+                    } else {
+                        NetworkResult.Error("User session missing")
+                    }
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Session expired")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Session expired")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Failed to verify session")
@@ -60,7 +69,7 @@ class AuthRepository(private val apiService: ApiService) {
                 if (response.isSuccessful && response.body()?.success == true) {
                     NetworkResult.Success(response.body()?.data, response.body()?.message)
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Activation request failed")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Activation request failed")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Activation error")
@@ -74,7 +83,7 @@ class AuthRepository(private val apiService: ApiService) {
                 if (response.isSuccessful && response.body()?.success == true) {
                     NetworkResult.Success(Unit, response.body()?.message ?: "Account activated successfully")
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Verification failed")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Verification failed")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Activation verification error")
@@ -88,7 +97,7 @@ class AuthRepository(private val apiService: ApiService) {
                 if (response.isSuccessful && response.body()?.success == true) {
                     NetworkResult.Success(Unit, response.body()?.message ?: "OTP sent to email")
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Failed to send reset OTP")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Failed to send reset OTP")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -103,7 +112,7 @@ class AuthRepository(private val apiService: ApiService) {
                     val token = response.body()?.resetToken ?: ""
                     NetworkResult.Success(token, "OTP verified")
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Invalid OTP")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Invalid OTP")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -117,7 +126,7 @@ class AuthRepository(private val apiService: ApiService) {
                 if (response.isSuccessful && response.body()?.success == true) {
                     NetworkResult.Success(Unit, response.body()?.message ?: "Password reset successful")
                 } else {
-                    NetworkResult.Error(response.body()?.error ?: "Password reset failed")
+                    NetworkResult.Error(response.body()?.getErrorMessage() ?: "Password reset failed")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.localizedMessage ?: "Network error")

@@ -14,8 +14,8 @@ class AuthViewModel(
     private val repository: AuthRepository = AuthRepository(RetrofitClient.apiService)
 ) : ViewModel() {
 
-    private val _loginState = MutableLiveData<NetworkResult<LoginResponseData>>()
-    val loginState: LiveData<NetworkResult<LoginResponseData>> = _loginState
+    private val _loginState = MutableLiveData<NetworkResult<User>>()
+    val loginState: LiveData<NetworkResult<User>> = _loginState
 
     private val _initiateActivateState = MutableLiveData<NetworkResult<InitiateActivationData>>()
     val initiateActivateState: LiveData<NetworkResult<InitiateActivationData>> = _initiateActivateState

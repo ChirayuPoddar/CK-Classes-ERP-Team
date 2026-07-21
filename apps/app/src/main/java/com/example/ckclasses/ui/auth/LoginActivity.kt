@@ -42,7 +42,6 @@ class LoginActivity : AppCompatActivity() {
             viewModel.login(email, password)
         }
 
-
         binding.tvForgotPassword.setOnClickListener {
             startActivity(Intent(this, ForgotPasswordActivity::class.java))
         }
@@ -64,10 +63,12 @@ class LoginActivity : AppCompatActivity() {
                 is NetworkResult.Success -> {
                     binding.pbLoading.visibility = View.GONE
                     binding.btnLogin.isEnabled = true
-                    result.data?.user?.let { user ->
+                    result.data?.let { user ->
                         sessionManager.saveUserSession(user)
                         Toast.makeText(this, "Welcome ${user.name}!", Toast.LENGTH_SHORT).show()
                         navigateToMain()
+                    } ?: run {
+                        Toast.makeText(this, "Login error: user details missing", Toast.LENGTH_SHORT).show()
                     }
                 }
                 is NetworkResult.Error -> {

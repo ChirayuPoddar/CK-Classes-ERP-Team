@@ -3,8 +3,11 @@ package com.example.ckclasses.data.models
 import com.google.gson.annotations.SerializedName
 
 data class User(
-    @SerializedName("_id") val id: String = "",
-    @SerializedName("name") val name: String = "",
+    @SerializedName("_id") val mongoId: String = "",
+    @SerializedName("id") val id: String = "",
+    @SerializedName("firstName") val firstName: String? = null,
+    @SerializedName("lastName") val lastName: String? = null,
+    @SerializedName("name") val rawName: String? = null,
     @SerializedName("email") val email: String = "",
     @SerializedName("role") val role: String = "student",
     @SerializedName("institutionId") val institutionId: String? = null,
@@ -12,7 +15,17 @@ data class User(
     @SerializedName("isActivated") val isActivated: Boolean = true,
     @SerializedName("avatar") val avatar: String? = null,
     @SerializedName("linkedChildren") val linkedChildren: List<User>? = null
-)
+) {
+    val name: String
+        get() {
+            if (!rawName.isNullOrEmpty()) return rawName
+            val full = listOfNotNull(firstName, lastName).joinToString(" ").trim()
+            return if (full.isNotEmpty()) full else email
+        }
+
+    val userId: String
+        get() = if (id.isNotEmpty()) id else mongoId
+}
 
 data class LoginRequest(
     @SerializedName("email") val email: String,
@@ -20,7 +33,7 @@ data class LoginRequest(
 )
 
 data class LoginResponseData(
-    @SerializedName("user") val user: User
+    @SerializedName("user") val user: User? = null
 )
 
 data class InitiateActivationRequest(
