@@ -33,6 +33,27 @@ data class ApiResponse<T>(
         return "An unknown error occurred"
     }
 
+    fun extractTotalCount(fallback: Int): Int {
+        val json = (data as? JsonElement) ?: return fallback
+        if (json.isJsonObject) {
+            val obj = json.asJsonObject
+            if (obj.has("total") && !obj.get("total").isJsonNull) {
+                return obj.get("total").asInt
+            }
+            if (obj.has("pagination") && obj.get("pagination").isJsonObject) {
+                val p = obj.get("pagination").asJsonObject
+                if (p.has("total") && !p.get("total").isJsonNull) return p.get("total").asInt
+            }
+            if (obj.has("stats") && obj.get("stats").isJsonObject) {
+                val s = obj.get("stats").asJsonObject
+                if (s.has("totalStudents") && !s.get("totalStudents").isJsonNull) return s.get("totalStudents").asInt
+                if (s.has("totalTeachers") && !s.get("totalTeachers").isJsonNull) return s.get("totalTeachers").asInt
+                if (s.has("total") && !s.get("total").isJsonNull) return s.get("total").asInt
+            }
+        }
+        return fallback
+    }
+
     inline fun <reified Item> parseList(gson: Gson = Gson(), preferredKey: String? = null): List<Item> {
         val json = (data as? JsonElement) ?: return emptyList()
         if (json.isJsonNull) return emptyList()

@@ -35,9 +35,9 @@ interface ApiService {
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<ApiResponse<Unit>>
 
-    // Students
+    // Students - default limit=1000 to fetch all records for accurate total stats
     @GET("students")
-    suspend fun getStudents(): Response<ApiResponse<JsonElement>>
+    suspend fun getStudents(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("students")
     suspend fun createStudent(@Body request: CreateStudentRequest): Response<ApiResponse<Student>>
@@ -48,9 +48,9 @@ interface ApiService {
     @DELETE("students/{id}")
     suspend fun deleteStudent(@Path("id") id: String): Response<ApiResponse<Unit>>
 
-    // Teachers
+    // Teachers - default limit=1000 to fetch all records for accurate total stats
     @GET("teachers")
-    suspend fun getTeachers(): Response<ApiResponse<JsonElement>>
+    suspend fun getTeachers(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("teachers")
     suspend fun createTeacher(@Body request: CreateTeacherRequest): Response<ApiResponse<Teacher>>
@@ -63,7 +63,7 @@ interface ApiService {
 
     // Subjects
     @GET("subjects")
-    suspend fun getSubjects(): Response<ApiResponse<JsonElement>>
+    suspend fun getSubjects(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("subjects")
     suspend fun createSubject(@Body request: CreateSubjectRequest): Response<ApiResponse<Subject>>
@@ -72,7 +72,8 @@ interface ApiService {
     @GET("attendance")
     suspend fun getAttendance(
         @Query("class") studentClass: String? = null,
-        @Query("date") date: String? = null
+        @Query("date") date: String? = null,
+        @Query("limit") limit: Int = 1000
     ): Response<ApiResponse<JsonElement>>
 
     @POST("attendance")
@@ -80,42 +81,42 @@ interface ApiService {
 
     // Fees
     @GET("fees")
-    suspend fun getFees(): Response<ApiResponse<JsonElement>>
+    suspend fun getFees(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("fees/collect")
     suspend fun collectFee(@Body request: CollectFeeRequest): Response<ApiResponse<Unit>>
 
     // Homework
     @GET("homework")
-    suspend fun getHomework(): Response<ApiResponse<JsonElement>>
+    suspend fun getHomework(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("homework")
     suspend fun createHomework(@Body request: CreateHomeworkRequest): Response<ApiResponse<Homework>>
 
     // Exams
     @GET("exams")
-    suspend fun getExams(): Response<ApiResponse<JsonElement>>
+    suspend fun getExams(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("exams")
     suspend fun createExam(@Body request: CreateExamRequest): Response<ApiResponse<Exam>>
 
     // Announcements
     @GET("announcements")
-    suspend fun getAnnouncements(): Response<ApiResponse<JsonElement>>
+    suspend fun getAnnouncements(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("announcements")
     suspend fun createAnnouncement(@Body request: CreateAnnouncementRequest): Response<ApiResponse<Announcement>>
 
     // Digital Resources
     @GET("resources")
-    suspend fun getResources(): Response<ApiResponse<JsonElement>>
+    suspend fun getResources(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("resources")
     suspend fun createResource(@Body request: CreateResourceRequest): Response<ApiResponse<DigitalResource>>
 
     // Users
     @GET("users")
-    suspend fun getUsers(): Response<ApiResponse<JsonElement>>
+    suspend fun getUsers(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     // AI Assistant
     @POST("ai/query")
