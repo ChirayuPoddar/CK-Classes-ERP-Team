@@ -1,18 +1,17 @@
-// Ensure Mongoose models are registered for population
-require('../../models/User')
-require('../../models/Student')
-require('../../models/Teacher')
-require('../../models/Subject')
-require('../../models/Announcement')
-require('../../models/Homework')
-require('../../models/Exam')
-require('../../models/StudentFee')
-require('../../models/Resource')
-
+const User = require('../../models/User')
+const Student = require('../../models/Student')
+const Teacher = require('../../models/Teacher')
+const Subject = require('../../models/Subject')
+const Announcement = require('../../models/Announcement')
+const Homework = require('../../models/Homework')
+const Exam = require('../../models/Exam')
+const StudentFee = require('../../models/StudentFee')
 const Resource = require('../../models/Resource')
+
 const AIProviderFactory = require('./AIProviderFactory')
 const StudentService = require('../StudentService')
 const TeacherService = require('../TeacherService')
+const SubjectService = require('../SubjectService')
 const HomeworkService = require('../HomeworkService')
 const ExamService = require('../ExamService')
 const StudentFeeService = require('../StudentFeeService')
@@ -36,65 +35,87 @@ class AIService {
       `CRITICAL INSTRUCTION: Use the provided MONGODB DATA SUMMARY below to answer questions about student counts, staff, exams, and announcements accurately. Never say data is missing when counts are listed below.`
     ]
 
-    // Primary Summary Metrics
+    // 0. Fetch Real-time Institutional Statistics & Overview Metrics
     try {
-      const [studentsRes, teachersRes, examsRes, announcementsRes, hwRes] = await Promise.all([
-        typeof StudentService.getAllStudents === 'function' ? StudentService.getAllStudents({ limit: 10 }) : { total: 0, students: [] },
-        typeof TeacherService.getAllTeachers === 'function' ? TeacherService.getAllTeachers({ limit: 10 }) : { total: 0, data: [] },
-        typeof ExamService.getAllExams === 'function' ? ExamService.getAllExams({ limit: 10 }) : { total: 0, exams: [] },
-        typeof AnnouncementService.getAllAnnouncements === 'function' ? AnnouncementService.getAllAnnouncements({ limit: 10 }, user) : { total: 0, announcements: [] },
-        typeof HomeworkService.getAllHomeworks === 'function' ? HomeworkService.getAllHomeworks({ limit: 10 }, user) : { total: 0, homework: [] }
+      const [totalStudents, activeStudents, totalTeachers, totalSubjects, totalExams, totalAnnouncements, totalParents] = await Promise.all([
+        Student.countDocuments(),
+        Student.countDocuments({ status: { $regex: /^active$/i } }),
+        Teacher.countDocuments(),
+        Subject.countDocuments(),
+        Exam.countDocuments(),
+        Announcement.countDocuments(),
+        User.countDocuments({ role: { $regex: /^parent$/i } })
       ])
 
-      const totalStudentsCount = studentsRes.total !== undefined ? studentsRes.total : (studentsRes.students ? studentsRes.students.length : 0)
-      const totalTeachersCount = teachersRes.total !== undefined ? teachersRes.total : (teachersRes.data ? teachersRes.data.length : 0)
-      const totalExamsCount = examsRes.total !== undefined ? examsRes.total : (examsRes.exams ? examsRes.exams.length : 0)
-      const totalAnnouncementsCount = announcementsRes.total !== undefined ? announcementsRes.total : (announcementsRes.announcements ? announcementsRes.announcements.length : 0)
-      const totalHwCount = hwRes.total !== undefined ? hwRes.total : (hwRes.homework ? hwRes.homework.length : 0)
+      contextLines.push('\n[PRIMARY MONGODB INSTITUTIONAL DATA SUMMARY]:')
+      contextLines.push(`- TOTAL ENROLLED STUDENTS COUNT: ${totalStudents} (Active Students: ${activeStudents})`)
+      contextLines.push(`- TOTAL FACULTY TEACHERS COUNT: ${totalTeachers}`)
+      contextLines.push(`- TOTAL PARENTS REGISTERED: ${totalParents}`)
+      contextLines.push(`- TOTAL SUBJECTS OFFERED: ${totalSubjects}`)
+      contextLines.push(`- TOTAL SCHEDULED EXAMS COUNT: ${totalExams}`)
+      contextLines.push(`- TOTAL SYSTEM ANNOUNCEMENTS COUNT: ${totalAnnouncements}`)
 
-      contextLines.push(`\n[PRIMARY MONGODB INSTITUTIONAL DATA SUMMARY]:`)
-      contextLines.push(`- TOTAL ENROLLED STUDENTS COUNT: ${totalStudentsCount}`)
-      contextLines.push(`- TOTAL FACULTY TEACHERS COUNT: ${totalTeachersCount}`)
-      contextLines.push(`- TOTAL SCHEDULED EXAMS COUNT: ${totalExamsCount}`)
-      contextLines.push(`- TOTAL SYSTEM ANNOUNCEMENTS COUNT: ${totalAnnouncementsCount}`)
-      contextLines.push(`- TOTAL HOMEWORK ASSIGNMENTS COUNT: ${totalHwCount}`)
+      if (['admin', 'staff', 'teacher', 'superadmin'].includes(role)) {
+        try {
+          if (typeof StudentService.getAllStudents === 'function') {
+            const studentsRes = await StudentService.getAllStudents({ limit: 20 }, user)
+            const studentList = studentsRes.students || studentsRes.data || (Array.isArray(studentsRes) ? studentsRes : [])
+            if (studentList.length > 0) {
+              contextLines.push('\n[Enrolled Students Sample Records]:')
+              studentList.forEach(st => {
+                contextLines.push(`- Student: ${st.firstName} ${st.lastName} | ID: ${st.studentId} | Class/Grade: ${st.class || 'N/A'} | Status: ${st.status || 'Active'}`)
+              })
+            }
+          }
+        } catch (e) {
+          // Graceful degradation
+        }
 
-      // Detail Lists
-      const announcementsList = announcementsRes.announcements || announcementsRes.data || []
-      if (announcementsList.length > 0) {
-        contextLines.push('\n[Recent System Announcements]:')
-        announcementsList.forEach(a => {
-          const dateStr = a.publishAt ? new Date(a.publishAt).toLocaleDateString() : 'N/A'
-          contextLines.push(`- Title: "${a.title}" | Date: ${dateStr} | Details: ${a.message || a.shortDescription || ''}`)
-        })
+        try {
+          if (typeof TeacherService.getAllTeachers === 'function') {
+            const teachersRes = await TeacherService.getAllTeachers({ limit: 20 }, user)
+            const teacherList = teachersRes.teachers || teachersRes.data || (Array.isArray(teachersRes) ? teachersRes : [])
+            if (teacherList.length > 0) {
+              contextLines.push('\n[Faculty Mentors Snapshot]:')
+              teacherList.forEach(t => {
+                const subjs = Array.isArray(t.subjects) ? t.subjects.join(', ') : (t.subjects || 'General')
+                contextLines.push(`- Teacher: ${t.firstName} ${t.lastName} | ID: ${t.teacherId} | Qualification: ${t.qualification || 'N/A'} | Subjects: ${subjs}`)
+              })
+            }
+          }
+        } catch (e) {
+          // Graceful degradation
+        }
+      }
+    } catch (e) {
+      // Graceful degradation
+    }
+
+    // 1. Fetch Announcements & Homework
+    try {
+      if (typeof AnnouncementService.getAllAnnouncements === 'function') {
+        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 10 }, user)
+        const announcementsList = announcementsRes.announcements || announcementsRes.data || []
+        if (announcementsList.length > 0) {
+          contextLines.push('\n[Recent System Announcements]:')
+          announcementsList.forEach(a => {
+            const dateStr = a.publishAt ? new Date(a.publishAt).toLocaleDateString() : 'N/A'
+            contextLines.push(`- Title: "${a.title}" | Date: ${dateStr} | Details: ${a.message || a.shortDescription || ''}`)
+          })
+        }
       }
 
-      const studentsList = studentsRes.students || []
-      if (studentsList.length > 0) {
-        contextLines.push(`\n[Enrolled Students Sample Records]:`)
-        studentsList.forEach(s => {
-          contextLines.push(`- Student ID: ${s.studentId} | Name: ${s.firstName} ${s.lastName} | Class: ${s.class} | Status: ${s.status}`)
-        })
+      if (typeof HomeworkService.getAllHomeworks === 'function') {
+        const hwRes = await HomeworkService.getAllHomeworks({ limit: 10 }, user)
+        const hwList = hwRes.homework || hwRes.data || []
+        if (hwList.length > 0) {
+          contextLines.push(`\n[Assigned Homework Records]:`)
+          hwList.forEach(hw => {
+            const dueStr = hw.dueDate ? new Date(hw.dueDate).toLocaleDateString() : 'N/A'
+            contextLines.push(`- Title: "${hw.title}" | Class: ${hw.class} | Due: ${dueStr} | Status: ${hw.status}`)
+          })
+        }
       }
-
-      const examsList = examsRes.exams || examsRes.data || []
-      if (examsList.length > 0) {
-        contextLines.push(`\n[Scheduled Exams Records]:`)
-        examsList.forEach(ex => {
-          const dateStr = ex.examDate ? new Date(ex.examDate).toLocaleDateString() : 'N/A'
-          contextLines.push(`- Exam: "${ex.examName}" | Class: ${ex.class} | Date: ${dateStr} | Status: ${ex.status}`)
-        })
-      }
-
-      const hwList = hwRes.homework || hwRes.data || []
-      if (hwList.length > 0) {
-        contextLines.push(`\n[Assigned Homework Records]:`)
-        hwList.forEach(hw => {
-          const dueStr = hw.dueDate ? new Date(hw.dueDate).toLocaleDateString() : 'N/A'
-          contextLines.push(`- Title: "${hw.title}" | Class: ${hw.class} | Due: ${dueStr} | Status: ${hw.status}`)
-        })
-      }
-
     } catch (e) {
       // Graceful degradation
     }

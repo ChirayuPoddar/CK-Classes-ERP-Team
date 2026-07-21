@@ -1,4 +1,5 @@
-require('dotenv').config()
+const path = require('path')
+require('dotenv').config({ path: path.resolve(__dirname, '.env') })
 const http = require('http')
 const app = require('./src/app')
 const connectDB = require('./src/config/db')
@@ -34,9 +35,10 @@ io.on('connection', (socket) => {
   })
 })
 
-// Bind server port
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+// Bind server port across all network interfaces (0.0.0.0)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT} (Accessible on local Wi-Fi IP)`)
 })
 // Env reloaded with primary data summary block
+
 

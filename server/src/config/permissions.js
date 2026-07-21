@@ -163,6 +163,27 @@ const ROLE_PERMISSIONS = {
 }
 
 /**
+ * Centralized Role Maximum Sessions Configuration
+ */
+const ROLE_MAX_SESSIONS = {
+  admin: 5,
+  teacher: 2,
+  parent: 2,
+  student: 1,
+  receptionist: 2,
+  accountant: 2
+}
+
+/**
+ * Gets default max sessions limit for a role
+ */
+const getMaxSessionsForRole = (role) => {
+  if (!role || typeof role !== 'string') return 2
+  const normRole = role.toLowerCase().trim()
+  return ROLE_MAX_SESSIONS[normRole] || 2
+}
+
+/**
  * Checks if a given role possesses a required permission
  */
 const hasPermission = (role, permission) => {
@@ -177,5 +198,8 @@ const hasPermission = (role, permission) => {
 module.exports = {
   PERMISSIONS,
   ROLE_PERMISSIONS,
+  ROLE_MAX_SESSIONS,
+  getMaxSessionsForRole,
   hasPermission
 }
+

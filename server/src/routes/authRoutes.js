@@ -103,7 +103,13 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() })
+    const cleanInput = email.toLowerCase().trim()
+    const user = await User.findOne({
+      $or: [
+        { email: cleanInput },
+        { email: `${cleanInput}@ckclasses.com` }
+      ]
+    })
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -139,7 +145,7 @@ router.post('/login', async (req, res, next) => {
           const prevUser = await User.findById(decodedPrev.id)
           if (prevUser) {
             prevUser.sessions = (prevUser.sessions || []).filter(s => s.sessionId !== decodedPrev.sessionId)
-            await prevUser.save()
+            await User.updateOne({ _id: prevUser._id }, { $set: { sessions: prevUser.sessions } })
           }
         }
       } catch (err) {
@@ -152,15 +158,8 @@ router.post('/login', async (req, res, next) => {
     user.sessions = (user.sessions || []).filter(s => new Date(s.expiresAt) > now)
     user.sessions.sort((a, b) => new Date(a.createdAt || a.lastActiveAt) - new Date(b.createdAt || b.lastActiveAt))
 
-    const roleLimits = {
-      student: 1,
-      teacher: 2,
-      parent: 2,
-      admin: 2,
-      receptionist: 2,
-      accountant: 2
-    }
-    const maxSessions = roleLimits[user.role.toLowerCase()] || 2
+    const { getMaxSessionsForRole } = require('../config/permissions')
+    const maxSessions = user.maxSessions || getMaxSessionsForRole(user.role)
 
     while (user.sessions.length >= maxSessions) {
       user.sessions.shift()
@@ -194,12 +193,15 @@ router.post('/login', async (req, res, next) => {
 
     user.sessions.push(newSession)
     user.lastLogin = now
-    await user.save()
+    await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions, lastLogin: now } })
+
 
     setCookies(res, accessToken, refreshToken)
 
     res.status(200).json({
       success: true,
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -217,7 +219,10 @@ router.post('/login', async (req, res, next) => {
 // POST: Refresh Token Route
 router.post('/refresh', async (req, res, next) => {
   const refreshCookieName = process.env.JWT_REFRESH_COOKIE_NAME || 'ck_refresh_token'
-  const refreshToken = req.cookies[refreshCookieName] || req.cookies.ck_refresh_token
+  let refreshToken = req.cookies[refreshCookieName] || req.cookies.ck_refresh_token || req.body?.refreshToken
+  if (!refreshToken && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    refreshToken = req.headers.authorization.split(' ')[1]
+  }
   const refreshSecret = process.env.JWT_REFRESH_SECRET
   const accessSecret = process.env.JWT_ACCESS_SECRET
 
@@ -269,7 +274,7 @@ router.post('/refresh', async (req, res, next) => {
 
     if (new Date(session.expiresAt) <= now) {
       user.sessions = user.sessions.filter(s => s.sessionId !== decoded.sessionId)
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
       return res.status(401).json({
         success: false,
         code: 'SESSION_EXPIRED',
@@ -280,7 +285,7 @@ router.post('/refresh', async (req, res, next) => {
     const incomingHash = hashToken(refreshToken)
     if (session.refreshTokenHash && session.refreshTokenHash !== incomingHash) {
       user.sessions = user.sessions.filter(s => s.sessionId !== decoded.sessionId)
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
       return res.status(401).json({
         success: false,
         code: 'REFRESH_TOKEN_REUSED',
@@ -292,12 +297,14 @@ router.post('/refresh', async (req, res, next) => {
 
     session.refreshTokenHash = hashToken(newRefreshToken)
     session.lastActiveAt = now
-    await user.save()
+    await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
 
     setCookies(res, newAccessToken, newRefreshToken)
 
     res.status(200).json({
       success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -329,7 +336,7 @@ router.post('/logout', async (req, res, next) => {
         const user = await User.findById(decoded.id)
         if (user && decoded.sessionId) {
           user.sessions = (user.sessions || []).filter(s => s.sessionId !== decoded.sessionId)
-          await user.save()
+          await User.updateOne({ _id: user._id }, { $set: { sessions: user.sessions } })
         }
       } catch {
         // Suppress decode error
@@ -359,7 +366,7 @@ router.post('/logout-all', verifyToken, async (req, res, next) => {
     const user = await User.findById(req.user.id)
     if (user) {
       user.sessions = []
-      await user.save()
+      await User.updateOne({ _id: user._id }, { $set: { sessions: [] } })
     }
 
     const accessCookieName = process.env.JWT_ACCESS_COOKIE_NAME || 'ck_access_token'

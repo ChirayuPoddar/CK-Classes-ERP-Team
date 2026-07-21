@@ -45,41 +45,10 @@ async function run() {
     }
   }
 
-  // 2. Check MongoDB and start automatically if possible
-  console.log('\x1b[34mChecking MongoDB connection (port 27017)...\x1b[0m');
-  let mongoRunning = await checkMongoDB(27017, '127.0.0.1');
-  if (!mongoRunning) {
-    console.log('\n\x1b[33m[Warning] MongoDB is not running on localhost:27017.\x1b[0m');
-    console.log('\x1b[34mAttempting to start MongoDB service automatically...\x1b[0m');
-    try {
-      if (process.platform === 'darwin') {
-        execSync('brew services start mongodb-community', { stdio: 'ignore' });
-      } else if (process.platform === 'linux') {
-        execSync('sudo systemctl start mongod', { stdio: 'ignore' });
-      }
-      // Wait a moment and check again
-      await new Promise(r => setTimeout(r, 2000));
-      mongoRunning = await checkMongoDB(27017, '127.0.0.1');
-    } catch (err) {
-      // Fall through to manual check/instructions below
-    }
-  }
-
-  if (!mongoRunning) {
-    console.log('\n\x1b[31m[Error] MongoDB is not running on localhost:27017.\x1b[0m');
-    console.log('\x1b[33mAn active MongoDB service is expected for the ERP backend.\x1b[0m');
-    console.log('\x1b[33mPlease start MongoDB manually using one of the following commands based on your OS:\x1b[0m');
-    console.log('  - macOS Homebrew:  \x1b[1mbrew services start mongodb-community\x1b[0m');
-    console.log('  - Local executable: \x1b[1mmongod --dbpath <your-db-path>\x1b[0m');
-    console.log('  - Linux:           \x1b[1msudo systemctl start mongod\x1b[0m');
-    console.log('\n\x1b[33mPlease start MongoDB in another terminal and rerun this orchestrator.\x1b[0m\n');
-  } else {
-    console.log('\x1b[32m✓ MongoDB is running successfully!\x1b[0m\n');
-  }
-
-  // 3. Setup port defaults & read from server environment
+  // 2. Setup port defaults & read from server environment
   let clientPort = 5173;
   let serverPort = 5050;
+  let mongoUri = '';
 
   try {
     const envPath = path.join(__dirname, 'server', '.env');
@@ -89,9 +58,45 @@ async function run() {
       if (portMatch) {
         serverPort = parseInt(portMatch[1], 10);
       }
+      const mongoMatch = envContent.match(/^MONGO_URI\s*=\s*(.+)/m);
+      if (mongoMatch) {
+        mongoUri = mongoMatch[1].trim();
+      }
     }
   } catch (e) {
     // ignore
+  }
+
+  // 3. Check MongoDB connection
+  const isRemoteMongo = mongoUri.includes('mongodb+srv://') || (mongoUri && !mongoUri.includes('127.0.0.1') && !mongoUri.includes('localhost'));
+
+  if (isRemoteMongo) {
+    console.log('\x1b[32m✓ Configured for MongoDB Atlas database!\x1b[0m\n');
+  } else {
+    console.log('\x1b[34mChecking MongoDB connection (port 27017)...\x1b[0m');
+    let mongoRunning = await checkMongoDB(27017, '127.0.0.1');
+    if (!mongoRunning) {
+      console.log('\n\x1b[33m[Warning] MongoDB is not running on localhost:27017.\x1b[0m');
+      console.log('\x1b[34mAttempting to start MongoDB service automatically...\x1b[0m');
+      try {
+        if (process.platform === 'darwin') {
+          execSync('brew services start mongodb-community', { stdio: 'ignore' });
+        } else if (process.platform === 'linux') {
+          execSync('sudo systemctl start mongod', { stdio: 'ignore' });
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        mongoRunning = await checkMongoDB(27017, '127.0.0.1');
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    if (!mongoRunning) {
+      console.log('\n\x1b[31m[Error] Local MongoDB is not running on localhost:27017.\x1b[0m');
+      console.log('\x1b[33mPlease start MongoDB manually or update server/.env with your MONGO_URI.\x1b[0m\n');
+    } else {
+      console.log('\x1b[32m✓ Local MongoDB is running successfully!\x1b[0m\n');
+    }
   }
 
   // 4. Start Frontend & Backend

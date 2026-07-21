@@ -38,7 +38,11 @@ export const AuthProvider = ({ children }) => {
       if (data && data.user) {
         setUser(data.user)
         setIsAuthenticated(true)
-        try { localStorage.removeItem('ck_token') } catch {}
+        try {
+          if (data.accessToken) localStorage.setItem('ck_access_token', data.accessToken)
+          if (data.refreshToken) localStorage.setItem('ck_refresh_token', data.refreshToken)
+          localStorage.removeItem('ck_token')
+        } catch {}
         return data.user
       } else {
         throw new Error('Invalid authentication response')
@@ -59,7 +63,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       // Catch silently
     } finally {
-      try { localStorage.removeItem('ck_token') } catch {}
+      try {
+        localStorage.removeItem('ck_token')
+        localStorage.removeItem('ck_access_token')
+        localStorage.removeItem('ck_refresh_token')
+      } catch {}
       setUser(null)
       setIsAuthenticated(false)
       setIsLoading(false)

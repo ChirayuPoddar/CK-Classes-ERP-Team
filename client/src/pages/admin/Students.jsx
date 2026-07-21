@@ -4,14 +4,10 @@ import {
   GraduationCap, 
   Search, 
   Plus, 
-  Filter, 
   Download, 
-  MoreHorizontal, 
   Eye, 
-  Edit2, 
   Edit3,
   Camera, 
-  Archive, 
   X, 
   ChevronLeft, 
   ChevronRight,
@@ -30,10 +26,7 @@ import {
   Briefcase,
   Upload,
   Printer,
-  Lock,
-  Unlock,
-  KeyRound,
-  FileSpreadsheet
+  KeyRound
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'

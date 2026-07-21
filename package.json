@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "node dev.js",
+    "build": "npm --prefix client install && npm --prefix client run build && rm -rf dist && cp -R client/dist dist",
     "install-all": "npm install --prefix client && npm install --prefix server",
     "seed": "node server/seed.js && node server/seed_attendance_data.js"
   },

@@ -64,7 +64,10 @@ const userSchema = new mongoose.Schema({
   },
   maxSessions: {
     type: Number,
-    default: 2
+    default: function() {
+      const { getMaxSessionsForRole } = require('../config/permissions')
+      return getMaxSessionsForRole(this.role)
+    }
   },
   sessions: [{
     sessionId: { type: String, required: true },
