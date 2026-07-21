@@ -152,15 +152,8 @@ router.post('/login', async (req, res, next) => {
     user.sessions = (user.sessions || []).filter(s => new Date(s.expiresAt) > now)
     user.sessions.sort((a, b) => new Date(a.createdAt || a.lastActiveAt) - new Date(b.createdAt || b.lastActiveAt))
 
-    const roleLimits = {
-      student: 1,
-      teacher: 2,
-      parent: 2,
-      admin: 2,
-      receptionist: 2,
-      accountant: 2
-    }
-    const maxSessions = roleLimits[user.role.toLowerCase()] || 2
+    const { getMaxSessionsForRole } = require('../config/permissions')
+    const maxSessions = user.maxSessions || getMaxSessionsForRole(user.role)
 
     while (user.sessions.length >= maxSessions) {
       user.sessions.shift()

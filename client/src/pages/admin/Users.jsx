@@ -837,7 +837,7 @@ export default function Users() {
                       {/* SESSIONS COUNTER COLUMN */}
                       <td className="py-3.5 px-4 text-center select-none">
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-extrabold font-mono">
-                          {item.activeSessionsCount || 0} / {item.maxSessions || (item.role === 'student' ? 1 : 2)}
+                          {item.activeSessionsCount || 0} / {item.maxSessions || (item.role === 'admin' ? 5 : item.role === 'student' ? 1 : 2)}
                         </span>
                       </td>
 

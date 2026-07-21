@@ -251,7 +251,8 @@ class UserService {
     }
 
     // Role default max sessions rule
-    const maxSessions = normalizedRole === 'student' ? 1 : 2
+    const { getMaxSessionsForRole } = require('../config/permissions')
+    const maxSessions = data.maxSessions || getMaxSessionsForRole(normalizedRole)
 
     // Hash password
     const salt = await bcrypt.genSalt(10)
