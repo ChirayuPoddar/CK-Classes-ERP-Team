@@ -28,7 +28,22 @@ export const AIQuizGeneratorModal = ({ isOpen, onClose, initialResource = null }
         count,
         difficulty
       })
-      setQuizData(result)
+
+      let parsed = result?.data || result
+      if ((!parsed?.questions || parsed.questions.length === 0) && parsed?.rawText) {
+        try {
+          const firstBrace = parsed.rawText.indexOf('{')
+          const lastBrace = parsed.rawText.lastIndexOf('}')
+          if (firstBrace !== -1 && lastBrace > firstBrace) {
+            const extracted = JSON.parse(parsed.rawText.substring(firstBrace, lastBrace + 1))
+            if (extracted?.questions) {
+              parsed = extracted
+            }
+          }
+        } catch (e) {}
+      }
+
+      setQuizData(parsed)
       setActiveTab('paper')
     } catch (err) {
       alert(`Failed to generate quiz: ${err.message || 'Error connecting to AI service'}`)
@@ -119,6 +134,9 @@ export const AIQuizGeneratorModal = ({ isOpen, onClose, initialResource = null }
                   <option value={3}>3 Questions (Quick Quiz)</option>
                   <option value={5}>5 Questions (Unit Test)</option>
                   <option value={10}>10 Questions (Full Test Paper)</option>
+                  <option value={15}>15 Questions (Standard Exam)</option>
+                  <option value={20}>20 Questions (Grand Mock Exam)</option>
+                  <option value={30}>30 Questions (Full Term Exam)</option>
                 </select>
               </div>
 
