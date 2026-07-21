@@ -45,17 +45,36 @@ const generateTokens = (user, sessionId) => {
   return { accessToken, refreshToken }
 }
 
+// Helper: Shared Cookie Options (single source of truth for domain/sameSite/secure)
+// - COOKIE_DOMAIN: set only when frontend & backend share a root domain (e.g. ".ckclasses.com")
+//   Leave unset for cross-site hosts (e.g. app.onrender.com / api.onrender.com) - in that case
+//   set COOKIE_SAMESITE=none explicitly, since cross-site cookies require SameSite=None; Secure.
+// Used consistently by setCookies() and every clearCookie() call below so logout/reset-password
+// clear cookies with the exact same attributes they were set with.
+const getBaseCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production'
+  const sameSite = process.env.COOKIE_SAMESITE || 'lax'
+
+  const options = {
+    httpOnly: true,
+    secure: isProd || sameSite === 'none',
+    sameSite,
+    path: '/'
+  }
+
+  if (process.env.COOKIE_DOMAIN) {
+    options.domain = process.env.COOKIE_DOMAIN
+  }
+
+  return options
+}
+
 // Helper: Configure Cookies
 const setCookies = (res, accessToken, refreshToken) => {
   const accessCookieName = process.env.JWT_ACCESS_COOKIE_NAME || 'ck_access_token'
   const refreshCookieName = process.env.JWT_REFRESH_COOKIE_NAME || 'ck_refresh_token'
 
-  const baseCookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/'
-  }
+  const baseCookieOptions = getBaseCookieOptions()
 
   if (accessToken) {
     res.cookie(accessCookieName, accessToken, {
@@ -317,12 +336,7 @@ router.post('/logout', async (req, res, next) => {
       }
     }
 
-    const clearOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    }
+    const clearOptions = getBaseCookieOptions()
 
     res.clearCookie(accessCookieName, clearOptions)
     res.clearCookie(refreshCookieName, clearOptions)
@@ -350,12 +364,7 @@ router.post('/logout-all', verifyToken, async (req, res, next) => {
 
     const accessCookieName = process.env.JWT_ACCESS_COOKIE_NAME || 'ck_access_token'
     const refreshCookieName = process.env.JWT_REFRESH_COOKIE_NAME || 'ck_refresh_token'
-    const clearOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    }
+    const clearOptions = getBaseCookieOptions()
 
     res.clearCookie(accessCookieName, clearOptions)
     res.clearCookie(refreshCookieName, clearOptions)
@@ -552,12 +561,7 @@ router.post('/reset-password', async (req, res, next) => {
     await otpService.invalidateOtp({ identifier: user.email, purpose: 'password_reset' })
 
     // Clear authentication cookies from current browser
-    const clearOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    }
+    const clearOptions = getBaseCookieOptions()
 
     res.clearCookie(process.env.JWT_ACCESS_COOKIE_NAME || 'ck_access_token', clearOptions)
     res.clearCookie(process.env.JWT_REFRESH_COOKIE_NAME || 'ck_refresh_token', clearOptions)

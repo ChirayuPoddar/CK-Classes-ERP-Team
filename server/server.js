@@ -12,14 +12,15 @@ connectDB()
 // Create HTTP Server
 const server = http.createServer(app)
 
-// Initialize Socket.io Server with proper CORS matching Express configuration
-const clientOrigin = process.env.NODE_ENV === 'production' 
-  ? 'https://yourproductiondomain.com' 
-  : 'http://localhost:5173'
+// Initialize Socket.io Server with CORS matching the Express CLIENT_URL configuration
+// (single source of truth - see allowedOrigins in src/app.js)
+const socketOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map((o) => o.trim()).filter(Boolean)
+  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173'])
 
 const io = new Server(server, {
   cors: {
-    origin: clientOrigin,
+    origin: socketOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   }

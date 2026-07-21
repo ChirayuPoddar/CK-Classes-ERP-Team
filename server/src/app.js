@@ -23,26 +23,29 @@ const aiRoutes = require('./routes/aiRoutes')
 const app = express()
 
 // Middleware setups
-app.use(morgan('dev'))
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 
 // CORS setup
-const allowedOrigins = process.env.CLIENT_URL 
-  ? [process.env.CLIENT_URL]
-  : (process.env.NODE_ENV === 'production' 
-      ? ['https://yourproductiondomain.com'] 
+// CLIENT_URL may be a single origin or a comma-separated list (e.g. staging + prod)
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map((o) => o.trim()).filter(Boolean)
+  : (process.env.NODE_ENV === 'production'
+      ? [] // no safe default in production - CLIENT_URL must be set
       : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5050'])
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow non-browser requests (e.g. Postman, curl) or matched origins
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true)
-    } else {
-      callback(null, true) // Accept request for local dev flexibility
+    // Allow non-browser requests (e.g. Postman, curl, server-to-server) which send no Origin header
+    if (!origin) {
+      return callback(null, true)
     }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('CORS policy: This origin is not allowed to access this API.'))
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
