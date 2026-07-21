@@ -15,103 +15,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
-// HTML5 Canvas Light Particle & Electric Energy Filament Engine
-const LightParticlesCanvas = () => {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let animId
-
-    let width = (canvas.width = canvas.parentElement.offsetWidth)
-    let height = (canvas.height = canvas.parentElement.offsetHeight)
-
-    const handleResize = () => {
-      if (!canvas || !canvas.parentElement) return
-      width = canvas.width = canvas.parentElement.offsetWidth
-      height = canvas.height = canvas.parentElement.offsetHeight
-    }
-
-    window.addEventListener('resize', handleResize)
-
-    // Generate glowing golden light particles
-    const particleCount = 70
-    const particles = []
-
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 2.5 + 0.8,
-        color: Math.random() > 0.35 ? 'rgba(251, 191, 36, ' : 'rgba(245, 158, 11, ',
-        alpha: Math.random() * 0.7 + 0.25,
-        speedX: (Math.random() - 0.5) * 0.7,
-        speedY: (Math.random() - 0.5) * 0.7 - 0.3,
-        pulseSpeed: Math.random() * 0.02 + 0.005
-      })
-    }
-
-    const draw = () => {
-      ctx.clearRect(0, 0, width, height)
-
-      // Draw light beam energy filaments between nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-
-          if (dist < 120) {
-            ctx.beginPath()
-            ctx.strokeStyle = `rgba(251, 191, 36, ${0.18 * (1 - dist / 120)})`
-            ctx.lineWidth = 0.9
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
-          }
-        }
-      }
-
-      // Draw glowing light particles
-      for (let p of particles) {
-        p.x += p.speedX
-        p.y += p.speedY
-        p.alpha += Math.sin(Date.now() * p.pulseSpeed) * 0.01
-
-        if (p.x < 0) p.x = width
-        if (p.x > width) p.x = 0
-        if (p.y < 0) p.y = height
-        if (p.y > height) p.y = 0
-
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
-        ctx.fillStyle = `${p.color}${Math.max(0.15, Math.min(0.95, p.alpha))})`
-        ctx.shadowColor = 'rgba(251, 191, 36, 0.9)'
-        ctx.shadowBlur = 14
-        ctx.fill()
-      }
-
-      animId = requestAnimationFrame(draw)
-    }
-
-    draw()
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (animId) cancelAnimationFrame(animId)
-    }
-  }, [])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none z-10"
-    />
-  )
-}
-
 // Self-contained Animated Counter component for metrics
 const AnimatedCounter = ({ value, duration = 1.5 }) => {
   const [count, setCount] = useState(0)
@@ -143,6 +46,66 @@ const AnimatedCounter = ({ value, duration = 1.5 }) => {
     <span>
       {count.toLocaleString()}{suffix}
     </span>
+  )
+}
+
+// Self-contained Floating Particles Background Component
+const FloatingParticles = ({ count = 55 }) => {
+  const [particles, setParticles] = useState([])
+
+  useEffect(() => {
+    const colorOptions = [
+      'bg-amber-300 shadow-[0_0_8px_#fde047]',
+      'bg-amber-400 shadow-[0_0_10px_#fbbf24]',
+      'bg-yellow-200 shadow-[0_0_6px_#fef08a]',
+      'bg-indigo-300 shadow-[0_0_8px_#a5b4fc]',
+      'bg-cyan-300 shadow-[0_0_8px_#67e8f9]'
+    ]
+
+    const generated = Array.from({ length: count }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 4 + 2,
+      color: colorOptions[Math.floor(Math.random() * colorOptions.length)],
+      duration: Math.random() * 5 + 3,
+      delay: Math.random() * 4,
+      driftX: (Math.random() - 0.5) * 40
+    }))
+
+    setParticles(generated)
+  }, [count])
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-20 overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ opacity: 0.1, y: 0 }}
+          animate={{
+            y: [-25, 25, -25],
+            x: [0, p.driftX, 0],
+            opacity: [0.25, 0.95, 0.25],
+            scale: [0.8, 1.4, 0.8]
+          }}
+          transition={{
+            duration: p.duration,
+            repeat: Infinity,
+            delay: p.delay,
+            ease: 'easeInOut'
+          }}
+          style={{
+            position: 'absolute',
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            borderRadius: '50%'
+          }}
+          className={p.color}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -285,8 +248,11 @@ export default function Home() {
   ]
 
   return (
-    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
+    <div className="relative min-h-screen w-full bg-[#030712] font-sans text-white selection:bg-amber-500 selection:text-slate-950">
       
+      {/* Floating Glowing Particles Layer */}
+      <FloatingParticles count={55} />
+
       {/* Dynamic Dark Modern Navbar (Fades in when scrolling into content) */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -360,33 +326,23 @@ export default function Home() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. GOLDEN LIGHT & LIGHTNING BEAMS CINEMATIC UI                            */}
+      {/* 2. GOLDEN LIGHT CINEMATIC UI (Connected directly to video light rays)       */}
       {/* ========================================================================= */}
       <div 
         id="home"
-        className="relative z-30 min-h-screen bg-[#030712] text-white pt-16 pb-24 border-t border-amber-500/30 shadow-[0_-15px_50px_rgba(245,158,11,0.25)] overflow-hidden"
+        className="relative z-30 min-h-screen bg-[#030712] text-white pt-16 pb-24 border-t border-amber-500/30 shadow-[0_-15px_50px_rgba(245,158,11,0.25)]"
       >
-        {/* Canvas Floating Light Particles & Energy Filaments */}
-        <LightParticlesCanvas />
-
         {/* Radiant Golden Light Beams (Matching classes.mp4 video light rays) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[650px] bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(245,158,11,0.35),transparent_100%)] z-0 pointer-events-none" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[350px] bg-[radial-gradient(ellipse_50%_35%_at_50%_0%,rgba(251,191,36,0.4),transparent_100%)] z-0 filter blur-[40px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[650px] bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(245,158,11,0.3),transparent_100%)] z-0 pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[350px] bg-[radial-gradient(ellipse_50%_35%_at_50%_0%,rgba(251,191,36,0.35),transparent_100%)] z-0 filter blur-[40px] pointer-events-none" />
         
-        {/* Animated Electric Lightning Beams */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-[-10%] left-[18%] w-[3px] h-[750px] bg-gradient-to-b from-amber-300 via-amber-400 to-transparent rotate-[32deg] blur-[1px] opacity-80 animate-pulse shadow-[0_0_20px_#fbbf24]" />
-          <div className="absolute top-[-10%] right-[20%] w-[2.5px] h-[700px] bg-gradient-to-b from-yellow-200 via-amber-400 to-transparent rotate-[-28deg] blur-[1px] opacity-75 animate-pulse delay-700 shadow-[0_0_20px_#f59e0b]" />
-          <div className="absolute top-[-5%] left-[46%] w-[4px] h-[600px] bg-gradient-to-b from-amber-200 via-yellow-300 to-transparent rotate-[10deg] blur-[1px] opacity-90 shadow-[0_0_25px_#fbbf24]" />
-        </div>
-
         {/* Top Golden Light Beam Line */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent z-10 shadow-[0_0_35px_rgba(251,191,36,0.9)]" />
 
         {/* Dark Space Grid Accent */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_10%,#000_70%,transparent_100%)] z-0 opacity-60 pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-6 relative z-20 space-y-24">
+        <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-24">
           
           {/* Main Hero Section */}
           <div className="text-center flex flex-col items-center pt-8">
