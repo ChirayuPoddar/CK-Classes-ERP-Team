@@ -149,18 +149,49 @@ api.interceptors.response.use(
   }
 )
 
-// Automatic GET Request Memory Caching with 3-minute TTL and Mutation Auto-Invalidation
+// Persistent GET Request Caching with 15-minute TTL, sessionStorage sync, and Stale-While-Revalidate (SWR)
 const originalGet = api.get.bind(api)
 const originalPost = api.post.bind(api)
 const originalPut = api.put.bind(api)
 const originalPatch = api.patch.bind(api)
 const originalDelete = api.delete.bind(api)
 
+const CACHE_KEY_STORAGE = 'ck_api_cache_v2'
+const CACHE_TTL = 15 * 60 * 1000 // 15 minutes
+
+// Initialize cache from sessionStorage if available
 const apiCache = new Map()
-const CACHE_TTL = 3 * 60 * 1000 // 3 minutes
+try {
+  if (typeof sessionStorage !== 'undefined') {
+    const stored = sessionStorage.getItem(CACHE_KEY_STORAGE)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      Object.entries(parsed).forEach(([key, value]) => {
+        apiCache.set(key, value)
+      })
+    }
+  }
+} catch {}
+
+const saveCacheToStorage = () => {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const obj = {}
+      apiCache.forEach((value, key) => {
+        obj[key] = value
+      })
+      sessionStorage.setItem(CACHE_KEY_STORAGE, JSON.stringify(obj))
+    }
+  } catch {}
+}
 
 api.clearCache = () => {
   apiCache.clear()
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(CACHE_KEY_STORAGE)
+    }
+  } catch {}
 }
 
 api.get = async (url, config = {}) => {
@@ -176,13 +207,27 @@ api.get = async (url, config = {}) => {
   }
 
   const cached = apiCache.get(cacheKey)
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    return cached.data
+  if (cached) {
+    const isFresh = Date.now() - cached.timestamp < CACHE_TTL
+    if (isFresh) {
+      return cached.data
+    } else {
+      // Stale-While-Revalidate (SWR): Return cached data immediately (0ms) so zero spinner appears,
+      // and refresh cache silently in the background!
+      originalGet(url, config).then((res) => {
+        if (res && (res.success || Array.isArray(res) || res.data)) {
+          apiCache.set(cacheKey, { timestamp: Date.now(), data: res })
+          saveCacheToStorage()
+        }
+      }).catch(() => {})
+      return cached.data
+    }
   }
 
   const res = await originalGet(url, config)
   if (res && (res.success || Array.isArray(res) || res.data)) {
     apiCache.set(cacheKey, { timestamp: Date.now(), data: res })
+    saveCacheToStorage()
   }
   return res
 }
