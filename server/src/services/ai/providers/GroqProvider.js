@@ -31,7 +31,7 @@ class GroqProvider extends BaseAIProvider {
       model: this.modelName,
       messages: messages,
       temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 1024
+      max_tokens: options.maxTokens || 4096
     }
 
     try {

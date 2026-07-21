@@ -239,15 +239,28 @@ ${resourceDetails || `Topic: ${topic}\nClass: ${className}`}
 `
 
     const provider = AIProviderFactory.getProvider()
-    const rawResponse = await provider.generateResponse(userPrompt, systemPrompt)
+    const rawResponse = await provider.generateResponse(userPrompt, systemPrompt, { maxTokens: 4096 })
 
     try {
       const firstBrace = rawResponse.indexOf('{')
-      const lastBrace = rawResponse.lastIndexOf('}')
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        const cleanJson = rawResponse.substring(firstBrace, lastBrace + 1)
-        const parsedQuiz = JSON.parse(cleanJson)
-        return parsedQuiz
+      if (firstBrace !== -1) {
+        let jsonSub = rawResponse.substring(firstBrace)
+        const lastBrace = jsonSub.lastIndexOf('}')
+        if (lastBrace !== -1) {
+          jsonSub = jsonSub.substring(0, lastBrace + 1)
+        }
+        try {
+          return JSON.parse(jsonSub)
+        } catch (err) {
+          // Attempt partial JSON repair for truncated arrays
+          const lastObjectEnd = jsonSub.lastIndexOf('}')
+          if (lastObjectEnd !== -1) {
+            const repaired = jsonSub.substring(0, lastObjectEnd + 1) + '\n]}'
+            try {
+              return JSON.parse(repaired)
+            } catch (err2) {}
+          }
+        }
       }
       throw new Error('No valid JSON object found in response')
     } catch (e) {
