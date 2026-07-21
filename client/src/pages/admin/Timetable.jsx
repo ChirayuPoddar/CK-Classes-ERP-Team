@@ -168,7 +168,6 @@ export default function Timetable() {
   const [classFilter, setClassFilter] = useState('Class 1')
   const [academicYearFilter, setAcademicYearFilter] = useState('2026-2027')
   const [dayFilter, setDayFilter] = useState('')
-  const [printMode, setPrintMode] = useState('class')
 
   const [advancedFilters, setAdvancedFilters] = useState({
     class: 'Class 1',
@@ -187,7 +186,6 @@ export default function Timetable() {
   // Enterprise Modals State
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
-  const [isTeacherTimetableOpen, setIsTeacherTimetableOpen] = useState(false)
   const [isAddPeriodModalOpen, setIsAddPeriodModalOpen] = useState(false)
 
   const [isPeriodManagerOpen, setIsPeriodManagerOpen] = useState(false)
@@ -205,7 +203,6 @@ export default function Timetable() {
   
   const [currentSlot, setCurrentSlot] = useState(null)
   const [selectedSlotForView, setSelectedSlotForView] = useState(null)
-  const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -230,7 +227,7 @@ export default function Timetable() {
 
   // Disable body scroll when modal is open
   useEffect(() => {
-    const isAnyModalOpen = isAddEditModalOpen || isViewModalOpen || isTeacherTimetableOpen || isAddPeriodModalOpen
+    const isAnyModalOpen = isAddEditModalOpen || isViewModalOpen || isAddPeriodModalOpen
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
@@ -239,7 +236,7 @@ export default function Timetable() {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [isAddEditModalOpen, isViewModalOpen, isTeacherTimetableOpen, isAddPeriodModalOpen])
+  }, [isAddEditModalOpen, isViewModalOpen, isAddPeriodModalOpen])
 
   const showToast = (type, message) => {
     setToast({ type, message })
@@ -298,8 +295,7 @@ export default function Timetable() {
     }
   }
 
-  // Pool Collapsed & Viewspace State
-  const [isPoolCollapsed, setIsPoolCollapsed] = useState(false)
+  // Load holidays for drag conflict checking
   const [holidays, setHolidays] = useState([])
 
   // Load holidays for drag conflict checking
@@ -330,7 +326,7 @@ export default function Timetable() {
     currentClass: classFilter,
     academicYear: academicYearFilter,
     onSlotsChange: (newSlots) => setTimetableSlots(newSlots),
-    onSubjectsRefresh: () => { fetchTimetable(); fetchSubjects(); },
+    onSubjectsRefresh: () => { fetchTimetable(false); fetchSubjects(); },
     showToast
   })
 
@@ -372,8 +368,8 @@ export default function Timetable() {
       showToast('error', err.message || 'Bulk replace failed')
     }
   }  // Load global timetable slots
-  const fetchTimetable = async () => {
-    setLoading(true)
+  const fetchTimetable = async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     setError(null)
     try {
       const res = await api.get('/timetable', {
@@ -819,38 +815,18 @@ export default function Timetable() {
     )
   }
 
-  const handlePrintClassTimetable = () => {
-    setPrintMode('class')
-    setTimeout(() => {
-      window.print()
-    }, 100)
-  }
 
-  const handlePrintTeacherTimetable = () => {
-    setPrintMode('teacher')
-    setTimeout(() => {
-      window.print()
-    }, 100)
-  }
 
-  // Selected teacher's read-only slots list
+  // Selected teacher's read-only slots list (used for Print View)
+  const printTeacherId = advancedFilters.teacher
   const selectedTeacherSlots = timetableSlots.filter(s => 
-    s.teacher && ((s.teacher._id || s.teacher) === selectedTeacherId)
+    s.teacher && ((s.teacher._id || s.teacher) === printTeacherId)
   )
 
-  const selectedTeacherObj = teachers.find(t => t._id === selectedTeacherId)
+  const selectedTeacherObj = teachers.find(t => t._id === printTeacherId)
   const selectedTeacherName = selectedTeacherObj 
     ? `${selectedTeacherObj.firstName || ''} ${selectedTeacherObj.lastName || ''}`.trim()
     : 'No Teacher Selected'
-
-  // Extract unique subjects assigned to the selected teacher
-  const teacherAssignedSubjects = Array.from(
-    new Set(
-      subjects
-        .filter(s => s.assignedTeacher && ((s.assignedTeacher._id || s.assignedTeacher) === selectedTeacherId))
-        .map(s => s.name)
-    )
-  )
 
   return (
     <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
@@ -967,10 +943,10 @@ export default function Timetable() {
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           .print-class-view {
-            display: ${printMode === 'class' ? 'block' : 'none'} !important;
+            display: ${viewMode === 'class' ? 'block' : 'none'} !important;
           }
           .print-teacher-view {
-            display: ${printMode === 'teacher' ? 'block' : 'none'} !important;
+            display: ${viewMode === 'teacher' ? 'block' : 'none'} !important;
           }
         }
       `}} />
@@ -1012,25 +988,6 @@ export default function Timetable() {
           <p className="text-[11px] font-bold text-slate-400 mt-1.5">
             Manage weekly schedules, multi-views, period breaks, classroom capacities, and AI auto-generation
           </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsSearchPaletteOpen(true)}
-            className="h-10 px-4 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-xs font-bold text-slate-600 flex items-center gap-2 shadow-xs cursor-pointer"
-            title="Search palette (Cmd+K)"
-          >
-            <Search className="h-4 w-4 text-brand-blue-600" />
-            <span>Search (Cmd+K)</span>
-          </button>
-
-          <button
-            onClick={() => setIsAutoGeneratorOpen(true)}
-            className="h-10 px-4 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Cpu className="h-4 w-4" />
-            <span>Auto Generator</span>
-          </button>
         </div>
       </div>
 
@@ -1081,11 +1038,28 @@ export default function Timetable() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() => setIsSearchPaletteOpen(true)}
+            className="h-9 px-4 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-xs font-bold text-slate-600 flex items-center gap-2 shadow-xs cursor-pointer"
+            title="Search palette (Cmd+K)"
+          >
+            <Search className="h-3.5 w-3.5 text-brand-blue-600" />
+            <span>Search</span>
+          </button>
+
+          <button
+            onClick={() => setIsAutoGeneratorOpen(true)}
+            className="h-9 px-4 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+          >
+            <Cpu className="h-3.5 w-3.5" />
+            <span>Auto Generator</span>
+          </button>
+
+          <button
             onClick={() => setIsPeriodManagerOpen(true)}
             className="h-9 px-4 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 rounded-full text-xs font-black text-blue-600 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Manage Periods & Breaks</span>
+            <span>Periods</span>
           </button>
 
           <button
@@ -1133,31 +1107,6 @@ export default function Timetable() {
             title="Redo last operation (Ctrl+Y)"
           >
             <span>↪ Redo</span>
-          </button>
-
-          <button
-            onClick={() => setIsPoolCollapsed(!isPoolCollapsed)}
-            className={cn(
-              "h-9 px-4 rounded-full border text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer transition-all",
-              isPoolCollapsed
-                ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700"
-                : "border-slate-200 hover:bg-slate-50 text-slate-700"
-            )}
-            title="Toggle Unscheduled Pool Sidebar to Maximize Timetable Viewspace"
-          >
-            <Layers className="h-3.5 w-3.5 text-brand-blue-600" />
-            <span>{isPoolCollapsed ? 'Show Subject Pool' : 'Maximize Grid View'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setSelectedTeacherId(teachers[0]?._id || '')
-              setIsTeacherTimetableOpen(true)
-            }}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <User className="h-3.5 w-3.5 text-blue-500" />
-            <span>Teacher View</span>
           </button>
 
           <button
@@ -1216,18 +1165,16 @@ export default function Timetable() {
       {/* 3. Dual-Pane Drag & Drop Scheduling Workspace */}
       <div className="flex flex-col lg:flex-row gap-6 flex-grow min-h-0">
         {/* Left Sidebar: Unscheduled Class Pool */}
-        {!isPoolCollapsed && (
-          <div className="w-full lg:w-72 shrink-0 print:hidden transition-all duration-300">
-            <UnscheduledPool
-              subjects={subjects}
-              timetableSlots={timetableSlots}
-              currentClass={classFilter}
-              onDragStartSubject={handleDragStartSubject}
-              onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
-              onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
-            />
-          </div>
-        )}
+        <div className="w-full lg:w-72 shrink-0 print:hidden transition-all duration-300">
+          <UnscheduledPool
+            subjects={subjects}
+            timetableSlots={timetableSlots}
+            currentClass={classFilter}
+            onDragStartSubject={handleDragStartSubject}
+            onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
+            onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
+          />
+        </div>
 
         {/* Right Main Board: Interactive Timetable Grid */}
         <div 
@@ -1237,7 +1184,11 @@ export default function Timetable() {
           <TimetableGrid
             periods={periods}
             days={daysOfWeek}
-            slots={timetableSlots.filter(s => s.class === classFilter)}
+            slots={
+              viewMode === 'teacher'
+                ? timetableSlots.filter(s => advancedFilters.teacher && s.teacher && (s.teacher._id === advancedFilters.teacher || s.teacher === advancedFilters.teacher))
+                : timetableSlots.filter(s => s.class === classFilter)
+            }
             dayFilter={dayFilter}
             loading={loading}
             hoverCell={hoverCell}
@@ -1691,163 +1642,6 @@ export default function Timetable() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 8. TEACHER TIMETABLE PREVIEW MODAL */}
-      <AnimatePresence>
-        {isTeacherTimetableOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm print:hidden">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={spring}
-              className="bg-white w-full max-w-5xl shadow-premium-4 flex flex-col relative max-h-[92vh] overflow-hidden"
-              style={{ borderRadius: '28px', border: '1px solid #ECECEC' }}
-            >
-              {/* Modal Header */}
-              <div className="p-7 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="text-left space-y-1">
-                  <h3 className="text-base font-black text-slate-800 tracking-tight leading-none uppercase">
-                    Teacher Timetable View
-                  </h3>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Search and preview read-only schedules of individual coaching teachers
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsTeacherTimetableOpen(false)}
-                  className="h-8.5 w-8.5 rounded-full border border-slate-100 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors shadow-sm cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Selection Bar inside Modal */}
-              <div className="px-7 py-4.5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between gap-5 shrink-0">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black text-slate-455 uppercase tracking-widest">Select Instructor:</span>
-                  <SearchableSelect
-                    placeholder="Search teacher..."
-                    value={selectedTeacherId}
-                    onChange={(val) => setSelectedTeacherId(val)}
-                    options={teacherOptions}
-                    renderOption={renderTeacherOption}
-                    className="w-64"
-                  />
-                </div>
-
-                <button
-                  onClick={handlePrintTeacherTimetable}
-                  disabled={!selectedTeacherId}
-                  className="h-9.5 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-40"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Timetable</span>
-                </button>
-              </div>
-
-              {/* Scrollable teacher layout */}
-              <div className="flex-1 overflow-y-auto overflow-x-auto p-7 min-h-0 flex flex-col">
-                {!selectedTeacherId ? (
-                  <div className="py-24 text-center flex flex-col items-center justify-center gap-2 flex-grow">
-                    <User className="h-8 w-8 text-slate-350" />
-                    <span className="text-xs font-bold text-slate-400">Please select an instructor above to view details.</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Summary Header - Fixed overlap bug, proper responsive LEFT, CENTER, RIGHT flex layout */}
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-5 flex flex-col md:flex-row justify-between gap-6 text-left items-start">
-                      {/* Left: Selected Instructor */}
-                      <div className="md:w-1/3 min-w-0 space-y-1">
-                        <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none block">Selected Instructor</span>
-                        <h4 className="text-base font-black text-slate-800 leading-tight mt-1">{selectedTeacherName}</h4>
-                      </div>
-
-                      {/* Center: Subjects List */}
-                      <div className="md:w-1/3 min-w-0 space-y-1">
-                        <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none block">Subjects</span>
-                        <ul className="text-xs font-extrabold text-slate-650 space-y-1 mt-2 list-none pl-0">
-                          {teacherAssignedSubjects.length > 0 ? (
-                            teacherAssignedSubjects.map(subName => (
-                              <li key={subName} className="flex items-center gap-1.5 leading-tight">
-                                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                                <span className="truncate">{subName}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <span className="text-slate-400 italic">No assigned subjects</span>
-                          )}
-                        </ul>
-                      </div>
-
-                      {/* Right: Weekly Lectures */}
-                      <div className="md:w-1/3 shrink-0 flex flex-col md:items-end justify-center">
-                        <div className="text-left md:text-right">
-                          <span className="text-3xl font-black text-blue-600 leading-none block">{selectedTeacherSlots.length}</span>
-                          <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest mt-1 block">Weekly Lectures</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Teacher Read Only Grid Table */}
-                    {activePeriodsList.length === 0 ? (
-                      <div className="py-24 text-center flex-grow">No periods configured.</div>
-                    ) : (
-                      <table className="w-full text-left min-w-[850px] border-collapse flex flex-col h-full flex-grow">
-                        <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none block shrink-0">
-                          <tr className="flex w-full items-center h-14">
-                            <th className="pl-6 border-r border-slate-100 shrink-0 flex items-center h-full sticky left-0 z-30 bg-slate-50" style={{ width: '130px' }}>Time / Period</th>
-                            {daysOfWeek.map(day => (
-                              <th key={day} className="flex-1 min-w-[230px] flex items-center justify-center border-r border-slate-100 last:border-r-0 tracking-widest font-black h-full">
-                                {day}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y-0 flex flex-col flex-1 min-h-0">
-                          {activePeriodsList.map((periodObj) => (
-                            <tr key={periodObj._id} className="flex w-full items-stretch flex-1 min-h-[72px] transition-all duration-300 group hover:bg-slate-50/10">
-                              {/* Hours label */}
-                              <td className="pl-6 font-extrabold text-slate-800 bg-white group-hover:bg-slate-50 border-r border-slate-200/80 text-left select-none pr-4 shrink-0 flex flex-col justify-center overflow-hidden h-full sticky left-0 z-10 transition-colors duration-200" style={{ width: '130px' }}>
-                                <div className="text-[13px] font-semibold tracking-tight text-brand-blue-700 leading-none">{periodObj.name}</div>
-                                <div className="text-[11px] font-medium text-slate-500 mt-2.5 flex items-center gap-1 leading-none">
-                                  <span>🕓</span>
-                                  <span className="whitespace-nowrap">{periodObj.startTime} – {periodObj.endTime}</span>
-                                </div>
-                              </td>
-                              {/* Read-only cells */}
-                              {daysOfWeek.map((day) => {
-                                const tSlot = selectedTeacherSlots.find(s => s.day === day && (s.period?._id || s.period) === periodObj._id)
-                                return (
-                                  <td key={day} className="flex-1 min-w-[230px] px-2 border-r border-slate-100 last:border-r-0 text-center overflow-hidden flex flex-col justify-center h-full">
-                                    <TimetableCell slot={tSlot} showTeacherView={true} />
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Close footer action */}
-              <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-center shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsTeacherTimetableOpen(false)}
-                  className="h-10 px-5 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 rounded-full cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-
             </motion.div>
           </div>
         )}
