@@ -151,7 +151,16 @@ class AIService {
       // Graceful degradation
     }
 
-    contextLines.push(`\n[Response Rules]: Answer the user's question directly based on the ERP MONGODB DATA SUMMARY above. Keep your tone helpful, professional, and concise. Automatically detect the user's input language (English, Hindi/हिंदी, Hinglish, Marathi/मराठी, Gujarati/ગુજરાતી, etc.) and respond fluently in that exact language or script.`)
+    contextLines.push(`
+[Response Rules]:
+1. CRITICAL: You MUST respond in the EXACT same language and script (alphabet/characters) in which the user's question was asked.
+   - If the user asks in English (e.g. "What is the student count?"), you MUST respond in English.
+   - If the user asks in Hindi / Devanagari (e.g. "छात्रों की संख्या बताएं"), you MUST respond in Hindi (Devanagari script).
+   - If the user asks in Hinglish (Hindi written in Latin script, e.g. "student count kitna hai"), you MUST respond in Hinglish using Latin script.
+   - If the user asks in Marathi / Devanagari (e.g. "विद्यार्थी संख्या किती आहे"), you MUST respond in Marathi (Devanagari script).
+   - If the user asks in Gujarati (e.g. "વિદ્યાર્થીઓની સંખ્યા કેટલી છે"), you MUST respond in Gujarati (Gujarati script).
+2. Answer the user's question directly based on the ERP MONGODB DATA SUMMARY above. Keep your tone helpful, professional, and concise.
+`)
 
     return contextLines.join('\n')
   }
