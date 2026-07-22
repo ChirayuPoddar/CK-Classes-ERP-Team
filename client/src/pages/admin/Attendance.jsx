@@ -35,6 +35,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import AttendanceViewSwitcher from '@/components/attendance/AttendanceViewSwitcher'
 import AttendanceCardView from '@/components/attendance/AttendanceCardView'
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView'
+import AttendanceDrawer from '@/components/attendance/AttendanceDrawer'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
@@ -1407,281 +1408,28 @@ export default function Attendance() {
         )}
       </AnimatePresence>
 
-      {/* B. STUDENT ATTENDANCE MODAL (MARK/EDIT) */}
+      {/* B. STUDENT ATTENDANCE SLIDE-OVER DRAWER */}
       <AnimatePresence>
         {isMarkModalOpen && selectedSlot && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm print:hidden">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={spring}
-              className="bg-white w-full max-w-4xl shadow-premium-4 flex flex-col relative max-h-[92vh]"
-              style={{ borderRadius: '28px', border: '1px solid #ECECEC' }}
-            >
-              {/* Header */}
-              <div className="p-7 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="text-left">
-                  <h3 className="text-lg font-black text-slate-800 tracking-tight leading-none">
-                    {editSessionId ? 'Edit Student Attendance' : 'Record Student Attendance'}
-                  </h3>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1">
-                    Select a status chip for each student below
-                  </p>
-                </div>
-                <button
-                  disabled={submitting}
-                  onClick={() => {
-                    setIsMarkModalOpen(false)
-                    setEditSessionId(null)
-                    setSelectedSlot(null)
-                    setModalStudentSearch('')
-                  }}
-                  className="h-9 w-9 rounded-full border border-slate-100 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <X className="h-4.5 w-4.5" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-7 flex flex-col min-h-0 space-y-5 text-left">
-                                {/* Read-Only Top Details card */}
-                <div className="bg-slate-50/50 p-5 border border-slate-200/60 rounded-[20px] grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold text-slate-700 select-none shrink-0">
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Subject</span>
-                    <span className="font-extrabold text-slate-800 text-sm mt-0.5 block">{selectedSlot.subject?.name || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Teacher</span>
-                    <span className="font-bold text-slate-705 text-xs mt-0.5 block">
-                      {selectedSlot.teacher ? `${selectedSlot.teacher.firstName || ''} ${selectedSlot.teacher.lastName || ''}`.trim() : 'Unassigned'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Class / Period</span>
-                    <span className="font-extrabold text-brand-blue-700 text-xs mt-0.5 block">
-                      {selectedSlot.class} — {selectedSlot.period?.name || 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Date / Timing</span>
-                    <span className="font-bold text-slate-705 text-xs mt-0.5 block">
-                      {new Date(modalDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                      {selectedSlot.period?.startTime && ` (${selectedSlot.period.startTime} - ${selectedSlot.period.endTime})`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Bulk Actions row */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 shrink-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleMarkAllPresent}
-                      className="h-8.5 px-3.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-150 text-[10px] font-black text-emerald-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Mark All Present
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMarkAllAbsent}
-                      className="h-8.5 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-150 text-[10px] font-black text-rose-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Mark All Absent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearAll}
-                      className="h-8.5 px-3.5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black text-slate-500 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Clear All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMarkRemainingPresent}
-                      className="h-8.5 px-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-150 text-[10px] font-black text-blue-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                      title="Set all unmarked students to Present"
-                    >
-                      Mark Remaining Present
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-52 h-8.5">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search student..."
-                        value={modalStudentSearch}
-                        onChange={(e) => setModalStudentSearch(e.target.value)}
-                        className="h-full w-full pl-8.5 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-450 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-405"
-                      />
-                    </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Count: {students.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Student list */}
-                <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0 space-y-2.5">
-                  {(() => {
-                    const filteredStudentsInModal = students.filter(st => {
-                      if (!modalStudentSearch) return true;
-                      const q = modalStudentSearch.toLowerCase();
-                      const fullName = `${st.firstName || ''} ${st.lastName || ''}`.toLowerCase();
-                      const rollNo = (st.studentId || '').toLowerCase();
-                      return fullName.includes(q) || rollNo.includes(q);
-                    });
-
-                    if (filteredStudentsInModal.length === 0) {
-                      return (
-                        <div className="py-24 text-center text-slate-400 font-bold border border-dashed border-slate-150 rounded-2xl">
-                          No matching students found.
-                        </div>
-                      );
-                    }
-
-                    return filteredStudentsInModal.map((st) => {
-                      const initial = st.firstName?.charAt(0) || 'S'
-                      const status = markedRecords[st._id]
-                      
-                      return (
-                        <div
-                          key={st._id}
-                          className="p-3 border border-slate-200/80 rounded-2xl hover:bg-slate-50/15 flex flex-col md:flex-row md:items-center justify-between gap-3 text-left transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {st.photo?.secure_url ? (
-                              <img
-                                src={st.photo.secure_url}
-                                alt={st.firstName}
-                                className="h-9.5 w-9.5 rounded-full object-cover shrink-0 select-none bg-slate-100"
-                              />
-                            ) : (
-                              <div className="h-9.5 w-9.5 rounded-full bg-brand-blue-50/80 text-brand-blue-655 flex items-center justify-center font-black text-xs shrink-0 select-none border border-brand-blue-100/50">
-                                {initial}
-                              </div>
-                            )}
-
-                            <div className="text-left min-w-0 space-y-0.5">
-                              <h5 className="text-[13px] font-semibold text-slate-855 leading-tight truncate">
-                                {`${st.firstName || ''} ${st.lastName || ''}`.trim()}
-                              </h5>
-                              <div className="text-[9.5px] font-bold text-slate-400 tracking-wide uppercase leading-none">
-                                Roll No: {st.studentId || 'N/A'}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center flex-wrap gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Present' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Present' 
-                                  ? "bg-emerald-500 border-emerald-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Absent' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Absent' 
-                                  ? "bg-rose-500 border-rose-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Absent
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Late' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Late' 
-                                  ? "bg-amber-500 border-amber-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Late
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Leave' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Leave' 
-                                  ? "bg-blue-500 border-blue-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Leave
-                            </button>
-
-                            <div className="h-5 w-[1px] bg-slate-250 mx-1 hidden md:block" />
-
-                            <input
-                              type="text"
-                              placeholder="Add notes..."
-                              value={remarks[st._id] || ''}
-                              onChange={(e) => setRemarks(prev => ({ ...prev, [st._id]: e.target.value }))}
-                              className="h-8.5 w-36 px-3 border border-slate-200/80 rounded-xl text-[10px] font-semibold text-slate-700 bg-slate-50/50 focus:outline-none focus:bg-white focus:border-blue-400 transition-all placeholder:text-slate-400"
-                            />
-                          </div>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-7 border-t border-slate-100 flex items-center justify-between shrink-0 select-none">
-                <button
-                  type="button"
-                  disabled={submitting || !!editSessionId}
-                  onClick={() => {
-                    setIsMarkModalOpen(false)
-                    setIsLectureSelectOpen(true)
-                  }}
-                  className="h-10 px-4 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 rounded-full cursor-pointer disabled:opacity-40"
-                >
-                  Back to Lecture Slots
-                </button>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => {
-                      setIsMarkModalOpen(false)
-                      setEditSessionId(null)
-                      setSelectedSlot(null)
-                    }}
-                    className="h-10 px-5 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 rounded-full cursor-pointer disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    onClick={handleSaveAttendance}
-                    disabled={submitting || students.length === 0}
-                    className="h-10 px-6 bg-brand-blue-500 hover:bg-brand-blue-600 text-xs font-extrabold text-white rounded-full cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all active:scale-95"
-                  >
-                    {submitting && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-                    <span>Save Attendance</span>
-                  </button>
-                </div>
-              </div>
-
-            </motion.div>
-          </div>
+          <AttendanceDrawer
+            isOpen={isMarkModalOpen}
+            onClose={() => {
+              setIsMarkModalOpen(false)
+              setEditSessionId(null)
+              setSelectedSlot(null)
+            }}
+            selectedSlot={selectedSlot}
+            modalClass={modalClass}
+            modalDate={modalDate}
+            editSessionId={editSessionId}
+            students={students}
+            markedRecords={markedRecords}
+            setMarkedRecords={setMarkedRecords}
+            remarks={remarks}
+            setRemarks={setRemarks}
+            onSubmit={handleSaveAttendance}
+            submitting={submitting}
+          />
         )}
       </AnimatePresence>
 
