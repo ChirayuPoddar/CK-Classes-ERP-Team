@@ -20,7 +20,9 @@ import {
   TrendingUp,
   Search,
   Settings,
-  MoreVertical
+  MoreVertical,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -98,6 +100,19 @@ export default function Attendance() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState(null)
   const [isHeaderOverflowOpen, setIsHeaderOverflowOpen] = useState(false)
+
+  // Collapsible KPI Panel State with Session Storage Persistence
+  const [isKpiExpanded, setIsKpiExpanded] = useState(() => {
+    return sessionStorage.getItem('attendance_kpi_expanded') === 'true'
+  })
+
+  const toggleKpiExpanded = () => {
+    setIsKpiExpanded(prev => {
+      const next = !prev
+      sessionStorage.setItem('attendance_kpi_expanded', String(next))
+      return next
+    })
+  }
 
   // Lecture Selection modal states
   const [modalClass, setModalClass] = useState('Class 1')
@@ -258,6 +273,8 @@ export default function Attendance() {
 
   // Trigger Lecture Selection Modal
   const handleOpenLectureSelect = () => {
+    setIsKpiExpanded(false)
+    sessionStorage.setItem('attendance_kpi_expanded', 'false')
     setEditSessionId(null)
     setSelectedSlot(null)
     setStudents([])
@@ -738,54 +755,123 @@ export default function Attendance() {
         </div>
       </div>
 
-      {/* 2. Compact Stats cards grid */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
-          gap: '10px' 
-        }} 
-        className="shrink-0 print:hidden"
-      >
-        <DashboardStatCard
-          title="Today's Sessions"
-          value={dashboardStats.totalSessions}
-          subtitle="Scheduled Lectures"
-          icon={Clock}
-          iconBgColor="bg-blue-50"
-          iconColor="text-blue-500"
-          className="py-2.5 px-4 rounded-xl"
-        />
-        <DashboardStatCard
-          title="Attendance Submitted"
-          value={dashboardStats.attendanceSubmitted}
-          subtitle="Recorded Sessions"
-          icon={Check}
-          iconBgColor="bg-emerald-50"
-          iconColor="text-emerald-500"
-          valueColor="text-emerald-600"
-          className="py-2.5 px-4 rounded-xl"
-        />
-        <DashboardStatCard
-          title="Pending Attendance"
-          value={dashboardStats.pendingAttendance}
-          subtitle="Awaiting Marking"
-          icon={Calendar}
-          iconBgColor="bg-amber-50"
-          iconColor="text-amber-500"
-          valueColor="text-amber-650"
-          className="py-2.5 px-4 rounded-xl"
-        />
-        <DashboardStatCard
-          title="Overall Attendance %"
-          value={`${dashboardStats.overallAttendancePercentage}%`}
-          subtitle="Average Rate"
-          icon={CheckSquare}
-          iconBgColor="bg-purple-50"
-          iconColor="text-purple-500"
-          valueColor="text-purple-650"
-          className="py-2.5 px-4 rounded-xl"
-        />
+      {/* 2. Collapsible KPI Dashboard Panel */}
+      <div className="shrink-0 print:hidden select-none">
+        {/* Collapsed Header & Summary Bar */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isKpiExpanded}
+          aria-controls="kpi-dashboard-content"
+          onClick={toggleKpiExpanded}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              toggleKpiExpanded()
+            }
+          }}
+          className="bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-blue-500/40"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <TrendingUp className="h-3.5 w-3.5 text-brand-blue-600" />
+              <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                Attendance Overview
+              </span>
+            </div>
+
+            {/* Compact Summary Pills Row */}
+            <div className="hidden sm:flex items-center gap-2 text-[10.5px] font-bold text-slate-600 truncate">
+              <span className="h-1 w-1 rounded-full bg-slate-300 shrink-0" />
+              <span className="bg-white border border-slate-200/80 px-2 py-0.5 rounded-md shadow-2xs">
+                {dashboardStats.totalSessions} Sessions
+              </span>
+              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.attendanceSubmitted} Submitted
+              </span>
+              <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.pendingAttendance} Pending
+              </span>
+              <span className="bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.overallAttendancePercentage}% Rate
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 transition-colors shrink-0">
+            <span className="text-[10px] font-extrabold uppercase hidden md:inline">
+              {isKpiExpanded ? 'Collapse' : 'Expand Metrics'}
+            </span>
+            {isKpiExpanded ? (
+              <ChevronUp className="h-4 w-4 text-slate-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-500" />
+            )}
+          </div>
+        </div>
+
+        {/* Animated Expanded KPI Cards */}
+        <AnimatePresence initial={false}>
+          {isKpiExpanded && (
+            <motion.div
+              id="kpi-dashboard-content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
+                  gap: '10px' 
+                }} 
+                className="pt-2.5"
+              >
+                <DashboardStatCard
+                  title="Today's Sessions"
+                  value={dashboardStats.totalSessions}
+                  subtitle="Scheduled Lectures"
+                  icon={Clock}
+                  iconBgColor="bg-blue-50"
+                  iconColor="text-blue-500"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Attendance Submitted"
+                  value={dashboardStats.attendanceSubmitted}
+                  subtitle="Recorded Sessions"
+                  icon={Check}
+                  iconBgColor="bg-emerald-50"
+                  iconColor="text-emerald-500"
+                  valueColor="text-emerald-600"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Pending Attendance"
+                  value={dashboardStats.pendingAttendance}
+                  subtitle="Awaiting Marking"
+                  icon={Calendar}
+                  iconBgColor="bg-amber-50"
+                  iconColor="text-amber-500"
+                  valueColor="text-amber-650"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Overall Attendance %"
+                  value={`${dashboardStats.overallAttendancePercentage}%`}
+                  subtitle="Average Rate"
+                  icon={CheckSquare}
+                  iconBgColor="bg-purple-50"
+                  iconColor="text-purple-500"
+                  valueColor="text-purple-650"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* 3. Compact Filter Bar Only (Actions moved to Header) */}
