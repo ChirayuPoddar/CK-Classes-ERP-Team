@@ -694,7 +694,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchKPIs = async () => {
       try {
-        const token = localStorage.getItem('token')
+        const token = localStorage.getItem('ck_access_token')
         const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/kpis`, {
           headers: {
             'Authorization': `Bearer ${token}`
