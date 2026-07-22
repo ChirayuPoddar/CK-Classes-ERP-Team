@@ -68,6 +68,12 @@ interface ApiService {
     @POST("subjects")
     suspend fun createSubject(@Body request: CreateSubjectRequest): Response<ApiResponse<Subject>>
 
+    @PUT("subjects/{id}")
+    suspend fun updateSubject(@Path("id") id: String, @Body request: CreateSubjectRequest): Response<ApiResponse<Subject>>
+
+    @DELETE("subjects/{id}")
+    suspend fun deleteSubject(@Path("id") id: String): Response<ApiResponse<Unit>>
+
     // Attendance
     @GET("attendance")
     suspend fun getAttendance(
@@ -84,7 +90,16 @@ interface ApiService {
     suspend fun getFees(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("student-fees")
-    suspend fun collectFee(@Body request: CollectFeeRequest): Response<ApiResponse<Unit>>
+    suspend fun createFee(@Body request: CreateFeeRequest): Response<ApiResponse<FeeRecord>>
+
+    @PUT("student-fees/{id}")
+    suspend fun updateFee(@Path("id") id: String, @Body request: CreateFeeRequest): Response<ApiResponse<FeeRecord>>
+
+    @POST("student-fees/{id}/payments")
+    suspend fun addPayment(@Path("id") id: String, @Body request: AddPaymentRequest): Response<ApiResponse<Unit>>
+
+    @DELETE("student-fees/{id}")
+    suspend fun deleteFee(@Path("id") id: String): Response<ApiResponse<Unit>>
 
     // Homework
     @GET("homework")
@@ -93,12 +108,24 @@ interface ApiService {
     @POST("homework")
     suspend fun createHomework(@Body request: CreateHomeworkRequest): Response<ApiResponse<Homework>>
 
+    @PUT("homework/{id}")
+    suspend fun updateHomework(@Path("id") id: String, @Body request: CreateHomeworkRequest): Response<ApiResponse<Homework>>
+
+    @DELETE("homework/{id}")
+    suspend fun deleteHomework(@Path("id") id: String): Response<ApiResponse<Unit>>
+
     // Exams
     @GET("exams")
     suspend fun getExams(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
 
     @POST("exams")
     suspend fun createExam(@Body request: CreateExamRequest): Response<ApiResponse<Exam>>
+
+    @PUT("exams/{id}")
+    suspend fun updateExam(@Path("id") id: String, @Body request: CreateExamRequest): Response<ApiResponse<Exam>>
+
+    @DELETE("exams/{id}")
+    suspend fun deleteExam(@Path("id") id: String): Response<ApiResponse<Unit>>
 
     // Announcements
     @GET("announcements")
@@ -107,6 +134,12 @@ interface ApiService {
     @POST("announcements")
     suspend fun createAnnouncement(@Body request: CreateAnnouncementRequest): Response<ApiResponse<Announcement>>
 
+    @PUT("announcements/{id}")
+    suspend fun updateAnnouncement(@Path("id") id: String, @Body request: CreateAnnouncementRequest): Response<ApiResponse<Announcement>>
+
+    @DELETE("announcements/{id}")
+    suspend fun deleteAnnouncement(@Path("id") id: String): Response<ApiResponse<Unit>>
+
     // Digital Resources
     @GET("resources")
     suspend fun getResources(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
@@ -114,9 +147,21 @@ interface ApiService {
     @POST("resources")
     suspend fun createResource(@Body request: CreateResourceRequest): Response<ApiResponse<DigitalResource>>
 
+    @DELETE("resources/{id}")
+    suspend fun deleteResource(@Path("id") id: String): Response<ApiResponse<Unit>>
+
     // Users
     @GET("users")
     suspend fun getUsers(@Query("limit") limit: Int = 1000): Response<ApiResponse<JsonElement>>
+
+    @PATCH("users/{id}")
+    suspend fun updateUserRole(@Path("id") id: String, @Body request: Map<String, String>): Response<ApiResponse<User>>
+
+    @PATCH("users/{id}/block")
+    suspend fun blockUser(@Path("id") id: String): Response<ApiResponse<Unit>>
+
+    @PATCH("users/{id}/unblock")
+    suspend fun unblockUser(@Path("id") id: String): Response<ApiResponse<Unit>>
 
     // AI Assistant
     @POST("ai/query")

@@ -127,8 +127,14 @@ data class FeeRecord(
         get() = rawTitle ?: student?.fullName ?: "Student Fee Record"
 }
 
-data class CollectFeeRequest(
-    @SerializedName("feeId") val feeId: String,
+data class CreateFeeRequest(
+    @SerializedName("studentId") val studentId: String,
+    @SerializedName("amount") val amount: Double,
+    @SerializedName("dueDate") val dueDate: String,
+    @SerializedName("title") val title: String = ""
+)
+
+data class AddPaymentRequest(
     @SerializedName("amount") val amount: Double,
     @SerializedName("paymentMode") val paymentMode: String
 )

@@ -23,4 +23,46 @@ class StudentViewModel(
             _studentsState.value = repository.getStudents()
         }
     }
+
+    private val _actionState = MutableLiveData<NetworkResult<String>>()
+    val actionState: LiveData<NetworkResult<String>> = _actionState
+
+    fun createStudent(req: com.example.ckclasses.data.models.CreateStudentRequest) {
+        _actionState.value = NetworkResult.Loading()
+        viewModelScope.launch {
+            val result = repository.createStudent(req)
+            if (result is NetworkResult.Success) {
+                _actionState.value = NetworkResult.Success("Student created successfully")
+                loadStudents()
+            } else {
+                _actionState.value = NetworkResult.Error(result.message ?: "Failed to create student")
+            }
+        }
+    }
+
+    fun updateStudent(id: String, req: com.example.ckclasses.data.models.CreateStudentRequest) {
+        _actionState.value = NetworkResult.Loading()
+        viewModelScope.launch {
+            val result = repository.updateStudent(id, req)
+            if (result is NetworkResult.Success) {
+                _actionState.value = NetworkResult.Success("Student updated successfully")
+                loadStudents()
+            } else {
+                _actionState.value = NetworkResult.Error(result.message ?: "Failed to update student")
+            }
+        }
+    }
+
+    fun deleteStudent(id: String) {
+        _actionState.value = NetworkResult.Loading()
+        viewModelScope.launch {
+            val result = repository.deleteStudent(id)
+            if (result is NetworkResult.Success) {
+                _actionState.value = NetworkResult.Success("Student deleted successfully")
+                loadStudents()
+            } else {
+                _actionState.value = NetworkResult.Error(result.message ?: "Failed to delete student")
+            }
+        }
+    }
 }
