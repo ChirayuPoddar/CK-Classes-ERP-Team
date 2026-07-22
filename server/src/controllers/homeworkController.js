@@ -15,7 +15,7 @@ class HomeworkController {
         } catch (e) {}
       }
 
-      const homework = await HomeworkService.createHomework(req.body)
+      const homework = await HomeworkService.createHomework({ ...req.body, tenantId: req.tenantId })
       
       const responsePayload = {
         success: true,
@@ -38,7 +38,7 @@ class HomeworkController {
    */
   async getHomeworkById(req, res, next) {
     try {
-      const homework = await HomeworkService.getHomeworkById(req.params.id)
+      const homework = await HomeworkService.getHomeworkById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: homework
@@ -53,7 +53,7 @@ class HomeworkController {
    */
   async getAllHomeworks(req, res, next) {
     try {
-      const result = await HomeworkService.getAllHomeworks(req.query, req.user)
+      const result = await HomeworkService.getAllHomeworks({ ...req.query, tenantId: req.tenantId }, req.user)
       res.status(200).json({
         success: true,
         data: result
@@ -68,7 +68,7 @@ class HomeworkController {
    */
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await HomeworkService.getDashboardStats(req.user)
+      const stats = await HomeworkService.getDashboardStats(req.user, req.tenantId)
       res.status(200).json({
         success: true,
         data: stats
@@ -85,7 +85,7 @@ class HomeworkController {
 
     try {
       if (req.file) {
-        const existingHomework = await HomeworkService.getHomeworkById(req.params.id)
+        const existingHomework = await HomeworkService.getHomeworkById(req.params.id, req.tenantId)
         const classGrade = req.body.class || existingHomework.class
         req.body.attachment = await HomeworkService.uploadAttachment(req.file, classGrade)
       } else if (req.body.attachment && typeof req.body.attachment === 'string') {
@@ -94,7 +94,7 @@ class HomeworkController {
         } catch (e) {}
       }
 
-      const homework = await HomeworkService.updateHomework(req.params.id, req.body)
+      const homework = await HomeworkService.updateHomework(req.params.id, req.body, req.tenantId)
       
       const responsePayload = {
         success: true,
@@ -117,7 +117,7 @@ class HomeworkController {
    */
   async deleteHomework(req, res, next) {
     try {
-      await HomeworkService.deleteHomework(req.params.id)
+      await HomeworkService.deleteHomework(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Homework assignment deleted successfully'

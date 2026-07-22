@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const attendanceRecordSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   attendanceSessionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AttendanceSession',
@@ -32,6 +38,6 @@ const attendanceRecordSchema = new mongoose.Schema({
 })
 
 // Compound index to prevent duplicate attendance record for same student in same session
-attendanceRecordSchema.index({ attendanceSessionId: 1, studentId: 1 }, { unique: true })
+attendanceRecordSchema.index({ tenantId: 1, attendanceSessionId: 1, studentId: 1 }, { unique: true })
 
 module.exports = mongoose.model('AttendanceRecord', attendanceRecordSchema)

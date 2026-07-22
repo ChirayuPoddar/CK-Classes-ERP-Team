@@ -27,7 +27,7 @@ class StudentService {
   async createStudent(studentData) {
     // 1. Check for duplicate email
     if (studentData.email) {
-      const emailExists = await Student.findOne({ email: studentData.email })
+      const emailExists = await Student.findOne({ email: studentData.email, tenantId: studentData.tenantId })
       if (emailExists) {
         throw new Error('Email is already registered')
       }
@@ -35,7 +35,7 @@ class StudentService {
 
     // 2. Check for duplicate phone number
     if (studentData.phone) {
-      const phoneExists = await Student.findOne({ phone: studentData.phone })
+      const phoneExists = await Student.findOne({ phone: studentData.phone, tenantId: studentData.tenantId })
       if (phoneExists) {
         throw new Error('Phone number is already registered')
       }
@@ -43,7 +43,7 @@ class StudentService {
 
     // 3. Check for duplicate studentId if custom one provided
     if (studentData.studentId) {
-      const idExists = await Student.findOne({ studentId: studentData.studentId })
+      const idExists = await Student.findOne({ studentId: studentData.studentId, tenantId: studentData.tenantId })
       if (idExists) {
         throw new Error('Student ID already exists')
       }
@@ -64,10 +64,11 @@ class StudentService {
   /**
    * Fetch a single student by MongoDB ID
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async getStudentById(id) {
-    const student = await Student.findById(id)
+  async getStudentById(id, tenantId) {
+    const student = await Student.findOne({ _id: id, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
@@ -75,12 +76,12 @@ class StudentService {
 
     // Fetch portal account safely (no passwords/secrets)
     const User = require('../models/User')
-    const user = await User.findOne({ linkedStudent: student._id }).select('email isActive lastLogin createdAt').lean()
+    const user = await User.findOne({ linkedStudent: student._id, tenantId }).select('email isActive lastLogin createdAt').lean()
     studentObj.portalAccount = user || null
 
     // Fetch class history (PromotionHistory)
     const PromotionHistory = require('../models/PromotionHistory')
-    const classHistory = await PromotionHistory.find({ studentId: student.studentId }).sort({ promotionDate: -1 }).lean()
+    const classHistory = await PromotionHistory.find({ studentId: student.studentId, tenantId }).sort({ promotionDate: -1 }).lean()
     studentObj.classHistory = classHistory || []
 
     return studentObj
@@ -96,7 +97,7 @@ class StudentService {
     const limit = parseInt(options.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const query = {}
+    const query = { tenantId: options.tenantId }
 
     // Filters support
     if (options.class) {
@@ -104,6 +105,12 @@ class StudentService {
     }
     if (options.status) {
       query.status = options.status
+    }
+    if (options.gender) {
+      query.gender = options.gender
+    }
+    if (options.category) {
+      query.category = options.category
     }
 
     // Keyword search support
@@ -175,13 +182,13 @@ class StudentService {
         .limit(limit)
     }
 
-    const totalStudents = await Student.countDocuments();
-    const activeStudents = await Student.countDocuments({ status: 'Active' });
-    const inactiveStudents = await Student.countDocuments({ status: 'Inactive' });
+    const totalStudents = await Student.countDocuments({ tenantId: options.tenantId });
+    const activeStudents = await Student.countDocuments({ status: 'Active', tenantId: options.tenantId });
+    const inactiveStudents = await Student.countDocuments({ status: 'Inactive', tenantId: options.tenantId });
     
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    const todayAdmissions = await Student.countDocuments({ admissionDate: { $gte: startOfToday } });
+    const todayAdmissions = await Student.countDocuments({ admissionDate: { $gte: startOfToday }, tenantId: options.tenantId });
 
     return {
       students: students.map(s => s.toObject()),
@@ -204,15 +211,15 @@ class StudentService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateStudent(id, updateData) {
-    const student = await Student.findById(id)
+  async updateStudent(id, updateData, tenantId) {
+    const student = await Student.findOne({ _id: id, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
 
     // 1. Check for duplicate email
     if (updateData.email && updateData.email !== student.email) {
-      const emailExists = await Student.findOne({ email: updateData.email })
+      const emailExists = await Student.findOne({ email: updateData.email, tenantId, _id: { $ne: id } })
       if (emailExists) {
         throw new Error('Email is already registered')
       }
@@ -220,7 +227,7 @@ class StudentService {
 
     // 2. Check for duplicate phone
     if (updateData.phone && updateData.phone !== student.phone) {
-      const phoneExists = await Student.findOne({ phone: updateData.phone })
+      const phoneExists = await Student.findOne({ phone: updateData.phone, tenantId, _id: { $ne: id } })
       if (phoneExists) {
         throw new Error('Phone number is already registered')
       }
@@ -264,10 +271,11 @@ class StudentService {
   /**
    * Soft delete a student (status: 'Inactive')
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteStudent(id) {
-    const student = await Student.findById(id)
+  async deleteStudent(id, tenantId) {
+    const student = await Student.findOne({ _id: id, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
@@ -282,17 +290,18 @@ class StudentService {
     }
 
     // Hard delete from database
-    await Student.findByIdAndDelete(id)
+    await Student.findOneAndDelete({ _id: id, tenantId })
     return student.toObject()
   }
 
   /**
    * Restore a soft-deleted student (status: 'Active')
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async restoreStudent(id) {
-    const student = await Student.findById(id)
+  async restoreStudent(id, tenantId) {
+    const student = await Student.findOne({ _id: id, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
@@ -307,10 +316,11 @@ class StudentService {
    * @param {String} keyword 
    * @returns {Promise<Array>}
    */
-  async searchStudents(keyword) {
+  async searchStudents(keyword, tenantId) {
     if (!keyword) return []
     const regex = new RegExp(keyword, 'i')
     const students = await Student.find({
+      tenantId,
       $or: [
         { firstName: regex },
         { lastName: regex },
@@ -325,20 +335,22 @@ class StudentService {
   /**
    * Helper: Get students by batch
    * @param {String} batchName 
+   * @param {String} tenantId
    * @returns {Promise<Array>}
    */
-  async getStudentsByBatch(batchName) {
-    const students = await Student.find({ batch: batchName })
+  async getStudentsByBatch(batchName, tenantId) {
+    const students = await Student.find({ batch: batchName, tenantId })
     return students.map(s => s.toObject())
   }
 
   /**
    * Helper: Get students by class
    * @param {String} className 
+   * @param {String} tenantId
    * @returns {Promise<Array>}
    */
-  async getStudentsByClass(className) {
-    const students = await Student.find({ class: className })
+  async getStudentsByClass(className, tenantId) {
+    const students = await Student.find({ class: className, tenantId })
     return students.map(s => s.toObject())
   }
 
@@ -346,14 +358,15 @@ class StudentService {
    * Upload / Replace student profile photo
    * @param {String} studentId 
    * @param {Object} file Multer file object
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async uploadStudentPhoto(studentId, file) {
+  async uploadStudentPhoto(studentId, file, tenantId) {
     if (!file) {
       throw new Error('No image file provided')
     }
 
-    const student = await Student.findById(studentId)
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
@@ -382,10 +395,11 @@ class StudentService {
   /**
    * Delete student profile photo
    * @param {String} studentId 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteStudentPhoto(studentId) {
-    const student = await Student.findById(studentId)
+  async deleteStudentPhoto(studentId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
@@ -408,14 +422,15 @@ class StudentService {
    * @param {Array<String>} studentIds
    * @param {String} stream (e.g. 'Class 11 Science' or 'Class 11 Commerce')
    * @param {String} adminName
+   * @param {String} tenantId
    * @returns {Promise<Number>} promotedCount
    */
-  async promoteStudents(studentIds, stream, adminName) {
+  async promoteStudents(studentIds, stream, adminName, tenantId) {
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
       throw new Error('No students selected for promotion')
     }
 
-    const students = await Student.find({ _id: { $in: studentIds } })
+    const students = await Student.find({ _id: { $in: studentIds }, tenantId })
     if (students.length === 0) {
       throw new Error('No students found matching selection')
     }
@@ -464,6 +479,7 @@ class StudentService {
 
       // Record logs
       await PromotionHistory.create({
+        tenantId,
         studentId: student.studentId,
         studentName: `${student.firstName} ${student.lastName}`,
         oldClass,
@@ -484,13 +500,13 @@ class StudentService {
   /**
    * Toggle student user portal access
    */
-  async togglePortalAccess(studentId, active, adminUser) {
-    const student = await Student.findById(studentId)
+  async togglePortalAccess(studentId, active, adminUser, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
     const User = require('../models/User')
-    const user = await User.findOne({ linkedStudent: student._id })
+    const user = await User.findOne({ linkedStudent: student._id, tenantId })
     if (!user) {
       throw new Error('Student does not have an active portal account yet.')
     }
@@ -515,9 +531,9 @@ class StudentService {
   /**
    * Upload student profile document
    */
-  async uploadDocument(studentId, file, docName, docType) {
+  async uploadDocument(studentId, file, docName, docType, tenantId) {
     if (!file) throw new Error('No document file provided')
-    const student = await Student.findById(studentId)
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     const ImageKitStorageService = require('./ImageKitStorageService')
@@ -548,8 +564,8 @@ class StudentService {
   /**
    * Delete student profile document
    */
-  async deleteDocument(studentId, docId) {
-    const student = await Student.findById(studentId)
+  async deleteDocument(studentId, docId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     student.documents = student.documents || []
@@ -583,9 +599,9 @@ class StudentService {
   /**
    * Add internal staff note to student profile
    */
-  async addInternalNote(studentId, text, adminUser) {
+  async addInternalNote(studentId, text, adminUser, tenantId) {
     if (!text) throw new Error('Note text is required')
-    const student = await Student.findById(studentId)
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     const performedByStr = adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email : 'Admin'
@@ -603,8 +619,8 @@ class StudentService {
   /**
    * Delete internal staff note from student profile
    */
-  async deleteInternalNote(studentId, noteId) {
-    const student = await Student.findById(studentId)
+  async deleteInternalNote(studentId, noteId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     student.internalNotes = student.internalNotes || []
@@ -619,12 +635,12 @@ class StudentService {
   /**
    * Bulk update status for multiple students
    */
-  async bulkUpdateStatus(studentIds, status, performedBy) {
+  async bulkUpdateStatus(studentIds, status, performedBy, tenantId) {
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
       throw new Error('No students selected')
     }
 
-    const students = await Student.find({ _id: { $in: studentIds } })
+    const students = await Student.find({ _id: { $in: studentIds }, tenantId })
     if (students.length === 0) {
       throw new Error('No students found matching selection')
     }

@@ -7,7 +7,7 @@ class TimetableController {
    */
   async getTimetableForClass(req, res, next) {
     try {
-      const result = await TimetableService.getTimetableForClass(req.query)
+      const result = await TimetableService.getTimetableForClass({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Timetable slots retrieved successfully',
@@ -24,7 +24,7 @@ class TimetableController {
    */
   async getTimetableById(req, res, next) {
     try {
-      const slot = await TimetableService.getTimetableById(req.params.id)
+      const slot = await TimetableService.getTimetableById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Timetable slot retrieved successfully',
@@ -42,7 +42,7 @@ class TimetableController {
   async createTimetableSlot(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const slot = await TimetableService.createTimetableSlot(req.body, userId)
+      const slot = await TimetableService.createTimetableSlot({ ...req.body, tenantId: req.tenantId }, userId)
       res.status(201).json({
         success: true,
         message: 'Timetable slot created successfully',
@@ -66,7 +66,7 @@ class TimetableController {
   async updateTimetableSlot(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const slot = await TimetableService.updateTimetableSlot(req.params.id, req.body, userId)
+      const slot = await TimetableService.updateTimetableSlot(req.params.id, req.body, userId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Timetable slot updated successfully',
@@ -90,7 +90,7 @@ class TimetableController {
   async deleteTimetableSlot(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const slot = await TimetableService.deleteTimetableSlot(req.params.id, userId)
+      const slot = await TimetableService.deleteTimetableSlot(req.params.id, userId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Timetable slot deleted successfully',
@@ -110,7 +110,7 @@ class TimetableController {
       const userId = req.user ? req.user.id : null
       const slot1Id = req.body.slot1Id || req.body.slotId1
       const slot2Id = req.body.slot2Id || req.body.slotId2
-      const result = await TimetableService.swapSlots(slot1Id, slot2Id, userId)
+      const result = await TimetableService.swapSlots(slot1Id, slot2Id, userId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Slots swapped successfully',
@@ -128,7 +128,7 @@ class TimetableController {
   async bulkOperation(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const result = await TimetableService.bulkOperation(req.body, userId)
+      const result = await TimetableService.bulkOperation({ ...req.body, tenantId: req.tenantId }, userId)
       res.status(200).json({
         success: true,
         message: 'Bulk operation completed successfully',
@@ -146,7 +146,7 @@ class TimetableController {
   async copyTimetable(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const result = await TimetableService.copyTimetable(req.body, userId)
+      const result = await TimetableService.copyTimetable({ ...req.body, tenantId: req.tenantId }, userId)
       res.status(200).json({
         success: true,
         message: 'Timetable copied successfully',
@@ -163,7 +163,7 @@ class TimetableController {
    */
   async getAnalytics(req, res, next) {
     try {
-      const result = await TimetableService.getAnalytics(req.query.academicYear)
+      const result = await TimetableService.getAnalytics(req.query.academicYear, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Analytics retrieved successfully',
@@ -181,7 +181,7 @@ class TimetableController {
   async autoGenerate(req, res, next) {
     try {
       const userId = req.user ? req.user.id : null
-      const result = await TimetableService.autoGenerate(req.body, userId)
+      const result = await TimetableService.autoGenerate({ ...req.body, tenantId: req.tenantId }, userId)
       res.status(200).json({
         success: true,
         message: 'Timetable generated successfully',
@@ -212,7 +212,8 @@ class TimetableController {
         period,
         teacher,
         room,
-        academicYear: academicYear || '2026-2027'
+        academicYear: academicYear || '2026-2027',
+        tenantId: req.tenantId
       }, excludeId)
 
       res.status(200).json({

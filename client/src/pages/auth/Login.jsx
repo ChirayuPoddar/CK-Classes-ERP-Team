@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
 const loginSchema = z.object({
+  slug: z.string().min(1, { message: "Institution slug is required" }),
   email: z.string().min(1, { message: "Email or username is required" }),
   password: z.string().min(1, { message: "Password is required" }),
   rememberMe: z.boolean().optional()
@@ -35,7 +36,7 @@ export default function Login() {
   const onSubmit = async (data) => {
     try {
       setErrorMsg(null)
-      await login(data.email, data.password)
+      await login(data.email, data.password, data.slug)
       navigate('/dashboard')
     } catch (err) {
       setErrorMsg(err.message || 'Login failed. Please double-check credentials.')
@@ -62,6 +63,18 @@ export default function Login() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Institution Slug */}
+        <div className="relative">
+          <Input
+            label="Institution Slug"
+            type="text"
+            placeholder="e.g. ck-classes-main"
+            error={errors.slug?.message}
+            className="pl-3"
+            {...register('slug')}
+          />
+        </div>
+
         {/* Email or Username input with icon wrapper */}
         <div className="relative">
           <Input

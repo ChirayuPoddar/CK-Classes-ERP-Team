@@ -1,9 +1,15 @@
 const mongoose = require('mongoose')
 
 const subjectSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   subjectId: {
     type: String,
-    unique: true
+    index: true
   },
   name: {
     type: String,
@@ -13,7 +19,7 @@ const subjectSchema = new mongoose.Schema({
   code: {
     type: String,
     required: [true, 'Subject code is required'],
-    unique: true,
+    index: true,
     trim: true,
     uppercase: true
   },
@@ -82,7 +88,7 @@ const subjectSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-derive stream and auto-generate subjectId on pre-save hook in format SUB20260001
+// Auto-derive stream and auto-generate subjectId on pre-save hook in format SUB20260001 if not explicitly provided
 subjectSchema.pre('save', async function(next) {
   // 1. Derive stream based on class name
   if (this.class.includes('Science')) {
@@ -93,8 +99,8 @@ subjectSchema.pre('save', async function(next) {
     this.stream = ''
   }
 
-  // 2. Generate subjectId
-  if (!this.isNew) {
+  // 2. Generate subjectId if not explicitly provided
+  if (!this.isNew || Boolean(this.subjectId)) {
     return next()
   }
 
@@ -103,7 +109,7 @@ subjectSchema.pre('save', async function(next) {
     const prefix = `SUB${year}`
     
     const lastSubject = await mongoose.model('Subject').findOne(
-      { subjectId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, subjectId: new RegExp(`^${prefix}`) },
       { subjectId: 1 },
       { sort: { subjectId: -1 } }
     )
@@ -123,5 +129,8 @@ subjectSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+subjectSchema.index({ tenantId: 1, subjectId: 1 }, { unique: true })
+subjectSchema.index({ tenantId: 1, code: 1 }, { unique: true })
 
 module.exports = mongoose.model('Subject', subjectSchema)

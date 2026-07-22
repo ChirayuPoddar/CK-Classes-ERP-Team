@@ -24,7 +24,7 @@ class AnnouncementController {
         } catch (e) {}
       }
 
-      const announcement = await AnnouncementService.createAnnouncement(req.body, req.user._id || req.user.id)
+      const announcement = await AnnouncementService.createAnnouncement({ ...req.body, tenantId: req.tenantId }, req.user._id || req.user.id)
       
       return res.status(201).json({
         success: true,
@@ -46,7 +46,7 @@ class AnnouncementController {
    */
   async getAnnouncementById(req, res, next) {
     try {
-      const announcement = await AnnouncementService.getAnnouncementById(req.params.id)
+      const announcement = await AnnouncementService.getAnnouncementById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: announcement
@@ -61,7 +61,7 @@ class AnnouncementController {
    */
   async getAllAnnouncements(req, res, next) {
     try {
-      const result = await AnnouncementService.getAllAnnouncements(req.query, req.user)
+      const result = await AnnouncementService.getAllAnnouncements({ ...req.query, tenantId: req.tenantId }, req.user)
       res.status(200).json({
         success: true,
         data: result
@@ -76,7 +76,7 @@ class AnnouncementController {
    */
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await AnnouncementService.getDashboardStats(req.user)
+      const stats = await AnnouncementService.getDashboardStats(req.user, req.tenantId)
       res.status(200).json({
         success: true,
         data: stats
@@ -92,7 +92,7 @@ class AnnouncementController {
   async updateAnnouncement(req, res, next) {
     try {
       if (req.files && req.files.length > 0) {
-        const existing = await AnnouncementService.getAnnouncementById(req.params.id)
+        const existing = await AnnouncementService.getAnnouncementById(req.params.id, req.tenantId)
         const classGrade = req.body.class || existing.class
         
         const attachmentPromises = req.files.map(file => 
@@ -120,7 +120,7 @@ class AnnouncementController {
         } catch (e) {}
       }
 
-      const announcement = await AnnouncementService.updateAnnouncement(req.params.id, req.body)
+      const announcement = await AnnouncementService.updateAnnouncement(req.params.id, req.body, req.tenantId)
       
       return res.status(200).json({
         success: true,
@@ -142,7 +142,7 @@ class AnnouncementController {
    */
   async deleteAnnouncement(req, res, next) {
     try {
-      await AnnouncementService.deleteAnnouncement(req.params.id)
+      await AnnouncementService.deleteAnnouncement(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Announcement deleted successfully'
@@ -157,7 +157,7 @@ class AnnouncementController {
    */
   async togglePinStatus(req, res, next) {
     try {
-      const announcement = await AnnouncementService.togglePinStatus(req.params.id)
+      const announcement = await AnnouncementService.togglePinStatus(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Announcement ${announcement.isPinned ? 'pinned' : 'unpinned'} successfully`,
@@ -173,7 +173,7 @@ class AnnouncementController {
    */
   async publishNow(req, res, next) {
     try {
-      const announcement = await AnnouncementService.publishNow(req.params.id)
+      const announcement = await AnnouncementService.publishNow(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Announcement published successfully',
@@ -189,7 +189,7 @@ class AnnouncementController {
    */
   async incrementView(req, res, next) {
     try {
-      const announcement = await AnnouncementService.incrementView(req.params.id)
+      const announcement = await AnnouncementService.incrementView(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: announcement
@@ -204,7 +204,7 @@ class AnnouncementController {
    */
   async incrementAcknowledgment(req, res, next) {
     try {
-      const announcement = await AnnouncementService.incrementAcknowledgment(req.params.id)
+      const announcement = await AnnouncementService.incrementAcknowledgment(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: announcement

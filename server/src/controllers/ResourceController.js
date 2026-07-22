@@ -8,7 +8,7 @@ class ResourceController {
    */
   async createResource(req, res, next) {
     try {
-      const resource = await ResourceService.createResource(req.body, req.file, req.user.id || req.user._id)
+      const resource = await ResourceService.createResource({ ...req.body, tenantId: req.tenantId }, req.file, req.user.id || req.user._id)
       return res.status(201).json({
         success: true,
         message: 'Resource created successfully',
@@ -29,7 +29,7 @@ class ResourceController {
    */
   async getResourceById(req, res, next) {
     try {
-      const resource = await ResourceService.getResourceById(req.params.id)
+      const resource = await ResourceService.getResourceById(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         data: resource
@@ -44,7 +44,7 @@ class ResourceController {
    */
   async getAllResources(req, res, next) {
     try {
-      const result = await ResourceService.getAllResources(req.query, req.user)
+      const result = await ResourceService.getAllResources({ ...req.query, tenantId: req.tenantId }, req.user)
       return res.status(200).json({
         success: true,
         data: result
@@ -59,7 +59,7 @@ class ResourceController {
    */
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await ResourceService.getDashboardStats(req.user)
+      const stats = await ResourceService.getDashboardStats(req.user, req.tenantId)
       return res.status(200).json({
         success: true,
         data: stats
@@ -74,7 +74,7 @@ class ResourceController {
    */
   async updateResource(req, res, next) {
     try {
-      const resource = await ResourceService.updateResource(req.params.id, req.body, req.file, req.user.id || req.user._id)
+      const resource = await ResourceService.updateResource(req.params.id, req.body, req.file, req.user.id || req.user._id, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Resource updated successfully',
@@ -95,7 +95,7 @@ class ResourceController {
    */
   async toggleStar(req, res, next) {
     try {
-      const isStarred = await ResourceService.toggleStar(req.params.id)
+      const isStarred = await ResourceService.toggleStar(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         message: isStarred ? 'Resource marked as starred' : 'Resource removed from starred',
@@ -111,7 +111,7 @@ class ResourceController {
    */
   async duplicateResource(req, res, next) {
     try {
-      const resource = await ResourceService.duplicateResource(req.params.id, req.user.id || req.user._id)
+      const resource = await ResourceService.duplicateResource(req.params.id, req.user.id || req.user._id, req.tenantId)
       return res.status(201).json({
         success: true,
         message: 'Resource duplicated successfully',
@@ -131,7 +131,7 @@ class ResourceController {
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ success: false, message: 'Invalid resource IDs list' })
       }
-      await ResourceService.bulkDelete(ids)
+      await ResourceService.bulkDelete(ids, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Selected resources deleted successfully'
@@ -150,7 +150,7 @@ class ResourceController {
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ success: false, message: 'Invalid resource IDs list' })
       }
-      await ResourceService.bulkUpdate(ids, fields)
+      await ResourceService.bulkUpdate(ids, fields, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Selected resources updated successfully'
@@ -171,7 +171,7 @@ class ResourceController {
       }
 
       const Resource = require('../models/Resource')
-      const items = await Resource.find({ _id: { $in: ids }, isDeleted: { $ne: true } })
+      const items = await Resource.find({ _id: { $in: ids }, isDeleted: { $ne: true }, tenantId: req.tenantId })
 
       if (items.length === 0) {
         return res.status(404).json({ success: false, message: 'No valid resources found' })
@@ -207,7 +207,7 @@ class ResourceController {
    */
   async deleteResource(req, res, next) {
     try {
-      await ResourceService.deleteResource(req.params.id)
+      await ResourceService.deleteResource(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Resource deleted successfully'
@@ -222,7 +222,7 @@ class ResourceController {
    */
   async incrementDownload(req, res, next) {
     try {
-      const count = await ResourceService.incrementDownload(req.params.id)
+      const count = await ResourceService.incrementDownload(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         data: { downloadCount: count }
@@ -237,7 +237,7 @@ class ResourceController {
    */
   async incrementView(req, res, next) {
     try {
-      const count = await ResourceService.incrementView(req.params.id, req.user)
+      const count = await ResourceService.incrementView(req.params.id, req.user, req.tenantId)
       return res.status(200).json({
         success: true,
         data: { viewCount: count }

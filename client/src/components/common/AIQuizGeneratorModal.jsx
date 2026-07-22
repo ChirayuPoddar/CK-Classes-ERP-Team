@@ -1,9 +1,11 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, Printer, Copy, Check, FileText, Key, Loader2, BookOpen } from 'lucide-react'
 import { generateQuiz } from '@/services/aiService'
 
 export const AIQuizGeneratorModal = ({ isOpen, onClose, initialResource = null }) => {
+  const { user } = useAuth();
   const [topic, setTopic] = useState(initialResource?.title || '')
   const [className, setClassName] = useState(initialResource?.class || 'Class 10')
   const [count, setCount] = useState(5)
@@ -227,7 +229,7 @@ export const AIQuizGeneratorModal = ({ isOpen, onClose, initialResource = null }
               <div className="p-6 space-y-6">
                 {/* Institutional Header */}
                 <div className="text-center border-b border-slate-200 pb-4">
-                  <h2 className="text-xl font-bold text-slate-900 tracking-tight">C.K. CLASSES ACADEMIC ASSESSMENT</h2>
+                  <h2 className="text-xl font-bold text-slate-900 tracking-tight">{user?.tenantName ? user.tenantName.toUpperCase() + ' ACADEMIC ASSESSMENT' : 'ACADEMIC ASSESSMENT'}</h2>
                   <p className="text-sm font-semibold text-indigo-600 mt-0.5">{quizData.title || `${quizData.topic} Test Paper`}</p>
                   <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2 border-t border-slate-100">
                     <span><strong>Class:</strong> {quizData.className}</span>

@@ -64,9 +64,10 @@ class HomeworkService {
    */
   async createHomework(data) {
     const homeworkData = { ...data }
+    const tenantId = homeworkData.tenantId
 
     // Verify subject exists and fetch assigned teacher
-    const subject = await Subject.findById(homeworkData.subject).populate('assignedTeacher')
+    const subject = await Subject.findOne({ _id: homeworkData.subject, tenantId }).populate('assignedTeacher')
     if (!subject) {
       throw new Error('Selected Subject not found')
     }
@@ -80,7 +81,7 @@ class HomeworkService {
     const homework = new Homework(homeworkData)
     await homework.save()
 
-    return this.getHomeworkById(homework._id)
+    return this.getHomeworkById(homework._id, tenantId)
   }
 
   /**
@@ -88,8 +89,8 @@ class HomeworkService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async getHomeworkById(id) {
-    const homework = await Homework.findById(id)
+  async getHomeworkById(id, tenantId) {
+    const homework = await Homework.findOne({ _id: id, tenantId })
       .populate('subject')
       .populate('teacher')
     
@@ -110,11 +111,11 @@ class HomeworkService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
 
     // Apply role-based visibility constraints
     if (userContext.role === 'student' || userContext.role === 'parent') {
-      const student = await Student.findOne({ email: userContext.email })
+      const student = await Student.findOne({ email: userContext.email, tenantId: queryParams.tenantId })
       if (student) {
         filter.class = student.class
       } else {
@@ -138,7 +139,7 @@ class HomeworkService {
 
     if (queryParams.search) {
       const regex = new RegExp(queryParams.search.trim(), 'i')
-      const matchingSubjects = await Subject.find({ name: regex }).select('_id')
+      const matchingSubjects = await Subject.find({ name: regex, tenantId: queryParams.tenantId }).select('_id')
       
       filter.$or = [
         { title: regex },
@@ -152,7 +153,8 @@ class HomeworkService {
     await Homework.updateMany(
       { 
         dueDate: { $lt: now }, 
-        status: { $ne: 'Completed' } 
+        status: { $ne: 'Completed' },
+        tenantId: queryParams.tenantId
       },
       { status: 'Overdue' }
     )
@@ -240,11 +242,11 @@ class HomeworkService {
    * @param {Object} userContext 
    * @returns {Promise<Object>}
    */
-  async getDashboardStats(userContext) {
-    const filter = {}
+  async getDashboardStats(userContext, tenantId) {
+    const filter = { tenantId }
 
     if (userContext.role === 'student' || userContext.role === 'parent') {
-      const student = await Student.findOne({ email: userContext.email })
+      const student = await Student.findOne({ email: userContext.email, tenantId })
       if (student) {
         filter.class = student.class
       }
@@ -279,8 +281,8 @@ class HomeworkService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateHomework(id, updateData) {
-    const homework = await Homework.findById(id)
+  async updateHomework(id, updateData, tenantId) {
+    const homework = await Homework.findOne({ _id: id, tenantId })
     if (!homework) {
       throw new Error('Homework assignment not found')
     }
@@ -295,7 +297,7 @@ class HomeworkService {
     }
 
     if (updateData.subject) {
-      const subject = await Subject.findById(updateData.subject).populate('assignedTeacher')
+      const subject = await Subject.findOne({ _id: updateData.subject, tenantId }).populate('assignedTeacher')
       if (!subject) {
         throw new Error('Selected Subject not found')
       }
@@ -313,7 +315,7 @@ class HomeworkService {
 
     await homework.save()
 
-    return this.getHomeworkById(homework._id)
+    return this.getHomeworkById(homework._id, tenantId)
   }
 
   /**
@@ -321,8 +323,8 @@ class HomeworkService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async deleteHomework(id) {
-    const homework = await Homework.findById(id)
+  async deleteHomework(id, tenantId) {
+    const homework = await Homework.findOne({ _id: id, tenantId })
     if (!homework) {
       throw new Error('Homework assignment not found')
     }
@@ -336,7 +338,7 @@ class HomeworkService {
       }
     }
 
-    await Homework.findByIdAndDelete(id)
+    await Homework.findOneAndDelete({ _id: id, tenantId })
     return homework.toObject()
   }
 }

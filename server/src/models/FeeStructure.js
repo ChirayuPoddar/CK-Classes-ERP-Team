@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const feeStructureSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   course: {
     type: String,
     required: [true, 'Course is required'],

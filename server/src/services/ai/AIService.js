@@ -1,5 +1,6 @@
 const User = require('../../models/User')
 const Student = require('../../models/Student')
+const Tenant = require('../../models/Tenant')
 const Teacher = require('../../models/Teacher')
 const Subject = require('../../models/Subject')
 const Announcement = require('../../models/Announcement')
@@ -28,8 +29,19 @@ class AIService {
    */
   async buildContextForUser(user) {
     const role = (user.role || '').toLowerCase()
+    
+    let institutionName = 'C.K. Classes'
+    try {
+      if (user.tenantId) {
+        const tenant = await Tenant.findById(user.tenantId).select('institutionName name')
+        if (tenant) institutionName = tenant.institutionName || tenant.name || institutionName
+      }
+    } catch (e) {
+      console.error('[AIService] Error fetching tenant for branding', e)
+    }
+
     const contextLines = [
-      `System Role: You are C.K. ERP AI Assistant, an intelligent institutional AI for C.K. Classes.`,
+      `System Role: You are an intelligent institutional AI Assistant for ${institutionName}.`,
       `Logged-in User Identity: ${user.firstName || user.email} (${user.email}), Role: ${user.role}.`,
       `Current Date & Time: ${new Date().toISOString()}`,
       `CRITICAL INSTRUCTION: Use the provided MONGODB DATA SUMMARY below to answer questions about student counts, staff, exams, and announcements accurately. Never say data is missing when counts are listed below.`
@@ -37,14 +49,16 @@ class AIService {
 
     // 0. Fetch Real-time Institutional Statistics & Overview Metrics
     try {
+      const tenantId = user.tenantId
+      const tenantFilter = tenantId ? { tenantId } : {}
       const [totalStudents, activeStudents, totalTeachers, totalSubjects, totalExams, totalAnnouncements, totalParents] = await Promise.all([
-        Student.countDocuments(),
-        Student.countDocuments({ status: { $regex: /^active$/i } }),
-        Teacher.countDocuments(),
-        Subject.countDocuments(),
-        Exam.countDocuments(),
-        Announcement.countDocuments(),
-        User.countDocuments({ role: { $regex: /^parent$/i } })
+        Student.countDocuments(tenantFilter),
+        Student.countDocuments({ ...tenantFilter, status: { $regex: /^active$/i } }),
+        Teacher.countDocuments(tenantFilter),
+        Subject.countDocuments(tenantFilter),
+        Exam.countDocuments(tenantFilter),
+        Announcement.countDocuments(tenantFilter),
+        User.countDocuments({ ...tenantFilter, role: { $regex: /^parent$/i } })
       ])
 
       contextLines.push('\n[PRIMARY MONGODB INSTITUTIONAL DATA SUMMARY]:')
@@ -58,7 +72,7 @@ class AIService {
       if (['admin', 'staff', 'teacher', 'superadmin'].includes(role)) {
         try {
           if (typeof StudentService.getAllStudents === 'function') {
-            const studentsRes = await StudentService.getAllStudents({ limit: 5 }, user)
+            const studentsRes = await StudentService.getAllStudents({ limit: 5, tenantId: user.tenantId }, user)
             const studentList = studentsRes.students || studentsRes.data || (Array.isArray(studentsRes) ? studentsRes : [])
             if (studentList.length > 0) {
               contextLines.push('\n[Enrolled Students Sample Records]:')
@@ -73,7 +87,7 @@ class AIService {
 
         try {
           if (typeof TeacherService.getAllTeachers === 'function') {
-            const teachersRes = await TeacherService.getAllTeachers({ limit: 5 }, user)
+            const teachersRes = await TeacherService.getAllTeachers({ limit: 5, tenantId: user.tenantId }, user)
             const teacherList = teachersRes.teachers || teachersRes.data || (Array.isArray(teachersRes) ? teachersRes : [])
             if (teacherList.length > 0) {
               contextLines.push('\n[Faculty Mentors Snapshot]:')
@@ -94,7 +108,7 @@ class AIService {
     // 1. Fetch Announcements & Homework
     try {
       if (typeof AnnouncementService.getAllAnnouncements === 'function') {
-        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 3 }, user)
+        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 3, tenantId: user.tenantId }, user)
         const announcementsList = announcementsRes.announcements || announcementsRes.data || []
         if (announcementsList.length > 0) {
           contextLines.push('\n[Recent System Announcements]:')
@@ -106,7 +120,7 @@ class AIService {
       }
 
       if (typeof HomeworkService.getAllHomeworks === 'function') {
-        const hwRes = await HomeworkService.getAllHomeworks({ limit: 3 }, user)
+        const hwRes = await HomeworkService.getAllHomeworks({ limit: 3, tenantId: user.tenantId }, user)
         const hwList = hwRes.homework || hwRes.data || []
         if (hwList.length > 0) {
           contextLines.push(`\n[Assigned Homework Records]:`)
@@ -123,7 +137,7 @@ class AIService {
     // Student Role Specific Context
     if (role === 'student' && user.linkedStudent) {
       try {
-        const studentProfile = await StudentService.getStudentById(user.linkedStudent)
+        const studentProfile = await StudentService.getStudentById(user.linkedStudent, user.tenantId)
         if (studentProfile) {
           contextLines.push(`\n[Active Student Profile]:`)
           contextLines.push(`- ID: ${studentProfile.studentId}, Name: ${studentProfile.firstName} ${studentProfile.lastName}, Class: ${studentProfile.class}, Status: ${studentProfile.status}`)
@@ -136,7 +150,7 @@ class AIService {
     // Student Fee Records
     try {
       if (typeof StudentFeeService.getAllStudentFees === 'function') {
-        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 3 })
+        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 3, tenantId: user.tenantId })
         const feeList = feeRes.fees || feeRes.studentFees || (Array.isArray(feeRes) ? feeRes : [])
         if (feeList.length > 0) {
           contextLines.push(`\n[Student Fee Summaries]:`)
@@ -205,7 +219,7 @@ class AIService {
 
     if (params.resourceId) {
       try {
-        const resDoc = await Resource.findById(params.resourceId).populate('subject')
+        const resDoc = await Resource.findOne({ _id: params.resourceId, ...(user.tenantId ? { tenantId: user.tenantId } : {}) }).populate('subject')
         if (resDoc) {
           resourceTitle = resDoc.title
           resourceDetails = `Title: ${resDoc.title}\nCategory: ${resDoc.category}\nClass: ${resDoc.class || 'N/A'}\nDescription: ${resDoc.description || ''}\nTags: ${(resDoc.tags || []).join(', ')}`
@@ -220,7 +234,17 @@ class AIService {
     const className = params.className || 'Class 10'
     const topic = params.topic || params.subject || 'General Studies'
 
-    const systemPrompt = `You are an expert academic examiner for C.K. Classes. Your task is to generate a structured exam question paper based on the provided study resource / topic.
+    let institutionName = 'C.K. Classes'
+    try {
+      if (user.tenantId) {
+        const tenant = await Tenant.findById(user.tenantId).select('institutionName name')
+        if (tenant) institutionName = tenant.institutionName || tenant.name || institutionName
+      }
+    } catch (e) {
+      console.error('[AIService] Error fetching tenant for branding', e)
+    }
+
+    const systemPrompt = `You are an expert academic examiner for ${institutionName}. Your task is to generate a structured exam question paper based on the provided study resource / topic.
 
 CRITICAL: Output MUST be a valid JSON object matching this exact schema and NOTHING ELSE (no markdown backticks, no markdown formatting outside JSON):
 {

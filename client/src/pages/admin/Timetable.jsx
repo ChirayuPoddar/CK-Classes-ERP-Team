@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react'
 import { 
   Plus, 
@@ -155,6 +156,7 @@ function TimetableCell({ slot, isFilteredOut, onClick, showTeacherView = false }
 }
 
 export default function Timetable() {
+  const { user } = useAuth();
   const [timetableSlots, setTimetableSlots] = useState([])
   const [subjects, setSubjects] = useState([])
   const [teachers, setTeachers] = useState([])
@@ -1163,7 +1165,7 @@ export default function Timetable() {
             <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-black">
               CK
             </div>
-            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">C.K. Classes</h1>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">{user?.tenantName || 'Institutional ERP'}</h1>
           </div>
           <p className="text-[9px] font-bold text-slate-400">Advanced ERP Coaching Portal</p>
         </div>
@@ -1181,7 +1183,7 @@ export default function Timetable() {
             <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-black">
               CK
             </div>
-            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">C.K. Classes</h1>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">{user?.tenantName || 'Institutional ERP'}</h1>
           </div>
           <p className="text-[9px] font-bold text-slate-400">Advanced ERP Coaching Portal</p>
         </div>

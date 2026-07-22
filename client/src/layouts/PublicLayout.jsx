@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
+import { useAuth } from '@/contexts/AuthContext'
 
 export const PublicLayout = () => {
+  const { user } = useAuth()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
   const [scrolled, setScrolled] = useState(false)
@@ -38,9 +40,9 @@ export const PublicLayout = () => {
           {/* Brand Logo Placeholder */}
           <Link to="/" className="flex items-center gap-3 group">
             <div className="h-9 w-9 rounded-premium-md bg-brand-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-premium-1 group-hover:scale-105 transition-transform duration-200">
-              CK
+              {user?.tenantName ? user.tenantName.substring(0, 2).toUpperCase() : 'ERP'}
             </div>
-            <span className="font-bold text-sm tracking-tight text-[var(--text-primary)]">C.K. Classes</span>
+            <span className="font-bold text-sm tracking-tight text-[var(--text-primary)]">{user?.tenantName || 'Institutional ERP Platform'}</span>
           </Link>
 
           {/* Navigation Links */}
@@ -78,9 +80,9 @@ export const PublicLayout = () => {
 
       {/* Landing Footer */}
       <footer className="border-t border-t-[var(--border-light)] py-8 bg-[var(--bg-secondary)]">
-        <div className="max-w-7xl mx-auto px-8 flex justify-between items-center text-xs text-[var(--text-tertiary)] font-medium">
-          <span>© {new Date().getFullYear()} C.K. Classes. Parvat Patiya, Surat, India. All rights reserved.</span>
-          <div className="flex gap-4">
+        <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between text-xs font-semibold text-[var(--text-tertiary)] select-none">
+          <span>© {new Date().getFullYear()} {user?.tenantName || 'Institutional ERP Platform'}. All rights reserved.</span>
+          <div className="flex items-center gap-6 mt-4 md:mt-0">
             <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
             <Link to="/terms" className="hover:underline">Terms of Service</Link>
           </div>

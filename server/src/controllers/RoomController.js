@@ -3,7 +3,7 @@ const RoomService = require('../services/RoomService')
 class RoomController {
   async getAllRooms(req, res, next) {
     try {
-      const rooms = await RoomService.getAllRooms(req.query)
+      const rooms = await RoomService.getAllRooms({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Rooms retrieved successfully',
@@ -16,7 +16,7 @@ class RoomController {
 
   async getRoomById(req, res, next) {
     try {
-      const room = await RoomService.getRoomById(req.params.id)
+      const room = await RoomService.getRoomById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Room details retrieved successfully',
@@ -29,7 +29,7 @@ class RoomController {
 
   async createRoom(req, res, next) {
     try {
-      const room = await RoomService.createRoom(req.body)
+      const room = await RoomService.createRoom({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Room created successfully',
@@ -42,7 +42,7 @@ class RoomController {
 
   async updateRoom(req, res, next) {
     try {
-      const room = await RoomService.updateRoom(req.params.id, req.body)
+      const room = await RoomService.updateRoom(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Room updated successfully',
@@ -55,7 +55,7 @@ class RoomController {
 
   async deleteRoom(req, res, next) {
     try {
-      const room = await RoomService.deleteRoom(req.params.id)
+      const room = await RoomService.deleteRoom(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Room deleted successfully',

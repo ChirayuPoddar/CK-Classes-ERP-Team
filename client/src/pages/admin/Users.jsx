@@ -35,6 +35,7 @@ const roles = ['All', 'Admin', 'Teacher', 'Student', 'Parent', 'Receptionist', '
 const statuses = ['All', 'Active', 'Blocked']
 
 export default function Users() {
+  const { user } = useAuth();
   const { user: currentUser } = useAuth()
 
   // State management
@@ -639,7 +640,7 @@ export default function Users() {
           </div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">Users & Access Management</h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
-            Manage accounts, roles, access, and security across C.K. Classes.
+            Manage accounts, roles, access, and security across {user?.tenantName || 'the institution'}.
           </p>
         </div>
 

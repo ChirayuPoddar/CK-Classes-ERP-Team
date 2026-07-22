@@ -2,10 +2,15 @@ const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 
 const userSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   email: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     lowercase: true,
     trim: true
@@ -95,6 +100,8 @@ const userSchema = new mongoose.Schema({
 userSchema.methods.comparePassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.passwordHash)
 }
+
+userSchema.index({ tenantId: 1, email: 1 }, { unique: true })
 
 const User = mongoose.model('User', userSchema)
 module.exports = User

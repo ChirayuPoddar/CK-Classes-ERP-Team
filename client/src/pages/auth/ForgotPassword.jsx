@@ -181,7 +181,7 @@ export default function ForgotPassword() {
         <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
           {step === 1 && "Enter your registered email address to receive a 6-digit verification code."}
           {step === 2 && `Enter the 6-digit verification code sent to ${email}.`}
-          {step === 3 && "Create a new strong password for your C.K. Classes account access."}
+          {step === 3 && "Create a new strong password for your account access."}
           {step === 4 && "Your password has been changed successfully. All active device sessions have been revoked."}
         </p>
       </div>

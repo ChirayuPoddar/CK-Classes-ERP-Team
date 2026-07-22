@@ -6,7 +6,7 @@ class SubjectController {
    */
   async createSubject(req, res, next) {
     try {
-      const subject = await SubjectService.createSubject(req.body)
+      const subject = await SubjectService.createSubject({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Subject created successfully',
@@ -22,7 +22,7 @@ class SubjectController {
    */
   async getSubjectById(req, res, next) {
     try {
-      const subject = await SubjectService.getSubjectById(req.params.id)
+      const subject = await SubjectService.getSubjectById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: subject
@@ -37,7 +37,7 @@ class SubjectController {
    */
   async getAllSubjects(req, res, next) {
     try {
-      const result = await SubjectService.getAllSubjects(req.query)
+      const result = await SubjectService.getAllSubjects({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -52,7 +52,7 @@ class SubjectController {
    */
   async updateSubject(req, res, next) {
     try {
-      const subject = await SubjectService.updateSubject(req.params.id, req.body)
+      const subject = await SubjectService.updateSubject(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Subject updated successfully',
@@ -68,7 +68,7 @@ class SubjectController {
    */
   async deleteSubject(req, res, next) {
     try {
-      await SubjectService.deleteSubject(req.params.id)
+      await SubjectService.deleteSubject(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Subject deleted successfully'
@@ -90,7 +90,7 @@ class SubjectController {
       const deletedSubjects = []
       for (const id of ids) {
         try {
-          const subject = await SubjectService.deleteSubject(id)
+          const subject = await SubjectService.deleteSubject(id, req.tenantId)
           deletedSubjects.push(subject)
         } catch (e) {
           console.warn(`Failed to delete subject with ID ${id} in bulk operation:`, e)

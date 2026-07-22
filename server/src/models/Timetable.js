@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const timetableSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   class: {
     type: String,
     required: [true, 'Class is required'],

@@ -1,6 +1,11 @@
 const mongoose = require('mongoose')
 
 const holidaySchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true
+  },
   name: {
     type: String,
     required: [true, 'Holiday name is required'],
@@ -40,7 +45,7 @@ const holidaySchema = new mongoose.Schema({
   timestamps: true
 })
 
-holidaySchema.index({ date: 1, academicYear: 1 })
-holidaySchema.index({ type: 1 })
+holidaySchema.index({ tenantId: 1, date: 1, academicYear: 1 })
+holidaySchema.index({ tenantId: 1, type: 1 })
 
 module.exports = mongoose.model('Holiday', holidaySchema)

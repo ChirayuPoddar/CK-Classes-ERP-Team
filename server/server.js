@@ -33,11 +33,27 @@ if (process.env.REDIS_URL) {
   attachRedisAdapter(io)
 }
 
+app.set('io', io)
+
 // Setup base socket connections
 io.on('connection', (socket) => {
-  // Subscribing users to role-specific namespaces/rooms
-  socket.on('join_room', (roomName) => {
-    socket.join(roomName)
+  // Subscribing users to role-specific namespaces/rooms scoped by tenantId
+  socket.on('join_room', (payload) => {
+    let roomName = ''
+    let tenantId = socket.handshake?.auth?.tenantId || socket.handshake?.query?.tenantId || ''
+
+    if (typeof payload === 'object' && payload !== null) {
+      roomName = payload.room || payload.roomName || payload.roomId || ''
+      if (payload.tenantId) tenantId = payload.tenantId
+    } else if (typeof payload === 'string') {
+      roomName = payload
+    }
+
+    if (roomName && tenantId && !roomName.startsWith(`${tenantId}:`)) {
+      socket.join(`${tenantId}:${roomName}`)
+    } else if (roomName) {
+      socket.join(roomName)
+    }
   })
 })
 

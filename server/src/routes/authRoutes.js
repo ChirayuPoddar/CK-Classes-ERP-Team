@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const User = require('../models/User')
+const Tenant = require('../models/Tenant')
 const PasswordResetToken = require('../models/PasswordResetToken')
 const { verifyToken } = require('../middlewares/authMiddleware')
 const { hashToken } = require('../utils/hashToken')
@@ -11,8 +12,8 @@ const otpService = require('../services/otpService')
 const { validatePasswordFormat } = require('../validators/userValidator')
 const ApiError = require('../utils/ApiError')
 
-// Helper: Generate Access and Refresh Tokens with Session ID & Type
-const generateTokens = (user, sessionId) => {
+// Helper: Generate Access and Refresh Tokens with Session ID & Type & Tenant ID
+const generateTokens = (user, sessionId, explicitTenantId) => {
   const accessSecret = process.env.JWT_ACCESS_SECRET
   const refreshSecret = process.env.JWT_REFRESH_SECRET
 
@@ -20,12 +21,15 @@ const generateTokens = (user, sessionId) => {
     throw new Error('Server authentication configuration error: Secrets missing.')
   }
 
+  const tenantIdStr = explicitTenantId ? explicitTenantId.toString() : (user.tenantId ? user.tenantId.toString() : null)
+
   const accessToken = jwt.sign(
     {
       id: user._id,
       role: user.role,
       email: user.email,
       sessionId,
+      tenantId: tenantIdStr,
       type: 'access'
     },
     accessSecret,
@@ -36,6 +40,7 @@ const generateTokens = (user, sessionId) => {
     {
       id: user._id,
       sessionId,
+      tenantId: tenantIdStr,
       type: 'refresh'
     },
     refreshSecret,
@@ -46,7 +51,7 @@ const generateTokens = (user, sessionId) => {
 }
 
 // Helper: Shared Cookie Options (single source of truth for domain/sameSite/secure)
-// - COOKIE_DOMAIN: set only when frontend & backend share a root domain (e.g. ".ckclasses.com")
+// - COOKIE_DOMAIN: set only when frontend & backend share a root domain (e.g. ".example.com")
 //   Leave unset for cross-site hosts (e.g. app.onrender.com / api.onrender.com) - in that case
 //   set COOKIE_SAMESITE=none explicitly, since cross-site cookies require SameSite=None; Secure.
 // Used consistently by setCookies() and every clearCookie() call below so logout/reset-password
@@ -91,9 +96,10 @@ const setCookies = (res, accessToken, refreshToken) => {
   }
 }
 
-// POST: Login Route
+// POST: Login Route (With Institution Slug Resolution & Tenant-Scoped Lookup)
 router.post('/login', async (req, res, next) => {
-  const { email, password } = req.body
+  const { email, password, institutionSlug, tenantSlug, slug } = req.body
+  const targetSlug = institutionSlug || tenantSlug || slug
 
   try {
     if (!email || !password) {
@@ -103,11 +109,29 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
+    if (!targetSlug || typeof targetSlug !== 'string') {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Invalid email or password' }
+      })
+    }
+
+    const cleanSlug = targetSlug.toLowerCase().trim()
+    const tenant = await Tenant.findOne({ slug: cleanSlug, isActive: true })
+
+    if (!tenant) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Invalid email or password' }
+      })
+    }
+
     const cleanInput = email.toLowerCase().trim()
     const user = await User.findOne({
+      tenantId: tenant._id,
       $or: [
         { email: cleanInput },
-        { email: `${cleanInput}@ckclasses.com` }
+        { email: `${cleanInput}@example.com` }
       ]
     })
     if (!user) {
@@ -166,7 +190,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const sessionId = crypto.randomUUID()
-    const { accessToken, refreshToken } = generateTokens(user, sessionId)
+    const { accessToken, refreshToken } = generateTokens(user, sessionId, tenant._id)
     const refreshTokenHash = hashToken(refreshToken)
 
     const ua = req.headers['user-agent'] || ''
@@ -208,7 +232,9 @@ router.post('/login', async (req, res, next) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
-        sessionId: newSession.sessionId
+        sessionId: newSession.sessionId,
+        tenantId: tenant._id.toString(),
+        tenantName: tenant.institutionName || tenant.name || 'Institution'
       }
     })
   } catch (error) {
@@ -293,7 +319,7 @@ router.post('/refresh', async (req, res, next) => {
       })
     }
 
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user, session.sessionId)
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user, session.sessionId, decoded.tenantId || user.tenantId)
 
     session.refreshTokenHash = hashToken(newRefreshToken)
     session.lastActiveAt = now
@@ -596,6 +622,7 @@ router.post('/reset-password/:token', async (req, res, next) => {
 router.get('/me', verifyToken, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('-passwordHash')
+    const tenant = await Tenant.findById(user.tenantId)
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -612,7 +639,9 @@ router.get('/me', verifyToken, async (req, res, next) => {
         email: user.email,
         role: user.role,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        tenantId: user.tenantId,
+        tenantName: tenant ? (tenant.institutionName || tenant.name || 'Institution') : 'Institution'
       }
     })
   } catch (error) {

@@ -9,7 +9,7 @@ class StudentController {
   async createStudent(req, res, next) {
     try {
       const performedByStr = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email : 'Admin'
-      const student = await StudentService.createStudent({ ...req.body, performedBy: performedByStr })
+      const student = await StudentService.createStudent({ ...req.body, performedBy: performedByStr, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Student profile created successfully',
@@ -26,7 +26,7 @@ class StudentController {
    */
   async getStudentById(req, res, next) {
     try {
-      const student = await StudentService.getStudentById(req.params.id)
+      const student = await StudentService.getStudentById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student retrieved successfully',
@@ -43,7 +43,7 @@ class StudentController {
    */
   async getAllStudents(req, res, next) {
     try {
-      const result = await StudentService.getAllStudents(req.query)
+      const result = await StudentService.getAllStudents({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Students list retrieved successfully',
@@ -61,7 +61,7 @@ class StudentController {
   async updateStudent(req, res, next) {
     try {
       const performedByStr = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email : 'Admin'
-      const student = await StudentService.updateStudent(req.params.id, { ...req.body, performedBy: performedByStr })
+      const student = await StudentService.updateStudent(req.params.id, { ...req.body, performedBy: performedByStr }, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student profile updated successfully',
@@ -78,7 +78,7 @@ class StudentController {
    */
   async deleteStudent(req, res, next) {
     try {
-      const student = await StudentService.deleteStudent(req.params.id)
+      const student = await StudentService.deleteStudent(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student deleted successfully',
@@ -101,7 +101,7 @@ class StudentController {
       const deletedStudents = []
       for (const id of ids) {
         try {
-          const student = await StudentService.deleteStudent(id)
+          const student = await StudentService.deleteStudent(id, req.tenantId)
           deletedStudents.push(student)
         } catch (e) {
           console.warn(`Failed to delete student with ID ${id} in bulk operation:`, e)
@@ -123,7 +123,7 @@ class StudentController {
    */
   async restoreStudent(req, res, next) {
     try {
-      const student = await StudentService.restoreStudent(req.params.id)
+      const student = await StudentService.restoreStudent(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student profile restored successfully',
@@ -140,7 +140,7 @@ class StudentController {
    */
   async searchStudents(req, res, next) {
     try {
-      const students = await StudentService.searchStudents(req.query.q)
+      const students = await StudentService.searchStudents(req.query.q, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Search completed successfully',
@@ -159,7 +159,7 @@ class StudentController {
    */
   async getStudentsByClass(req, res, next) {
     try {
-      const students = await StudentService.getStudentsByClass(req.params.className)
+      const students = await StudentService.getStudentsByClass(req.params.className, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Students list retrieved by class successfully',
@@ -176,7 +176,7 @@ class StudentController {
    */
   async uploadStudentPhoto(req, res, next) {
     try {
-      const student = await StudentService.uploadStudentPhoto(req.params.id, req.file)
+      const student = await StudentService.uploadStudentPhoto(req.params.id, req.file, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student profile image uploaded successfully',
@@ -193,7 +193,7 @@ class StudentController {
    */
   async deleteStudentPhoto(req, res, next) {
     try {
-      const student = await StudentService.deleteStudentPhoto(req.params.id)
+      const student = await StudentService.deleteStudentPhoto(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student profile image deleted successfully',
@@ -217,7 +217,7 @@ class StudentController {
 
       let adminName = 'Admin'
       if (req.user && req.user.id) {
-        const adminUser = await User.findById(req.user.id)
+        const adminUser = await User.findOne({ _id: req.user.id, tenantId: req.tenantId })
         if (adminUser) {
           adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || 'Admin'
         } else {
@@ -225,7 +225,7 @@ class StudentController {
         }
       }
 
-      const promotedCount = await StudentService.promoteStudents(studentIds, stream, adminName)
+      const promotedCount = await StudentService.promoteStudents(studentIds, stream, adminName, req.tenantId)
       res.status(200).json({
         success: true,
         message: `${promotedCount} students promoted successfully.`,
@@ -257,7 +257,7 @@ class StudentController {
         performedBy = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email
       }
 
-      const updatedCount = await StudentService.bulkUpdateStatus(studentIds, status, performedBy)
+      const updatedCount = await StudentService.bulkUpdateStatus(studentIds, status, performedBy, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Successfully updated status to ${status} for ${updatedCount} students.`,
@@ -274,7 +274,7 @@ class StudentController {
   async togglePortalAccess(req, res, next) {
     try {
       const { active } = req.body
-      const result = await StudentService.togglePortalAccess(req.params.id, active, req.user)
+      const result = await StudentService.togglePortalAccess(req.params.id, active, req.user, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Portal access ${active ? 'enabled' : 'disabled'} successfully`,
@@ -291,7 +291,7 @@ class StudentController {
   async uploadDocument(req, res, next) {
     try {
       const { name, type } = req.body
-      const student = await StudentService.uploadDocument(req.params.id, req.file, name, type)
+      const student = await StudentService.uploadDocument(req.params.id, req.file, name, type, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Document uploaded successfully',
@@ -307,7 +307,7 @@ class StudentController {
    */
   async deleteDocument(req, res, next) {
     try {
-      const student = await StudentService.deleteDocument(req.params.id, req.params.docId)
+      const student = await StudentService.deleteDocument(req.params.id, req.params.docId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Document deleted successfully',
@@ -324,7 +324,7 @@ class StudentController {
   async addInternalNote(req, res, next) {
     try {
       const { text } = req.body
-      const student = await StudentService.addInternalNote(req.params.id, text, req.user)
+      const student = await StudentService.addInternalNote(req.params.id, text, req.user, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Internal note added successfully',
@@ -340,7 +340,7 @@ class StudentController {
    */
   async deleteInternalNote(req, res, next) {
     try {
-      const student = await StudentService.deleteInternalNote(req.params.id, req.params.noteId)
+      const student = await StudentService.deleteInternalNote(req.params.id, req.params.noteId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Internal note deleted successfully',

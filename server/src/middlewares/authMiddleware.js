@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { hasPermission } = require('../config/permissions')
+const { attachTenantContext } = require('./tenantMiddleware')
 
 const verifyToken = async (req, res, next) => {
   const accessSecret = process.env.JWT_ACCESS_SECRET
@@ -70,10 +71,11 @@ const verifyToken = async (req, res, next) => {
       sessionId: decoded.sessionId || null,
       linkedStudent: user.linkedStudent ? user.linkedStudent.toString() : null,
       linkedTeacher: user.linkedTeacher ? user.linkedTeacher.toString() : null,
-      linkedChildren: (user.linkedChildren || []).map(c => c.toString())
+      linkedChildren: (user.linkedChildren || []).map(c => c.toString()),
+      tenantId: decoded.tenantId ? decoded.tenantId.toString() : (user.tenantId ? user.tenantId.toString() : null)
     }
 
-    next()
+    return attachTenantContext(req, res, next)
   } catch (error) {
     return res.status(401).json({
       success: false,

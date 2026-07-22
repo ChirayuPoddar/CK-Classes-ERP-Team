@@ -60,6 +60,7 @@ class ResourceService {
    */
   async createResource(data, file, userId) {
     const docData = { ...data, uploadedBy: userId }
+    const tenantId = docData.tenantId
 
     // 1. Validation size limit checks
     if (file) {
@@ -127,14 +128,14 @@ class ResourceService {
 
     const resource = new Resource(docData)
     await resource.save()
-    return this.getResourceById(resource._id)
+    return this.getResourceById(resource._id, tenantId)
   }
 
   /**
    * Retrieve resource by ID
    */
-  async getResourceById(id) {
-    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true } })
+  async getResourceById(id, tenantId) {
+    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
       .populate('uploadedBy', 'name email role')
       .populate('subject', 'name code')
 
@@ -147,9 +148,9 @@ class ResourceService {
   /**
    * Update existing resource with safe cloud storage lifecycle handling
    */
-  async updateResource(id, data, file, userId) {
+  async updateResource(id, data, file, userId, tenantId) {
     const docData = { ...data }
-    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true } })
+    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!resource) {
       throw new Error('Resource not found')
     }
@@ -294,14 +295,14 @@ class ResourceService {
       }
     }
 
-    return this.getResourceById(resource._id)
+    return this.getResourceById(resource._id, tenantId)
   }
 
   /**
    * Toggle Star / Starred state
    */
-  async toggleStar(id) {
-    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true } })
+  async toggleStar(id, tenantId) {
+    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!resource) throw new Error('Resource not found')
     resource.isStarred = !resource.isStarred
     await resource.save()
@@ -311,8 +312,8 @@ class ResourceService {
   /**
    * Duplicate learning resource with separate physical cloud file to prevent shared reference leaks
    */
-  async duplicateResource(id, userId) {
-    const original = await Resource.findOne({ _id: id, isDeleted: { $ne: true } })
+  async duplicateResource(id, userId, tenantId) {
+    const original = await Resource.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!original) throw new Error('Resource not found')
 
     const cloneData = original.toObject()
@@ -329,6 +330,7 @@ class ResourceService {
     cloneData.classAnalytics = {}
     cloneData.uploadedBy = userId
     cloneData.publishAt = new Date()
+    cloneData.tenantId = tenantId
 
     // Upload a distinct physical copy to ImageKit if original had a cloud file
     if (original.resourceUrl && original.cloudPublicId) {
@@ -352,15 +354,15 @@ class ResourceService {
 
     const duplicated = new Resource(cloneData)
     await duplicated.save()
-    return this.getResourceById(duplicated._id)
+    return this.getResourceById(duplicated._id, tenantId)
   }
 
   /**
    * Bulk soft-deletes resources
    */
-  async bulkDelete(ids) {
+  async bulkDelete(ids, tenantId) {
     await Resource.updateMany(
-      { _id: { $in: ids }, isDeleted: { $ne: true } },
+      { _id: { $in: ids }, isDeleted: { $ne: true }, tenantId },
       { $set: { isDeleted: true } }
     )
     return true
@@ -369,7 +371,7 @@ class ResourceService {
   /**
    * Bulk edit update visibility, category, class, or subject
    */
-  async bulkUpdate(ids, fields) {
+  async bulkUpdate(ids, fields, tenantId) {
     const cleanFields = {}
     if (fields.category) cleanFields.category = fields.category
     if (fields.visibility) cleanFields.visibility = fields.visibility
@@ -385,7 +387,7 @@ class ResourceService {
     }
 
     await Resource.updateMany(
-      { _id: { $in: ids }, isDeleted: { $ne: true } },
+      { _id: { $in: ids }, isDeleted: { $ne: true }, tenantId },
       { $set: cleanFields }
     )
     return true
@@ -394,8 +396,8 @@ class ResourceService {
   /**
    * Soft-delete resource and clean up cloud files
    */
-  async deleteResource(id) {
-    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true } })
+  async deleteResource(id, tenantId) {
+    const resource = await Resource.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!resource) {
       throw new Error('Resource not found')
     }
@@ -416,9 +418,9 @@ class ResourceService {
   /**
    * Increment download count
    */
-  async incrementDownload(id) {
+  async incrementDownload(id, tenantId) {
     const resource = await Resource.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
+      { _id: id, isDeleted: { $ne: true }, tenantId },
       { $inc: { downloadCount: 1 } },
       { new: true }
     )
@@ -429,7 +431,7 @@ class ResourceService {
   /**
    * Increment view count and track class analytics
    */
-  async incrementView(id, user) {
+  async incrementView(id, user, tenantId) {
     const updateQuery = {
       $inc: { viewCount: 1 },
       $set: { lastViewedAt: new Date() }
@@ -441,7 +443,7 @@ class ResourceService {
     }
 
     const resource = await Resource.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
+      { _id: id, isDeleted: { $ne: true }, tenantId },
       updateQuery,
       { new: true }
     )
@@ -452,19 +454,19 @@ class ResourceService {
   /**
    * Get dynamic dashboard stats with storage sum metrics
    */
-  async getDashboardStats(userContext) {
+  async getDashboardStats(userContext, tenantId) {
     const now = new Date()
     // Trigger recalculations
     await Resource.updateMany(
-      { publishAt: { $lte: now }, status: { $ne: 'Published' }, isDeleted: { $ne: true } },
+      { publishAt: { $lte: now }, status: { $ne: 'Published' }, isDeleted: { $ne: true }, tenantId },
       { status: 'Published' }
     )
     await Resource.updateMany(
-      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, isDeleted: { $ne: true } },
+      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, isDeleted: { $ne: true }, tenantId },
       { status: 'Scheduled' }
     )
 
-    const baseFilter = { isDeleted: { $ne: true } }
+    const baseFilter = { isDeleted: { $ne: true }, tenantId }
     const isStaff = userContext.role === 'admin' || userContext.role === 'teacher'
     if (!isStaff) {
       baseFilter.status = 'Published'
@@ -498,7 +500,7 @@ class ResourceService {
 
     // Sum of all files size storage metrics
     const storageStats = await Resource.aggregate([
-      { $match: { isDeleted: { $ne: true } } },
+      { $match: { isDeleted: { $ne: true }, tenantId } },
       { $group: { _id: null, totalBytes: { $sum: '$fileSize' } } }
     ])
     const storageBytes = (storageStats.length > 0) ? storageStats[0].totalBytes : 0
@@ -527,15 +529,15 @@ class ResourceService {
     const now = new Date()
     // Trigger recalculations
     await Resource.updateMany(
-      { publishAt: { $lte: now }, status: { $ne: 'Published' }, isDeleted: { $ne: true } },
+      { publishAt: { $lte: now }, status: { $ne: 'Published' }, isDeleted: { $ne: true }, tenantId: queryParams.tenantId },
       { status: 'Published' }
     )
     await Resource.updateMany(
-      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, isDeleted: { $ne: true } },
+      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, isDeleted: { $ne: true }, tenantId: queryParams.tenantId },
       { status: 'Scheduled' }
     )
 
-    const filter = { isDeleted: { $ne: true } }
+    const filter = { isDeleted: { $ne: true }, tenantId: queryParams.tenantId }
     const isStaff = userContext.role === 'admin' || userContext.role === 'teacher'
 
     // 1. Role boundaries checks
@@ -600,12 +602,14 @@ class ResourceService {
       
       // Match Subject search
       const subjectsMatched = await mongoose.model('Subject').find({
+        tenantId: queryParams.tenantId,
         $or: [{ name: searchRegex }, { code: searchRegex }]
       }).select('_id')
       const matchedSubjectIds = subjectsMatched.map(s => s._id)
 
       // Match UploadedBy username search
       const usersMatched = await mongoose.model('User').find({
+        tenantId: queryParams.tenantId,
         $or: [
           { firstName: searchRegex },
           { lastName: searchRegex },

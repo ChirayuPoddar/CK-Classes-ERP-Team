@@ -3,7 +3,7 @@ const ExamService = require('../services/ExamService')
 class ExamController {
   async createExam(req, res, next) {
     try {
-      const exam = await ExamService.createExam(req.body, req.user.id)
+      const exam = await ExamService.createExam({ ...req.body, tenantId: req.tenantId }, req.user.id)
       return res.status(201).json({
         success: true,
         message: 'Exam configuration created successfully',
@@ -16,7 +16,7 @@ class ExamController {
 
   async getExamById(req, res, next) {
     try {
-      const exam = await ExamService.getExamById(req.params.id)
+      const exam = await ExamService.getExamById(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         data: exam
@@ -28,7 +28,7 @@ class ExamController {
 
   async getAllExams(req, res, next) {
     try {
-      const result = await ExamService.getAllExams(req.query)
+      const result = await ExamService.getAllExams({ ...req.query, tenantId: req.tenantId })
       return res.status(200).json({
         success: true,
         data: result
@@ -40,7 +40,7 @@ class ExamController {
 
   async updateExam(req, res, next) {
     try {
-      const exam = await ExamService.updateExam(req.params.id, req.body, req.user.id)
+      const exam = await ExamService.updateExam(req.params.id, req.body, req.user.id, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Exam configuration updated successfully',
@@ -53,7 +53,7 @@ class ExamController {
 
   async deleteExam(req, res, next) {
     try {
-      await ExamService.deleteExam(req.params.id)
+      await ExamService.deleteExam(req.params.id, req.tenantId)
       return res.status(200).json({
         success: true,
         message: 'Exam configuration deleted successfully'
@@ -65,7 +65,7 @@ class ExamController {
 
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await ExamService.getDashboardStats()
+      const stats = await ExamService.getDashboardStats(req.tenantId)
       return res.status(200).json({
         success: true,
         data: stats
@@ -77,7 +77,7 @@ class ExamController {
 
   async getStudentsForMarksEntry(req, res, next) {
     try {
-      const list = await ExamService.getStudentsForMarksEntry(req.params.examId)
+      const list = await ExamService.getStudentsForMarksEntry(req.params.examId, req.tenantId)
       return res.status(200).json({
         success: true,
         data: list
@@ -92,7 +92,8 @@ class ExamController {
       const result = await ExamService.saveMarks(
         req.params.examId,
         req.body.marks,
-        req.user.id
+        req.user.id,
+        req.tenantId
       )
       return res.status(200).json({
         success: true,
@@ -106,7 +107,7 @@ class ExamController {
 
   async getStudentResults(req, res, next) {
     try {
-      const results = await ExamService.getStudentResults(req.params.studentId)
+      const results = await ExamService.getStudentResults(req.params.studentId, req.tenantId)
       return res.status(200).json({
         success: true,
         data: results
@@ -118,7 +119,7 @@ class ExamController {
 
   async getMyResults(req, res, next) {
     try {
-      const results = await ExamService.getStudentResultsByEmail(req.user.email)
+      const results = await ExamService.getStudentResultsByEmail(req.user.email, req.tenantId)
       return res.status(200).json({
         success: true,
         data: results
@@ -130,7 +131,7 @@ class ExamController {
 
   async queryAllResults(req, res, next) {
     try {
-      const results = await ExamService.queryGroupedResults(req.query)
+      const results = await ExamService.queryGroupedResults({ ...req.query, tenantId: req.tenantId })
       return res.status(200).json({
         success: true,
         data: results

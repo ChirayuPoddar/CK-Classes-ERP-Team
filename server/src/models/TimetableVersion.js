@@ -1,6 +1,11 @@
 const mongoose = require('mongoose')
 
 const timetableVersionSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true
+  },
   timetableSlotId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Timetable',
@@ -46,7 +51,7 @@ const timetableVersionSchema = new mongoose.Schema({
   timestamps: true
 })
 
-timetableVersionSchema.index({ timetableSlotId: 1, version: -1 })
-timetableVersionSchema.index({ academicYear: 1, class: 1, changedAt: -1 })
+timetableVersionSchema.index({ tenantId: 1, timetableSlotId: 1, version: -1 })
+timetableVersionSchema.index({ tenantId: 1, academicYear: 1, class: 1, changedAt: -1 })
 
 module.exports = mongoose.model('TimetableVersion', timetableVersionSchema)

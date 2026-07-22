@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const attendanceSettingsSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   attendanceThreshold: {
     type: Number,
     default: 75,

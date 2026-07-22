@@ -19,6 +19,7 @@ const resourceRoutes = require('./routes/resourceRoutes')
 const userRoutes = require('./routes/userRoutes')
 const activationRoutes = require('./routes/activationRoutes')
 const aiRoutes = require('./routes/aiRoutes')
+const tenantRoutes = require('./routes/tenantRoutes')
 const roomRoutes = require('./routes/roomRoutes')
 const holidayRoutes = require('./routes/holidayRoutes')
 const { getAllowedOrigins } = require('./config/corsOrigins')
@@ -53,7 +54,7 @@ app.use(cors({
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    service: 'C.K. Classes ERP Management API',
+    service: 'Multi-Tenant ERP Management API',
     version: '1.0.0',
     status: 'active',
     healthEndpoint: '/health',
@@ -86,6 +87,7 @@ app.use('/api/v1/resources', resourceRoutes)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/activation', activationRoutes)
 app.use('/api/v1/ai', aiRoutes)
+app.use('/api/v1/tenants', tenantRoutes)
 
 // Universal fallback
 app.use((req, res, next) => {

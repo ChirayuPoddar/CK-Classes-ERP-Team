@@ -206,8 +206,8 @@ export default function Activate() {
         <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
           {step === 1 && "Enter your unique permanent institution ID to request an activation code."}
           {step === 2 && `Enter the 6-digit verification code sent to ${maskedEmail}.`}
-          {step === 3 && "Set a secure password for your C.K. Classes account access."}
-          {step === 4 && "Your C.K. Classes account is active and ready for login."}
+          {step === 3 && "Set a secure password for your account access."}
+          {step === 4 && "Your account is active and ready for login."}
         </p>
       </div>
 

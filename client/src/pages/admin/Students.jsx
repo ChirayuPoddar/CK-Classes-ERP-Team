@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -28,7 +29,8 @@ import {
   Printer,
   KeyRound,
   MoreVertical,
-  MoreHorizontal
+  MoreHorizontal,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -80,6 +82,7 @@ const classes = sortClassesByHierarchy(rawClasses)
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
 export default function Students() {
+  const { user } = useAuth();
   // State variables
   const [students, setStudents] = useState([])
   const [total, setTotal] = useState(0)
@@ -96,6 +99,9 @@ export default function Students() {
   const [search, setSearch] = useState('')
   const [classFilter, setClassFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
   const [sortField, setSortField] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState('desc')
 
@@ -218,6 +224,8 @@ export default function Students() {
           search,
           class: classFilter,
           status: statusFilter,
+          gender: genderFilter,
+          category: categoryFilter,
           sort: sortQuery
         }
       })
@@ -240,7 +248,7 @@ export default function Students() {
   // Refetch when filters, search, or sorting change
   useEffect(() => {
     fetchStudents()
-  }, [page, classFilter, statusFilter, sortField, sortOrder, search])
+  }, [page, classFilter, statusFilter, genderFilter, categoryFilter, sortField, sortOrder, search])
 
   // Trigger search on form submit
   const handleSearchSubmit = (e) => {
@@ -292,8 +300,28 @@ export default function Students() {
     setSearch('')
     setClassFilter('')
     setStatusFilter('')
+    setGenderFilter('')
+    setCategoryFilter('')
+    setSortField('createdAt')
+    setSortOrder('desc')
     setPage(1)
   }
+
+  const advancedFilterCount = (genderFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (sortField !== 'createdAt' || sortOrder !== 'desc' ? 1 : 0)
+  const hasActiveFilters = Boolean(search || classFilter || statusFilter || genderFilter || categoryFilter || (sortField !== 'createdAt' || sortOrder !== 'desc'))
+
+  const activeChips = [
+    ...(search ? [{ id: 'search', label: `Search: "${search}"`, onRemove: () => setSearch('') }] : []),
+    ...(classFilter ? [{ id: 'class', label: `Class: ${classFilter}`, onRemove: () => setClassFilter('') }] : []),
+    ...(statusFilter ? [{ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => setStatusFilter('') }] : []),
+    ...(genderFilter ? [{ id: 'gender', label: `Gender: ${genderFilter}`, onRemove: () => setGenderFilter('') }] : []),
+    ...(categoryFilter ? [{ id: 'category', label: `Category: ${categoryFilter}`, onRemove: () => setCategoryFilter('') }] : []),
+    ...((sortField !== 'createdAt' || sortOrder !== 'desc') ? [{
+      id: 'sort',
+      label: `Sort: ${sortField === 'firstName' ? 'Name (A-Z)' : sortField === 'studentId' ? 'ID' : 'Oldest First'}`,
+      onRemove: () => { setSortField('createdAt'); setSortOrder('desc'); }
+    }] : [])
+  ]
 
   const formatDateToDDMMYYYY = (dateVal) => {
     if (!dateVal) return ''
@@ -753,7 +781,7 @@ export default function Students() {
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8.5)
-      doc.text('C.K. CLASSES', 15, 6.5)
+      doc.text(user?.tenantName ? user.tenantName.toUpperCase() : 'INSTITUTION', 15, 6.5)
 
       // Subheader Text: Student ID Card label
       doc.setFont('helvetica', 'bold')
@@ -1100,7 +1128,7 @@ export default function Students() {
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(20)
-      doc.text('C.K. CLASSES', 15, 16)
+      doc.text(user?.tenantName ? user.tenantName.toUpperCase() : 'INSTITUTION', 15, 16)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
       doc.text('COACHING CLASS ERP SYSTEM - STUDENT PROFILE REPORT', 15, 22)
@@ -1803,44 +1831,240 @@ export default function Students() {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-4 gap-4 shrink-0">
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+      {/* Interactive Quick Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        <div 
+          onClick={clearFilters}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md hover:border-blue-200 group active:scale-[0.98]",
+            !statusFilter && !classFilter && !genderFilter && !categoryFilter && !search ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Students</span>
-            <span className="text-lg font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block group-hover:text-blue-600 transition-colors">Total Students</span>
+            <span className="text-xl font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
             <GraduationCap className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setStatusFilter(statusFilter === 'Active' ? '' : 'Active'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md hover:border-emerald-200 group active:scale-[0.98]",
+            statusFilter === 'Active' ? "border-emerald-500 ring-1 ring-emerald-500/20 bg-emerald-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Active</span>
-            <span className="text-lg font-black text-emerald-600 leading-tight block mt-0.5">{stats?.active || 0}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block group-hover:text-emerald-600 transition-colors">Active Students</span>
+            <span className="text-xl font-black text-emerald-600 leading-tight block mt-0.5">{stats?.active || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Check className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setStatusFilter(statusFilter === 'Inactive' ? '' : 'Inactive'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md hover:border-rose-200 group active:scale-[0.98]",
+            statusFilter === 'Inactive' ? "border-rose-500 ring-1 ring-rose-500/20 bg-rose-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Inactive</span>
-            <span className="text-lg font-black text-slate-500 leading-tight block mt-0.5">{stats?.inactive || 0}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block group-hover:text-rose-600 transition-colors">Inactive Students</span>
+            <span className="text-xl font-black text-slate-500 leading-tight block mt-0.5">{stats?.inactive || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center group-hover:scale-110 transition-transform">
             <X className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => {
+            setSortField('createdAt')
+            setSortOrder('desc')
+            setPage(1)
+          }}
+          className="bg-white px-5 py-3.5 rounded-2xl border border-slate-100 transition-all cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md hover:border-indigo-200 group active:scale-[0.98]"
+        >
           <div className="text-left">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Today's Admissions</span>
-            <span className="text-lg font-black text-indigo-600 leading-tight block mt-0.5">{stats?.todayAdmissions || 0}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block group-hover:text-indigo-600 transition-colors">Today's Admissions</span>
+            <span className="text-xl font-black text-indigo-600 leading-tight block mt-0.5">{stats?.todayAdmissions || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Calendar className="h-4.5 w-4.5" />
           </div>
         </div>
+      </div>
+
+      {/* Modern Compact Filter Bar & Advanced Filter Panel */}
+      <div className="shrink-0 select-none space-y-2">
+        <div 
+          style={{ borderRadius: '18px', border: '1px solid #ECECEC' }}
+          className="py-2.5 px-4 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-wrap items-center justify-between gap-3"
+        >
+          {/* Primary Quick Filters */}
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            {/* Class Dropdown */}
+            <select
+              value={classFilter}
+              onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
+              className="h-9 px-3.5 bg-slate-50 border border-slate-200 rounded-full text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs transition-colors hover:bg-slate-100/70"
+            >
+              <option value="">All Classes ({classes.length})</option>
+              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {/* Status Dropdown */}
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="h-9 px-3.5 bg-slate-50 border border-slate-200 rounded-full text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs transition-colors hover:bg-slate-100/70"
+            >
+              <option value="">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+
+            {/* Advanced Filters Button */}
+            <div className="relative">
+              <button
+                onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                className={cn(
+                  "h-9 px-4 rounded-full border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs active:scale-95",
+                  isAdvancedFiltersOpen || advancedFilterCount > 0
+                    ? "bg-blue-50 border-blue-300 text-blue-700 font-extrabold"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-blue-600" />
+                <span>Filters</span>
+                {advancedFilterCount > 0 && (
+                  <span className="h-4.5 px-1.5 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center ml-0.5 shadow-2xs">
+                    {advancedFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Advanced Filter Slide-Down Dropdown Panel */}
+              <AnimatePresence>
+                {isAdvancedFiltersOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsAdvancedFiltersOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 top-11 z-50 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 select-none text-left space-y-3.5"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                          Advanced Filters
+                        </span>
+                        <button
+                          onClick={() => setIsAdvancedFiltersOpen(false)}
+                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Gender Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Gender</label>
+                        <select
+                          value={genderFilter}
+                          onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+                          className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">All Genders</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      {/* Category Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Category / Quota</label>
+                        <select
+                          value={categoryFilter}
+                          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                          className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">All Categories</option>
+                          <option value="General">General</option>
+                          <option value="OBC">OBC</option>
+                          <option value="SC/ST">SC/ST</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      {/* Sort Order */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Sort By</label>
+                        <select
+                          value={`${sortField}_${sortOrder}`}
+                          onChange={(e) => {
+                            const [f, o] = e.target.value.split('_')
+                            setSortField(f)
+                            setSortOrder(o)
+                            setPage(1)
+                          }}
+                          className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="createdAt_desc">Newest First</option>
+                          <option value="createdAt_asc">Oldest First</option>
+                          <option value="firstName_asc">Name (A to Z)</option>
+                          <option value="firstName_desc">Name (Z to A)</option>
+                          <option value="studentId_asc">Student ID (Ascending)</option>
+                        </select>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Smart Clear All Button */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="h-8 px-3.5 text-xs font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-rose-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors active:scale-95 shadow-2xs"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Clear All Filters</span>
+            </button>
+          )}
+        </div>
+
+        {/* Active Filter Chips Bar */}
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-1 pt-0.5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Active Filters:</span>
+            {activeChips.map(chip => (
+              <span
+                key={chip.id}
+                className="h-7 px-3 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 shadow-2xs transition-colors hover:bg-slate-200/80"
+              >
+                <span>{chip.label}</span>
+                <button
+                  onClick={chip.onRemove}
+                  className="h-4 w-4 rounded-full hover:bg-slate-300/80 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 3. Main Data Card / Listing Section */}
