@@ -19,7 +19,8 @@ import {
   Mail,
   Phone,
   MapPin,
-  Printer
+  Printer,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -69,6 +70,7 @@ export default function Subjects() {
   const [typeFilter, setTypeFilter] = useState('')
   const [sortField, setSortField] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState('desc')
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
 
   // Modals state
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false)
@@ -189,8 +191,22 @@ export default function Subjects() {
     setTeacherFilter('')
     setStatusFilter('')
     setTypeFilter('')
+    setSortField('createdAt')
+    setSortOrder('desc')
     setPage(1)
   }
+
+  const activeChips = [
+    ...(search ? [{ id: 'search', label: `Search: "${search}"`, onRemove: () => { setSearch(''); setPage(1); } }] : []),
+    ...(classFilter ? [{ id: 'class', label: `Class: ${classFilter}`, onRemove: () => { setClassFilter(''); setPage(1); } }] : []),
+    ...(teacherFilter ? [{ id: 'teacher', label: `Teacher: ${teacherFilter === 'assigned' ? 'Assigned Only' : teacherFilter === 'unassigned' ? 'Unassigned Only' : (teachers.find(t => t._id === teacherFilter) ? `${teachers.find(t => t._id === teacherFilter).firstName} ${teachers.find(t => t._id === teacherFilter).lastName}` : 'Custom')}`, onRemove: () => { setTeacherFilter(''); setPage(1); } }] : []),
+    ...(statusFilter ? [{ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => { setStatusFilter(''); setPage(1); } }] : []),
+    ...(typeFilter ? [{ id: 'type', label: `Type: ${typeFilter}`, onRemove: () => { setTypeFilter(''); setPage(1); } }] : []),
+    ...(sortField !== 'createdAt' || sortOrder !== 'desc' ? [{ id: 'sort', label: `Sorted`, onRemove: () => { setSortField('createdAt'); setSortOrder('desc'); setPage(1); } }] : [])
+  ]
+
+  const hasActiveFilters = activeChips.length > 0
+  const advancedFilterCount = [classFilter, teacherFilter, statusFilter, typeFilter].filter(Boolean).length
 
   // Handle individual row select
   const handleSelectSubject = (subject) => {
@@ -701,154 +717,319 @@ export default function Subjects() {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-4 gap-4 shrink-0">
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+      {/* Interactive Quick Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        <div 
+          onClick={clearFilters}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-blue-200 active:scale-[0.98]",
+            !hasActiveFilters ? "border-blue-500 ring-2 ring-blue-500/10 bg-blue-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Subjects</span>
-            <span className="text-lg font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
+            <span className="text-xl font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
             <BookOpen className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setTypeFilter(typeFilter === 'Theory' ? '' : 'Theory'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-emerald-200 active:scale-[0.98]",
+            typeFilter === 'Theory' ? "border-emerald-500 ring-2 ring-emerald-500/10 bg-emerald-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Theory</span>
-            <span className="text-lg font-black text-emerald-600 leading-tight block mt-0.5">{stats?.theory || 0}</span>
+            <span className="text-xl font-black text-emerald-600 leading-tight block mt-0.5">{stats?.theory || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <Check className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setTypeFilter(typeFilter === 'Practical' ? '' : 'Practical'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-indigo-200 active:scale-[0.98]",
+            typeFilter === 'Practical' ? "border-indigo-500 ring-2 ring-indigo-500/10 bg-indigo-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Practical</span>
-            <span className="text-lg font-black text-indigo-650 leading-tight block mt-0.5">{stats?.practical || 0}</span>
+            <span className="text-xl font-black text-indigo-650 leading-tight block mt-0.5">{stats?.practical || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <FileText className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setTeacherFilter(teacherFilter === 'unassigned' ? '' : 'unassigned'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-amber-200 active:scale-[0.98]",
+            teacherFilter === 'unassigned' ? "border-amber-500 ring-2 ring-amber-500/10 bg-amber-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Unassigned</span>
-            <span className="text-lg font-black text-amber-600 leading-tight block mt-0.5">{stats?.unassigned || 0}</span>
+            <span className="text-xl font-black text-amber-600 leading-tight block mt-0.5">{stats?.unassigned || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <AlertCircle className="h-4.5 w-4.5" />
           </div>
         </div>
       </div>
 
-      {/* 2. Controls Row */}
-      <div 
-        style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="p-5 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-4"
-      >
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
-          <input
-            type="text"
-            placeholder="Search by name, code, class or teacher..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-10 pl-11 pr-5 rounded-full border border-slate-200 text-xs font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50/50"
-          />
-          <Search className="absolute left-4 top-2.5 h-4.5 w-4.5 text-slate-400" />
-        </form>
+      {/* 2. Sleek Compact Filter Bar & Controls */}
+      <div className="space-y-3 shrink-0">
+        <div 
+          style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
+          className="p-4 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+        >
+          {/* Search bar */}
+          <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
+            <input
+              type="text"
+              placeholder="Search by name, code, class or teacher..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-full h-10 pl-10 pr-9 rounded-full border border-slate-200 text-xs font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50/60 transition-all placeholder:text-slate-400"
+            />
+            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setPage(1); }}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </form>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={classFilter}
-            onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
-            className="h-10 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-500 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Classes</option>
-            {classes.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-
-          <select
-            value={teacherFilter}
-            onChange={(e) => { setTeacherFilter(e.target.value); setPage(1); }}
-            className="h-10 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-500 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm max-w-[180px]"
-          >
-            <option value="">All Teachers</option>
-            <option value="assigned">Assigned Teachers</option>
-            <option value="unassigned">Unassigned Teachers</option>
-            <option disabled>──────────</option>
-            {teachers.map(t => (
-              <option key={t._id} value={t._id}>
-                {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={typeFilter}
-            onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-            className="h-10 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-500 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Types</option>
-            <option value="Theory">Theory</option>
-            <option value="Practical">Practical</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-10 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-500 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-
-          {/* Reset Filters */}
-          {(search || classFilter || teacherFilter || statusFilter || typeFilter) && (
+          {/* Action & Filter Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Advanced Filters Button */}
             <button
-              onClick={clearFilters}
-              className="h-10 px-4.5 rounded-full border border-red-200 hover:bg-red-50 text-xs font-extrabold text-red-500 flex items-center justify-center gap-1 cursor-pointer transition-colors"
+              type="button"
+              onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+              className={cn(
+                "h-10 px-4 rounded-full border text-xs font-extrabold flex items-center gap-2 cursor-pointer shadow-sm transition-all active:scale-95",
+                isAdvancedFiltersOpen || advancedFilterCount > 0
+                  ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-600"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
             >
-              Clear
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filters</span>
+              {advancedFilterCount > 0 && (
+                <span className="ml-0.5 h-4.5 w-4.5 rounded-full bg-brand-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {advancedFilterCount}
+                </span>
+              )}
             </button>
-          )}
 
-          <div className="h-6 w-[1px] bg-slate-200 mx-1" />
+            {/* Class Quick Select */}
+            <select
+              value={classFilter}
+              onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
+              className="h-10 px-4 rounded-full border border-slate-200 text-xs font-extrabold text-slate-600 bg-white cursor-pointer outline-none focus:border-blue-500 shadow-sm"
+            >
+              <option value="">All Classes</option>
+              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
 
-          {/* Exports dropdown */}
-          <button
-            onClick={handleExportCSV}
-            className="h-10 w-10 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-slate-500 shadow-sm cursor-pointer transition-colors"
-            title="Export CSV"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Export Excel"
-          >
-            <FileText className="h-4 w-4 text-emerald-500" />
-            <span>Excel</span>
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Export PDF"
-          >
-            <FileText className="h-4 w-4 text-red-500" />
-            <span>PDF</span>
-          </button>
+            {/* Sort Dropdown */}
+            <select
+              value={`${sortField}-${sortOrder}`}
+              onChange={(e) => {
+                const [f, o] = e.target.value.split('-')
+                setSortField(f)
+                setSortOrder(o)
+                setPage(1)
+              }}
+              className="h-10 px-4 rounded-full border border-slate-200 text-xs font-extrabold text-slate-600 bg-white cursor-pointer outline-none focus:border-blue-500 shadow-sm hidden sm:block"
+            >
+              <option value="createdAt-desc">Newest First</option>
+              <option value="createdAt-asc">Oldest First</option>
+              <option value="name-asc">Subject Name A-Z</option>
+              <option value="periodsPerWeek-desc">Most Periods/Wk</option>
+              <option value="code-asc">Subject Code A-Z</option>
+            </select>
 
-          {/* Add Subject Button */}
-          <button
-            onClick={handleOpenCreate}
-            className="h-10 px-5 rounded-full bg-brand-blue-500 hover:bg-brand-blue-600 active:scale-95 text-xs font-extrabold text-white shadow-premium-2 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0 font-sans"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Subject</span>
-          </button>
+            <div className="h-5 w-px bg-slate-200 mx-0.5 hidden xl:block" />
+
+            {/* Export buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleExportCSV}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export Excel"
+              >
+                <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Excel</span>
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export PDF Report"
+              >
+                <FileText className="h-3.5 w-3.5 text-blue-600" />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+            </div>
+
+            {/* Add Subject Button */}
+            <button
+              onClick={handleOpenCreate}
+              className="h-10 px-5 rounded-full bg-brand-blue-500 hover:bg-brand-blue-600 active:scale-95 text-xs font-extrabold text-white shadow-premium-2 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0 ml-1 font-sans"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Subject</span>
+            </button>
+          </div>
         </div>
+
+        {/* Advanced Filter Popover */}
+        <AnimatePresence>
+          {isAdvancedFiltersOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div 
+                style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
+                className="p-5 bg-slate-50/80 border border-slate-200/80 grid grid-cols-1 md:grid-cols-4 gap-4"
+              >
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Class / Grade
+                  </label>
+                  <select
+                    value={classFilter}
+                    onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="">All Classes</option>
+                    {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Assigned Teacher
+                  </label>
+                  <select
+                    value={teacherFilter}
+                    onChange={(e) => { setTeacherFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="">All Teachers</option>
+                    <option value="assigned">Assigned Teachers</option>
+                    <option value="unassigned">Unassigned Teachers</option>
+                    <option disabled>──────────</option>
+                    {teachers.map(t => (
+                      <option key={t._id} value={t._id}>
+                        {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Subject Type
+                  </label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="">All Types</option>
+                    <option value="Theory">Theory</option>
+                    <option value="Practical">Practical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Status
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAdvancedFiltersOpen(false)}
+                    className="h-9 px-5 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Active Filter Chips */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Active Filters:</span>
+            {activeChips.map((chip) => (
+              <span
+                key={chip.id}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-extrabold border border-blue-200 shadow-2xs"
+              >
+                <span>{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="p-0.5 hover:bg-blue-200 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-extrabold text-slate-400 hover:text-slate-600 underline ml-2 cursor-pointer transition-colors"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 3. Main Data Card / Listing Section */}

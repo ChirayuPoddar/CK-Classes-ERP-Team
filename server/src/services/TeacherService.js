@@ -92,6 +92,21 @@ class TeacherService {
       filter.status = queryParams.status
     }
 
+    // Gender filter
+    if (queryParams.gender) {
+      filter.gender = queryParams.gender
+    }
+
+    // Subject taught regex filter
+    if (queryParams.subject) {
+      filter.subjects = { $regex: new RegExp(queryParams.subject, 'i') }
+    }
+
+    // Minimum experience filter
+    if (queryParams.minExperience !== undefined && queryParams.minExperience !== '') {
+      filter.experience = { $gte: Number(queryParams.minExperience) }
+    }
+
     // Sort setup
     let sortOptions = { createdAt: -1 }
     if (queryParams.sort) {

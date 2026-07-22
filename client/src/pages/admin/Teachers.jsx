@@ -20,7 +20,8 @@ import {
   MapPin,
   FileText,
   Printer,
-  Camera
+  Camera,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -45,6 +46,10 @@ export default function Teachers() {
   
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [subjectFilter, setSubjectFilter] = useState('')
+  const [minExperienceFilter, setMinExperienceFilter] = useState('')
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
   const [sortField, setSortField] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState('desc')
 
@@ -114,6 +119,9 @@ export default function Teachers() {
           limit,
           search,
           status: statusFilter,
+          gender: genderFilter,
+          subject: subjectFilter,
+          minExperience: minExperienceFilter,
           sort: { [sortField]: sortOrder === 'desc' ? -1 : 1 }
         }
       })
@@ -135,7 +143,30 @@ export default function Teachers() {
 
   useEffect(() => {
     fetchTeachers()
-  }, [page, statusFilter, sortField, sortOrder, search])
+  }, [page, statusFilter, genderFilter, subjectFilter, minExperienceFilter, sortField, sortOrder, search])
+
+  const activeChips = [
+    ...(search ? [{ id: 'search', label: `Search: "${search}"`, onRemove: () => { setSearch(''); setPage(1); } }] : []),
+    ...(statusFilter ? [{ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => { setStatusFilter(''); setPage(1); } }] : []),
+    ...(genderFilter ? [{ id: 'gender', label: `Gender: ${genderFilter}`, onRemove: () => { setGenderFilter(''); setPage(1); } }] : []),
+    ...(subjectFilter ? [{ id: 'subject', label: `Subject: ${subjectFilter}`, onRemove: () => { setSubjectFilter(''); setPage(1); } }] : []),
+    ...(minExperienceFilter ? [{ id: 'exp', label: `Min Exp: ${minExperienceFilter}+ Yrs`, onRemove: () => { setMinExperienceFilter(''); setPage(1); } }] : []),
+    ...(sortField !== 'createdAt' || sortOrder !== 'desc' ? [{ id: 'sort', label: `Sorted`, onRemove: () => { setSortField('createdAt'); setSortOrder('desc'); setPage(1); } }] : [])
+  ]
+
+  const hasActiveFilters = activeChips.length > 0
+  const advancedFilterCount = [genderFilter, subjectFilter, minExperienceFilter].filter(Boolean).length
+
+  const clearFilters = () => {
+    setSearch('')
+    setStatusFilter('')
+    setGenderFilter('')
+    setSubjectFilter('')
+    setMinExperienceFilter('')
+    setSortField('createdAt')
+    setSortOrder('desc')
+    setPage(1)
+  }
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -972,113 +1003,298 @@ export default function Teachers() {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-4 gap-4 shrink-0">
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+      {/* Interactive Quick Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        <div 
+          onClick={clearFilters}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-blue-200 active:scale-[0.98]",
+            !hasActiveFilters ? "border-blue-500 ring-2 ring-blue-500/10 bg-blue-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Teachers</span>
-            <span className="text-lg font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
+            <span className="text-xl font-black text-slate-800 leading-tight block mt-0.5">{stats?.total || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
             <Briefcase className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setStatusFilter(statusFilter === 'Active' ? '' : 'Active'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-emerald-200 active:scale-[0.98]",
+            statusFilter === 'Active' ? "border-emerald-500 ring-2 ring-emerald-500/10 bg-emerald-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Active</span>
-            <span className="text-lg font-black text-emerald-600 leading-tight block mt-0.5">{stats?.active || 0}</span>
+            <span className="text-xl font-black text-emerald-600 leading-tight block mt-0.5">{stats?.active || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <Check className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setStatusFilter(statusFilter === 'Inactive' ? '' : 'Inactive'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-slate-300 active:scale-[0.98]",
+            statusFilter === 'Inactive' ? "border-slate-400 ring-2 ring-slate-400/10 bg-slate-50" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Inactive</span>
-            <span className="text-lg font-black text-slate-500 leading-tight block mt-0.5">{stats?.inactive || 0}</span>
+            <span className="text-xl font-black text-slate-500 leading-tight block mt-0.5">{stats?.inactive || 0}</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center">
             <X className="h-4.5 w-4.5" />
           </div>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+
+        <div 
+          onClick={() => { setSortField('experience'); setSortOrder('desc'); setPage(1); }}
+          className={cn(
+            "bg-white px-5 py-3.5 rounded-2xl border flex items-center justify-between shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-indigo-200 active:scale-[0.98]",
+            sortField === 'experience' ? "border-indigo-500 ring-2 ring-indigo-500/10 bg-indigo-50/10" : "border-slate-100"
+          )}
+        >
           <div className="text-left">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Average Experience</span>
-            <span className="text-lg font-black text-indigo-600 leading-tight block mt-0.5">{stats?.avgExperience || 0} Yrs</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Avg Experience</span>
+            <span className="text-xl font-black text-indigo-600 leading-tight block mt-0.5">{stats?.avgExperience || 0} Yrs</span>
           </div>
-          <div className="h-8.5 w-8.5 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <Calendar className="h-4.5 w-4.5" />
           </div>
         </div>
       </div>
 
-      {/* 2. Controls Row */}
-      <div 
-        style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="p-5 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-4"
-      >
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-lg relative">
-          <input
-            type="text"
-            placeholder="Search by ID, name, email or phone..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-10 pl-11 pr-5 rounded-full border border-slate-200 text-xs font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50/50"
-          />
-          <Search className="absolute left-4 top-2.5 h-4.5 w-4.5 text-slate-400" />
-        </form>
+      {/* 2. Sleek Compact Filter Bar & Controls */}
+      <div className="space-y-3 shrink-0">
+        <div 
+          style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
+          className="p-4 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+        >
+          {/* Search bar */}
+          <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
+            <input
+              type="text"
+              placeholder="Search by name, email, phone or subjects..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-full h-10 pl-10 pr-9 rounded-full border border-slate-200 text-xs font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50/60 transition-all placeholder:text-slate-400"
+            />
+            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setPage(1); }}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </form>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-10 px-4.5 rounded-full border border-slate-200 text-xs font-extrabold text-slate-500 bg-white cursor-pointer outline-none focus:border-blue-500 shadow-sm"
-          >
-            <option value="">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+          {/* Action & Filter Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Advanced Filters Button */}
+            <button
+              type="button"
+              onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+              className={cn(
+                "h-10 px-4 rounded-full border text-xs font-extrabold flex items-center gap-2 cursor-pointer shadow-sm transition-all active:scale-95",
+                isAdvancedFiltersOpen || advancedFilterCount > 0
+                  ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-600"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filters</span>
+              {advancedFilterCount > 0 && (
+                <span className="ml-0.5 h-4.5 w-4.5 rounded-full bg-brand-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {advancedFilterCount}
+                </span>
+              )}
+            </button>
 
-          {/* Export CSV */}
-          <button
-            onClick={handleExportCSV}
-            className="h-10 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
-            title="Export CSV"
-          >
-            <Download className="h-4.5 w-4.5" />
-            <span>CSV</span>
-          </button>
+            {/* Status Quick Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="h-10 px-4 rounded-full border border-slate-200 text-xs font-extrabold text-slate-600 bg-white cursor-pointer outline-none focus:border-blue-500 shadow-sm"
+            >
+              <option value="">All Statuses</option>
+              <option value="Active">Active Only</option>
+              <option value="Inactive">Inactive Only</option>
+            </select>
 
-          {/* Export Excel */}
-          <button
-            onClick={handleExportExcel}
-            className="h-10 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
-            title="Export Excel"
-          >
-            <Upload className="h-4.5 w-4.5 text-emerald-500" />
-            <span>Excel</span>
-          </button>
+            {/* Sort Dropdown */}
+            <select
+              value={`${sortField}-${sortOrder}`}
+              onChange={(e) => {
+                const [f, o] = e.target.value.split('-')
+                setSortField(f)
+                setSortOrder(o)
+                setPage(1)
+              }}
+              className="h-10 px-4 rounded-full border border-slate-200 text-xs font-extrabold text-slate-600 bg-white cursor-pointer outline-none focus:border-blue-500 shadow-sm hidden sm:block"
+            >
+              <option value="createdAt-desc">Newest First</option>
+              <option value="createdAt-asc">Oldest First</option>
+              <option value="salary-desc">Highest Salary</option>
+              <option value="experience-desc">Most Experienced</option>
+              <option value="firstName-asc">Name A-Z</option>
+            </select>
 
-          {/* Export PDF */}
-          <button
-            onClick={handleExportPDF}
-            className="h-10 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
-            title="Export PDF Report"
-          >
-            <FileText className="h-4.5 w-4.5 text-blue-500" />
-            <span>PDF</span>
-          </button>
+            <div className="h-5 w-px bg-slate-200 mx-0.5 hidden xl:block" />
 
-          {/* Add Teacher Button */}
-          <button
-            onClick={handleOpenCreate}
-            className="h-10 px-5 rounded-full bg-brand-blue-500 hover:bg-brand-blue-600 active:scale-95 text-xs font-extrabold text-white shadow-premium-2 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Teacher</span>
-          </button>
+            {/* Export buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleExportCSV}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export Excel"
+              >
+                <Upload className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Excel</span>
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="h-10 px-3.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-600 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                title="Export PDF Report"
+              >
+                <FileText className="h-3.5 w-3.5 text-blue-600" />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+            </div>
+
+            {/* Add Teacher Button */}
+            <button
+              onClick={handleOpenCreate}
+              className="h-10 px-5 rounded-full bg-brand-blue-500 hover:bg-brand-blue-600 active:scale-95 text-xs font-extrabold text-white shadow-premium-2 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0 ml-1"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Teacher</span>
+            </button>
+          </div>
         </div>
+
+        {/* Advanced Filter Popover */}
+        <AnimatePresence>
+          {isAdvancedFiltersOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div 
+                style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
+                className="p-5 bg-slate-50/80 border border-slate-200/80 grid grid-cols-1 md:grid-cols-3 gap-4"
+              >
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Gender
+                  </label>
+                  <select
+                    value={genderFilter}
+                    onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="">All Genders</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Subject Taught
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mathematics, Physics, Chemistry..."
+                    value={subjectFilter}
+                    onChange={(e) => { setSubjectFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm placeholder:text-slate-400 placeholder:font-normal"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Minimum Experience (Years)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 3"
+                    value={minExperienceFilter}
+                    onChange={(e) => { setMinExperienceFilter(e.target.value); setPage(1); }}
+                    className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm placeholder:text-slate-400 placeholder:font-normal"
+                  />
+                </div>
+
+                <div className="md:col-span-3 flex justify-end gap-2 pt-2 border-t border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAdvancedFiltersOpen(false)}
+                    className="h-9 px-5 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Active Filter Chips */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Active Filters:</span>
+            {activeChips.map((chip) => (
+              <span
+                key={chip.id}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-extrabold border border-blue-200 shadow-2xs"
+              >
+                <span>{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="p-0.5 hover:bg-blue-200 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-extrabold text-slate-400 hover:text-slate-600 underline ml-2 cursor-pointer transition-colors"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 3. Main Data Card / Listing Section */}
