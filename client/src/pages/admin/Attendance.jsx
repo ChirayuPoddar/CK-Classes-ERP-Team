@@ -105,6 +105,87 @@ export default function Attendance() {
     return localStorage.getItem('attendance_workspace_view') || 'table'
   })
 
+  // Selection state for Sticky Bulk Toolbar
+  const [selectedSessionIds, setSelectedSessionIds] = useState([])
+
+  const toggleSelectSession = (id) => {
+    setSelectedSessionIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectAllSessions = () => {
+    if (selectedSessionIds.length === filteredSessions.length) {
+      setSelectedSessionIds([])
+    } else {
+      setSelectedSessionIds(filteredSessions.map(s => s._id))
+    }
+  }
+
+  const handleBulkToggleLock = async () => {
+    if (selectedSessionIds.length === 0) return
+    try {
+      setLoading(true)
+      await Promise.all(
+        selectedSessionIds.map(id => {
+          const s = attendanceSessions.find(x => x._id === id)
+          return api.patch(`/attendance/${id}/lock`, { isLocked: !s?.isLocked })
+        })
+      )
+      showToast('success', `Updated lock status for ${selectedSessionIds.length} sessions.`)
+      setSelectedSessionIds([])
+      fetchAttendanceData()
+    } catch (err) {
+      showToast('error', 'Bulk lock action failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExportSelectedCSV = () => {
+    const selectedObjList = attendanceSessions.filter(s => selectedSessionIds.includes(s._id))
+    if (selectedObjList.length === 0) return
+
+    const headers = ["Date", "Class", "Subject", "Teacher", "Period", "Attendance %", "Present", "Absent", "Status", "Locked"]
+    const rows = selectedObjList.map(session => [
+      new Date(session.date).toLocaleDateString(),
+      session.classId,
+      session.subjectId?.name || 'N/A',
+      session.teacherId ? `${session.teacherId.firstName || ''} ${session.teacherId.lastName || ''}`.trim() : 'Unassigned',
+      session.periodId?.name || 'N/A',
+      `${session.stats?.attendancePercentage || 0}%`,
+      session.stats?.presentCount || 0,
+      session.stats?.absentCount || 0,
+      session.status,
+      session.isLocked ? 'Yes' : 'No'
+    ])
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Selected_Attendance_${dateFilter}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedSessionIds.length === 0) return
+    if (!window.confirm(`Are you sure you want to delete ${selectedSessionIds.length} selected sessions?`)) return
+    try {
+      setLoading(true)
+      await Promise.all(selectedSessionIds.map(id => api.delete(`/attendance/${id}`)))
+      showToast('success', `Deleted ${selectedSessionIds.length} sessions.`)
+      setSelectedSessionIds([])
+      fetchAttendanceData()
+    } catch (err) {
+      showToast('error', 'Bulk delete failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleWorkspaceViewChange = (view) => {
     setActiveWorkspaceView(view)
     localStorage.setItem('attendance_workspace_view', view)
@@ -921,161 +1002,248 @@ export default function Attendance() {
         </AnimatePresence>
       </div>
 
-      {/* 3. Modern Compact Filter Bar & Advanced Filter Panel */}
-      <div className="shrink-0 print:hidden select-none space-y-2">
-        <div 
-          style={{ borderRadius: '16px', border: '1px solid #ECECEC' }}
-          className="py-2 px-3 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-wrap items-center justify-between gap-2"
-        >
-          {/* Always Visible Primary Controls */}
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            {/* Class Dropdown */}
-            <select
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+      {/* 3. STICKY WORKSPACE TOOLBAR (Stays visible while scrolling, with Dynamic Selection Mode) */}
+      <div className="sticky top-0 z-30 shrink-0 print:hidden select-none space-y-2 bg-white/95 backdrop-blur-md py-2 px-3 rounded-2xl border border-slate-200/80 shadow-xs transition-all duration-200">
+        <AnimatePresence mode="wait">
+          {selectedSessionIds.length > 0 ? (
+            /* SELECTION MODE BULK ACTION TOOLBAR */
+            <motion.div
+              key="bulk-toolbar"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-wrap items-center justify-between gap-2"
             >
-              <option value="">All Classes</option>
-              {classesList.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+              <div className="flex items-center gap-3">
+                <span className="h-7 px-3 rounded-full bg-brand-blue-600 text-white text-xs font-black flex items-center gap-1.5 shadow-2xs">
+                  <span>{selectedSessionIds.length}</span>
+                  <span>Selected</span>
+                </span>
+                <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">
+                  Bulk actions for selected sessions:
+                </span>
+              </div>
 
-            {/* Date Picker */}
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-            />
-
-            {/* Advanced Filters Button (with active count badge) */}
-            <div className="relative">
-              <button
-                onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
-                className={cn(
-                  "h-8 px-3 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs",
-                  isAdvancedFiltersOpen || advancedFilterCount > 0
-                    ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700 font-extrabold"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                )}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue-600" />
-                <span>Filters</span>
-                {advancedFilterCount > 0 && (
-                  <span className="h-4 px-1.5 rounded-full bg-brand-blue-600 text-white text-[9px] font-black flex items-center justify-center ml-0.5">
-                    {advancedFilterCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Advanced Filter Slide-Down Dropdown Panel */}
-              <AnimatePresence>
-                {isAdvancedFiltersOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsAdvancedFiltersOpen(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: 6 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 6 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 top-10 z-50 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 select-none text-left space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                          Advanced Filters
-                        </span>
-                        <button
-                          onClick={() => setIsAdvancedFiltersOpen(false)}
-                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Teacher Filter */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Teacher</label>
-                        <select
-                          value={teacherFilter}
-                          onChange={(e) => setTeacherFilter(e.target.value)}
-                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-                        >
-                          <option value="">All Teachers</option>
-                          {teachers.map(t => (
-                            <option key={t._id} value={t._id}>
-                              {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Subject Filter */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Subject</label>
-                        <select
-                          value={subjectFilter}
-                          onChange={(e) => setSubjectFilter(e.target.value)}
-                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-                        >
-                          <option value="">All Subjects</option>
-                          {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                        </select>
-                      </div>
-
-                      {/* Status Filter */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Submission Status</label>
-                        <select
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-                        >
-                          <option value="">All Statuses</option>
-                          <option value="Submitted">Submitted</option>
-                          <option value="Pending">Pending</option>
-                        </select>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Smart Clear All Button (Only visible when active filters exist) */}
-          {hasActiveFilters && (
-            <button
-              onClick={handleClearFilters}
-              className="h-8 px-3 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-2xs"
-            >
-              <X className="h-3.5 w-3.5" />
-              <span>Clear All</span>
-            </button>
-          )}
-        </div>
-
-        {/* PART 4 — Active Filter Chips Bar */}
-        {activeChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
-            <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mr-1">Active:</span>
-            {activeChips.map(chip => (
-              <span
-                key={chip.id}
-                className="h-6 px-2.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10.5px] font-bold flex items-center gap-1.5 shadow-2xs transition-colors hover:bg-slate-200/80"
-              >
-                <span>{chip.label}</span>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={chip.onRemove}
-                  className="h-3.5 w-3.5 rounded-full hover:bg-slate-300/80 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                  onClick={handleBulkToggleLock}
+                  className="h-8 px-3 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Toggle Lock Status"
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Lock / Unlock</span>
                 </button>
-              </span>
-            ))}
-          </div>
-        )}
+
+                <button
+                  onClick={handleExportSelectedCSV}
+                  className="h-8 px-3 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Export Selected"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Export</span>
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  className="h-8 px-3 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Delete Selected"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedSessionIds([])}
+                  className="h-8 w-8 rounded-full border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                  title="Clear Selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* DEFAULT WORKSPACE TOOLBAR */
+            <motion.div
+              key="default-toolbar"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Primary Filter Controls */}
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  {/* Search Input */}
+                  <div className="relative w-36 sm:w-44 h-8">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-full w-full pl-8 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Class Dropdown */}
+                  <select
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                    className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                  >
+                    <option value="">All Classes</option>
+                    {classesList.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+
+                  {/* Date Picker */}
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                  />
+
+                  {/* Advanced Filters Button */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                      className={cn(
+                        "h-8 px-3 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs",
+                        isAdvancedFiltersOpen || advancedFilterCount > 0
+                          ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700 font-extrabold"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue-600" />
+                      <span>Filters</span>
+                      {advancedFilterCount > 0 && (
+                        <span className="h-4 px-1.5 rounded-full bg-brand-blue-600 text-white text-[9px] font-black flex items-center justify-center ml-0.5">
+                          {advancedFilterCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Advanced Filter Slide-Down Dropdown Panel */}
+                    <AnimatePresence>
+                      {isAdvancedFiltersOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setIsAdvancedFiltersOpen(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-0 top-10 z-50 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 select-none text-left space-y-3"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                Advanced Filters
+                              </span>
+                              <button
+                                onClick={() => setIsAdvancedFiltersOpen(false)}
+                                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Teacher Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Teacher</label>
+                              <select
+                                value={teacherFilter}
+                                onChange={(e) => setTeacherFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Teachers</option>
+                                {teachers.map(t => (
+                                  <option key={t._id} value={t._id}>
+                                    {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Subject Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Subject</label>
+                              <select
+                                value={subjectFilter}
+                                onChange={(e) => setSubjectFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Subjects</option>
+                                {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                              </select>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Submission Status</label>
+                              <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Statuses</option>
+                                <option value="Submitted">Submitted</option>
+                                <option value="Pending">Pending</option>
+                              </select>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Right side controls: View Switcher & Clear All */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <AttendanceViewSwitcher
+                    activeView={activeWorkspaceView}
+                    onChange={handleWorkspaceViewChange}
+                  />
+
+                  {hasActiveFilters && (
+                    <button
+                      onClick={handleClearFilters}
+                      className="h-8 px-3 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-2xs"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span>Clear All</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Filter Chips Row */}
+              {activeChips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5 border-t border-slate-100">
+                  <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mr-1">Active:</span>
+                  {activeChips.map(chip => (
+                    <span
+                      key={chip.id}
+                      className="h-6 px-2.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10.5px] font-bold flex items-center gap-1.5 shadow-2xs transition-colors hover:bg-slate-200/80"
+                    >
+                      <span>{chip.label}</span>
+                      <button
+                        onClick={chip.onRemove}
+                        className="h-3.5 w-3.5 rounded-full hover:bg-slate-300/80 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Print-only Header block */}
