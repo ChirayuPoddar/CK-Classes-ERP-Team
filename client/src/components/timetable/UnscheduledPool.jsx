@@ -1,6 +1,5 @@
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
-import { BookOpen, GripVertical, CheckCircle2, Cpu, Plus, Sparkles, Layers } from 'lucide-react'
+import React from 'react'
+import { Layers, Sparkles, GripVertical } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const getId = (val) => {
@@ -14,11 +13,13 @@ export default function UnscheduledPool({
   subjects = [],
   timetableSlots = [],
   currentClass = 'Class 1',
+  onClassChange,
+  classes = [],
   onDragStartSubject,
   onAutoScheduleRemaining,
   onOpenSubjectPlanner
 }) {
-  // Calculate scheduled vs required for each subject in current class
+  // Filter subjects for current class
   const classSubjects = subjects.filter(s => s.class === currentClass)
 
   const subjectStats = classSubjects.map(sub => {
@@ -42,58 +43,58 @@ export default function UnscheduledPool({
   const totalScheduled = subjectStats.reduce((acc, s) => acc + s.scheduledCount, 0)
   const totalRemaining = Math.max(0, totalRequired - totalScheduled)
 
-  // Generate progress bar string: e.g. 4/6 -> ████░░
-  const renderProgressBar = (scheduled, required) => {
-    const filled = Math.min(required, scheduled)
-    const empty = Math.max(0, required - filled)
-    return '█'.repeat(filled) + '░'.repeat(empty)
-  }
-
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-sm space-y-4 select-none text-left flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-brand-blue-600" />
-            <h3 className="text-sm font-black text-slate-800 tracking-tight">Available Class Pool</h3>
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-3 shadow-sm select-none text-left flex flex-col gap-2.5 w-full print:hidden">
+      {/* Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Layers className="h-4 w-4 text-brand-blue-600 shrink-0" />
+            <h3 className="text-xs font-black text-slate-800 tracking-tight">Available Class Pool</h3>
           </div>
-          <p className="text-[11px] font-bold text-slate-400 mt-0.5">Drag pre-configured subjects onto the grid</p>
+
+          {/* Class Selector Dropdown */}
+          <select
+            value={currentClass}
+            onChange={(e) => onClassChange && onClassChange(e.target.value)}
+            className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-brand-blue-500 focus:outline-none cursor-pointer transition-colors"
+          >
+            {classes.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
+          {/* Scheduled Progress Badge */}
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+            <span>{totalScheduled}/{totalRequired} Scheduled</span>
+            {totalRemaining > 0 ? (
+              <span className="text-amber-600 font-extrabold">({totalRemaining} left)</span>
+            ) : (
+              <span className="text-emerald-600 font-extrabold">✓ Done</span>
+            )}
+          </span>
         </div>
 
+        {/* Auto-Fill Action Button */}
         <button
           onClick={onAutoScheduleRemaining}
           disabled={totalRemaining === 0}
-          className="h-8 px-3 rounded-full bg-brand-blue-600 hover:bg-brand-blue-700 text-white text-[11px] font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-40"
+          className="h-7.5 px-3 rounded-full bg-brand-blue-600 hover:bg-brand-blue-700 text-white text-[11px] font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-40"
           title="Automatically place remaining lectures into open slots"
         >
-          <Sparkles className="h-3.5 w-3.5" />
-          <span>Auto-Fill ({totalRemaining})</span>
+          <Sparkles className="h-3 w-3" />
+          <span>Auto Fill ({totalRemaining})</span>
         </button>
       </div>
 
-      {/* Progress Cards Banner */}
-      <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3.5 flex items-center justify-between text-xs font-bold text-slate-700">
-        <div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Class Progress</span>
-          <span className="text-base font-black text-slate-850">{totalScheduled} / {totalRequired} <span className="text-xs font-bold text-slate-400">Scheduled</span></span>
-        </div>
-        <div className="text-right">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Remaining</span>
-          <span className={cn("text-base font-black", totalRemaining > 0 ? "text-brand-orange-500" : "text-emerald-600")}>
-            {totalRemaining} {totalRemaining === 0 ? '✓ Complete' : 'Lectures'}
-          </span>
-        </div>
-      </div>
-
-      {/* Draggable Subjects List */}
-      <div className="space-y-2.5 max-h-[380px] overflow-y-auto custom-scrollbar pr-1 flex-1">
+      {/* Horizontal Draggable Subjects Row */}
+      <div className="flex flex-row items-center gap-2.5 overflow-x-auto custom-scrollbar pb-1.5 w-full">
         {classSubjects.length === 0 ? (
-          <div className="py-8 text-center text-xs font-bold text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-            No subjects configured for {currentClass}.
+          <div className="py-2 px-4 text-center text-xs font-bold text-slate-400 border border-dashed border-slate-200 rounded-xl w-full flex items-center justify-center gap-2">
+            <span>No subjects configured for {currentClass}.</span>
             <button
               onClick={onOpenSubjectPlanner}
-              className="mt-2 block mx-auto text-brand-blue-600 font-black hover:underline cursor-pointer"
+              className="text-brand-blue-600 font-black hover:underline cursor-pointer"
             >
               + Configure Class Subjects
             </button>
@@ -109,49 +110,44 @@ export default function UnscheduledPool({
                 draggable={!sub.isCompleted}
                 onDragStart={(e) => onDragStartSubject(e, sub)}
                 className={cn(
-                  "p-3 rounded-2xl border transition-all duration-200 flex items-center justify-between group relative overflow-hidden",
+                  "min-w-[180px] max-w-[220px] shrink-0 p-2 rounded-xl border transition-all duration-200 flex items-center justify-between group relative overflow-hidden select-none",
                   sub.isCompleted
-                    ? "bg-slate-50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                    ? "bg-slate-50 border-slate-200/60 opacity-50 cursor-not-allowed"
                     : "bg-white border-slate-200/80 hover:border-brand-blue-400 hover:shadow-md cursor-grab active:cursor-grabbing"
                 )}
                 style={{
                   backgroundColor: sub.isCompleted ? '#f8fafc' : `${subColor}0D`
                 }}
               >
-                {/* Accent Tag */}
+                {/* Left Color Indicator Bar */}
                 <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-md" style={{ backgroundColor: subColor }} />
 
-                <div className="pl-2 flex items-center gap-3 min-w-0 flex-1">
-                  <GripVertical className={cn("h-4 w-4 shrink-0 transition-colors", sub.isCompleted ? "text-slate-300" : "text-slate-400 group-hover:text-slate-600")} />
+                <div className="pl-1.5 flex items-center gap-1.5 min-w-0 flex-1">
+                  <GripVertical className={cn("h-3.5 w-3.5 shrink-0 transition-colors", sub.isCompleted ? "text-slate-300" : "text-slate-400 group-hover:text-slate-600")} />
                   
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-800 truncate">{sub.name}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-black text-slate-800 truncate leading-tight">{sub.name}</span>
                       {isLab && (
-                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[9px] font-black rounded-md shrink-0">
-                          {sub.consecutivePeriods || 2}P Lab
+                        <span className="px-1 py-0.2 bg-purple-100 text-purple-700 text-[8px] font-black rounded shrink-0">
+                          Lab
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 mt-0.5">
-                      <span className="truncate">
-                        {sub.assignedTeacher ? `${sub.assignedTeacher.firstName || ''} ${sub.assignedTeacher.lastName || ''}`.trim() : 'Unassigned'}
-                      </span>
-                      {sub.preferredRoom && (
-                        <span className="shrink-0 uppercase font-black text-slate-400">• {sub.preferredRoom}</span>
-                      )}
+                    <div className="text-[9px] font-bold text-slate-500 truncate leading-tight mt-0.5">
+                      {sub.assignedTeacher ? `${sub.assignedTeacher.firstName || ''} ${sub.assignedTeacher.lastName || ''}`.trim() : 'Unassigned'}
                     </div>
                   </div>
                 </div>
 
-                {/* Progress Indicator */}
-                <div className="text-right shrink-0 pl-2">
-                  <div className="font-mono text-[10px] font-bold tracking-tighter text-slate-400 block">
-                    {renderProgressBar(sub.scheduledCount, sub.requiredCount)}
-                  </div>
-                  <span className={cn("text-[10px] font-black block mt-0.5", sub.isCompleted ? "text-emerald-600" : "text-slate-700")}>
-                    {sub.remainingCount} {sub.isCompleted ? '✓ Done' : 'Remaining'}
+                {/* Remaining Counter */}
+                <div className="text-right shrink-0 pl-1.5">
+                  <span className={cn(
+                    "text-[10px] font-black px-1.5 py-0.5 rounded-md",
+                    sub.isCompleted ? "bg-slate-200/60 text-slate-400" : "bg-white border border-slate-200 text-brand-blue-700 shadow-2xs"
+                  )}>
+                    {sub.scheduledCount}/{sub.requiredCount}
                   </span>
                 </div>
               </div>

@@ -20,7 +20,8 @@ import {
   Download,
   Building,
   CalendarDays,
-  BarChart2
+  BarChart2,
+  MoreVertical
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -29,7 +30,7 @@ import SearchableSelect from '@/components/common/SearchableSelect'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import TimetableViewTabs from '@/components/timetable/TimetableViewTabs'
-import TimetableFilters from '@/components/timetable/TimetableFilters'
+import TeacherInfoHeader from '@/components/timetable/TeacherInfoHeader'
 import PeriodManager from '@/components/timetable/PeriodManager'
 import RoomManager from '@/components/timetable/RoomManager'
 import HolidayManager from '@/components/timetable/HolidayManager'
@@ -41,7 +42,6 @@ import AutoGeneratorModal from '@/components/timetable/AutoGeneratorModal'
 import BulkOperationsBar from '@/components/timetable/BulkOperationsBar'
 import TimetableGrid from '@/components/timetable/TimetableGrid'
 import UnscheduledPool from '@/components/timetable/UnscheduledPool'
-import useUndoRedo from '@/hooks/useUndoRedo'
 import useTimetableDrag from '@/hooks/useTimetableDrag'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
@@ -168,7 +168,26 @@ export default function Timetable() {
   const [classFilter, setClassFilter] = useState('Class 1')
   const [academicYearFilter, setAcademicYearFilter] = useState('2026-2027')
   const [dayFilter, setDayFilter] = useState('')
-  const [printMode, setPrintMode] = useState('class')
+
+  // Teacher Timetable View State
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState([])
+  const [activeTeacherId, setActiveTeacherId] = useState('')
+
+  const handleSelectTeacher = (teacherId) => {
+    if (!teacherId) return
+    if (!selectedTeacherIds.includes(teacherId)) {
+      setSelectedTeacherIds(prev => [...prev, teacherId])
+    }
+    setActiveTeacherId(teacherId)
+  }
+
+  const handleRemoveTeacher = (teacherId) => {
+    const updated = selectedTeacherIds.filter(id => id !== teacherId)
+    setSelectedTeacherIds(updated)
+    if (activeTeacherId === teacherId) {
+      setActiveTeacherId(updated[0] || '')
+    }
+  }
 
   const [advancedFilters, setAdvancedFilters] = useState({
     class: 'Class 1',
@@ -187,7 +206,6 @@ export default function Timetable() {
   // Enterprise Modals State
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
-  const [isTeacherTimetableOpen, setIsTeacherTimetableOpen] = useState(false)
   const [isAddPeriodModalOpen, setIsAddPeriodModalOpen] = useState(false)
 
   const [isPeriodManagerOpen, setIsPeriodManagerOpen] = useState(false)
@@ -198,6 +216,7 @@ export default function Timetable() {
   const [isSearchPaletteOpen, setIsSearchPaletteOpen] = useState(false)
   const [isExportImportOpen, setIsExportImportOpen] = useState(false)
   const [isAutoGeneratorOpen, setIsAutoGeneratorOpen] = useState(false)
+  const [isOverflowMenuOpen, setIsOverflowMenuOpen] = useState(false)
 
   // Drag & Drop & Bulk Selection State
   const [selectedSlotIds, setSelectedSlotIds] = useState([])
@@ -205,7 +224,6 @@ export default function Timetable() {
   
   const [currentSlot, setCurrentSlot] = useState(null)
   const [selectedSlotForView, setSelectedSlotForView] = useState(null)
-  const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -230,7 +248,7 @@ export default function Timetable() {
 
   // Disable body scroll when modal is open
   useEffect(() => {
-    const isAnyModalOpen = isAddEditModalOpen || isViewModalOpen || isTeacherTimetableOpen || isAddPeriodModalOpen
+    const isAnyModalOpen = isAddEditModalOpen || isViewModalOpen || isAddPeriodModalOpen
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
@@ -239,7 +257,7 @@ export default function Timetable() {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [isAddEditModalOpen, isViewModalOpen, isTeacherTimetableOpen, isAddPeriodModalOpen])
+  }, [isAddEditModalOpen, isViewModalOpen, isAddPeriodModalOpen])
 
   const showToast = (type, message) => {
     setToast({ type, message })
@@ -269,7 +287,13 @@ export default function Timetable() {
         params: { page: 1, limit: 1000, status: 'Active' }
       })
       if (res && res.success && res.data && res.data.teachers) {
-        setTeachers(res.data.teachers)
+        const teacherList = res.data.teachers
+        setTeachers(teacherList)
+        if (teacherList.length > 0) {
+          const firstId = teacherList[0]._id
+          setSelectedTeacherIds(prev => prev.length === 0 ? [firstId] : prev)
+          setActiveTeacherId(prev => prev || firstId)
+        }
       }
     } catch (err) {
       console.error('Failed to load active teachers:', err)
@@ -298,8 +322,7 @@ export default function Timetable() {
     }
   }
 
-  // Pool Collapsed & Viewspace State
-  const [isPoolCollapsed, setIsPoolCollapsed] = useState(false)
+  // Load holidays for drag conflict checking
   const [holidays, setHolidays] = useState([])
 
   // Load holidays for drag conflict checking
@@ -316,11 +339,7 @@ export default function Timetable() {
     handleDragStartSlot,
     handleDragOverCell,
     handleDragLeaveCell,
-    executeDrop,
-    handleUndo,
-    handleRedo,
-    canUndo,
-    canRedo
+    executeDrop
   } = useTimetableDrag({
     timetableSlots,
     allSlots: timetableSlots,
@@ -330,7 +349,7 @@ export default function Timetable() {
     currentClass: classFilter,
     academicYear: academicYearFilter,
     onSlotsChange: (newSlots) => setTimetableSlots(newSlots),
-    onSubjectsRefresh: () => { fetchTimetable(); fetchSubjects(); },
+    onSubjectsRefresh: () => { fetchTimetable(false); fetchSubjects(); },
     showToast
   })
 
@@ -372,8 +391,8 @@ export default function Timetable() {
       showToast('error', err.message || 'Bulk replace failed')
     }
   }  // Load global timetable slots
-  const fetchTimetable = async () => {
-    setLoading(true)
+  const fetchTimetable = async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     setError(null)
     try {
       const res = await api.get('/timetable', {
@@ -819,41 +838,21 @@ export default function Timetable() {
     )
   }
 
-  const handlePrintClassTimetable = () => {
-    setPrintMode('class')
-    setTimeout(() => {
-      window.print()
-    }, 100)
-  }
 
-  const handlePrintTeacherTimetable = () => {
-    setPrintMode('teacher')
-    setTimeout(() => {
-      window.print()
-    }, 100)
-  }
 
-  // Selected teacher's read-only slots list
+  // Selected teacher's read-only slots list (used for Print View)
+  const printTeacherId = activeTeacherId
   const selectedTeacherSlots = timetableSlots.filter(s => 
-    s.teacher && ((s.teacher._id || s.teacher) === selectedTeacherId)
+    s.teacher && ((s.teacher._id || s.teacher) === printTeacherId)
   )
 
-  const selectedTeacherObj = teachers.find(t => t._id === selectedTeacherId)
+  const selectedTeacherObj = teachers.find(t => t._id === printTeacherId)
   const selectedTeacherName = selectedTeacherObj 
     ? `${selectedTeacherObj.firstName || ''} ${selectedTeacherObj.lastName || ''}`.trim()
     : 'No Teacher Selected'
 
-  // Extract unique subjects assigned to the selected teacher
-  const teacherAssignedSubjects = Array.from(
-    new Set(
-      subjects
-        .filter(s => s.assignedTeacher && ((s.assignedTeacher._id || s.assignedTeacher) === selectedTeacherId))
-        .map(s => s.name)
-    )
-  )
-
   return (
-    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
+    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-2 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
       
       {/* Inject print-only stylesheet to force Landscape formatting on a single page */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -945,7 +944,7 @@ export default function Timetable() {
         }
       `}} />
 
-      {/* Custom Scrollbar and layout transitions stylesheet */}
+      {/* Custom Scrollbar + Dynamic print view switch */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar {
           height: 6px;
@@ -955,37 +954,31 @@ export default function Timetable() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1; /* slate-300 */
+          background: #cbd5e1;
           border-radius: 9999px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8; /* slate-400 */
+          background: #94a3b8;
         }
-      `}} />
-
-      {/* Dynamic Print Container Switch based on printMode state */}
-      <style dangerouslySetInnerHTML={{__html: `
         @media print {
           .print-class-view {
-            display: ${printMode === 'class' ? 'block' : 'none'} !important;
+            display: ${viewMode === 'class' ? 'block' : 'none'} !important;
           }
           .print-teacher-view {
-            display: ${printMode === 'teacher' ? 'block' : 'none'} !important;
+            display: ${viewMode === 'teacher' ? 'block' : 'none'} !important;
           }
         }
       `}} />
 
-      {/* Toast notifications */}
+      {/* Toast Notifications */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={cn(
-              "fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-[20px] shadow-premium-3 flex items-center gap-3 border text-xs font-black tracking-wide bg-white max-w-sm select-none print:hidden",
-              toast.type === 'success' ? "border-emerald-200 text-slate-850" : "border-red-200 text-slate-850"
-            )}
+            initial={{ opacity: 0, y: -16, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -16, x: '-50%' }}
+            transition={spring}
+            className="fixed top-5 left-1/2 z-50 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2.5 text-slate-700 print:hidden"
           >
             <div className={cn(
               "h-6.5 w-6.5 rounded-full flex items-center justify-center shrink-0",
@@ -998,186 +991,172 @@ export default function Timetable() {
         )}
       </AnimatePresence>
 
-      {/* 1. Header & Breadcrumbs Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden">
-        <div className="text-left space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
+      {/* ═══════════ 1. HEADER ROW ═══════════ */}
+      <div className="flex items-center justify-between gap-4 shrink-0 print:hidden bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        {/* LEFT: Title & Subtitle */}
+        <div className="text-left shrink-0">
+          <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
             <span>Admin</span>
             <span>/</span>
             <span className="text-brand-blue-600">Timetable</span>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mt-1">
+          <h2 className="text-base sm:text-lg font-black text-slate-800 tracking-tight leading-none mt-0.5">
             Enterprise Timetable System
           </h2>
-          <p className="text-[11px] font-bold text-slate-400 mt-1.5">
-            Manage weekly schedules, multi-views, period breaks, classroom capacities, and AI auto-generation
-          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* CENTER: Segmented View Mode Tabs */}
+        <div className="hidden md:flex items-center justify-center">
+          <TimetableViewTabs activeView={viewMode} onChange={(v) => setViewMode(v)} />
+        </div>
+
+        {/* RIGHT: Search, Generate & 3-Dot Overflow Menu */}
+        <div className="flex items-center gap-2 shrink-0 relative">
           <button
             onClick={() => setIsSearchPaletteOpen(true)}
-            className="h-10 px-4 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-xs font-bold text-slate-600 flex items-center gap-2 shadow-xs cursor-pointer"
+            className="h-8 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full text-xs font-bold text-slate-600 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
             title="Search palette (Cmd+K)"
           >
-            <Search className="h-4 w-4 text-brand-blue-600" />
-            <span>Search (Cmd+K)</span>
+            <Search className="h-3.5 w-3.5 text-brand-blue-600" />
+            <span className="hidden sm:inline">Search</span>
           </button>
 
           <button
             onClick={() => setIsAutoGeneratorOpen(true)}
-            className="h-10 px-4 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            className="h-8 px-3.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
           >
-            <Cpu className="h-4 w-4" />
-            <span>Auto Generator</span>
+            <Cpu className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Generate</span>
           </button>
+
+          {/* Three-Dot Overflow Menu Button */}
+          <div className="relative">
+            <button
+              onClick={() => setIsOverflowMenuOpen(!isOverflowMenuOpen)}
+              className={cn(
+                "h-8 w-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs",
+                isOverflowMenuOpen
+                  ? "bg-slate-800 border-slate-800 text-white"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              )}
+              title="More actions"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            {/* Overflow Dropdown Popover */}
+            <AnimatePresence>
+              {isOverflowMenuOpen && (
+                <>
+                  {/* Backdrop click to close */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsOverflowMenuOpen(false)}
+                  />
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-10 z-50 w-52 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 select-none text-left"
+                  >
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      Timetable Utilities
+                    </div>
+
+                    <button
+                      onClick={() => { setIsOverflowMenuOpen(false); setIsPeriodManagerOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Clock className="h-3.5 w-3.5 text-blue-500" />
+                      <span>Periods & Breaks</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsOverflowMenuOpen(false); setIsRoomManagerOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-purple-500" />
+                      <span>Classroom Rooms</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsOverflowMenuOpen(false); setIsHolidayManagerOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Holidays & Breaks</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsOverflowMenuOpen(false); setIsAnalyticsOpen(!isAnalyticsOpen); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <BarChart2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Analytics Dashboard</span>
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100" />
+
+                    <button
+                      onClick={() => { setIsOverflowMenuOpen(false); setIsExportImportOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5 text-red-500" />
+                      <span>Export / Import Data</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
-      {/* View Mode Tabs */}
-      <div className="shrink-0 print:hidden text-left">
+      {/* Mobile View Tabs */}
+      <div className="md:hidden shrink-0 print:hidden">
         <TimetableViewTabs activeView={viewMode} onChange={(v) => setViewMode(v)} />
       </div>
 
-      {/* Multi-Filters Panel */}
-      <div className="shrink-0 print:hidden">
-        <TimetableFilters
-          filters={advancedFilters}
-          onFilterChange={(key, val) => {
-            setAdvancedFilters(prev => ({ ...prev, [key]: val }))
-            if (key === 'class') setClassFilter(val || 'Class 1')
-            if (key === 'academicYear') setAcademicYearFilter(val || '2026-2027')
-            if (key === 'day') setDayFilter(val || '')
-          }}
-          onResetFilters={() => {
-            setAdvancedFilters({
-              class: 'Class 1',
-              teacher: '',
-              subject: '',
-              room: '',
-              day: '',
-              academicYear: '2026-2027',
-              section: '',
-              semester: '',
-              department: '',
-              building: '',
-              floor: ''
-            })
-            setClassFilter('Class 1')
-            setAcademicYearFilter('2026-2027')
-            setDayFilter('')
-          }}
-          classes={classes}
-          teachers={teachers}
-          subjects={subjects}
-          rooms={rooms}
-        />
-      </div>
-
-      {/* Action Toolbar */}
-      <div 
-        style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="py-4 px-6 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsPeriodManagerOpen(true)}
-            className="h-9 px-4 bg-blue-50/50 hover:bg-blue-50 border border-dashed border-blue-200 rounded-full text-xs font-black text-blue-600 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Manage Periods & Breaks</span>
-          </button>
-
-          <button
-            onClick={() => setIsRoomManagerOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <MapPin className="h-3.5 w-3.5 text-purple-500" />
-            <span>Rooms</span>
-          </button>
-
-          <button
-            onClick={() => setIsHolidayManagerOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Calendar className="h-3.5 w-3.5 text-amber-500" />
-            <span>Holidays</span>
-          </button>
-
-          <button
-            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
-            className={cn(
-              "h-9 px-4 rounded-full border text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors",
-              isAnalyticsOpen ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700" : "border-slate-200 hover:bg-slate-50 text-slate-700"
-            )}
-          >
-            <BarChart2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Analytics</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
-            title="Undo last drag operation (Ctrl+Z)"
-          >
-            <span>↩ Undo</span>
-          </button>
-
-          <button
-            onClick={handleRedo}
-            disabled={!canRedo}
-            className="h-9 px-3 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-xs font-black text-slate-700 flex items-center gap-1 shadow-xs cursor-pointer"
-            title="Redo last operation (Ctrl+Y)"
-          >
-            <span>↪ Redo</span>
-          </button>
-
-          <button
-            onClick={() => setIsPoolCollapsed(!isPoolCollapsed)}
-            className={cn(
-              "h-9 px-4 rounded-full border text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer transition-all",
-              isPoolCollapsed
-                ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700"
-                : "border-slate-200 hover:bg-slate-50 text-slate-700"
-            )}
-            title="Toggle Unscheduled Pool Sidebar to Maximize Timetable Viewspace"
-          >
-            <Layers className="h-3.5 w-3.5 text-brand-blue-600" />
-            <span>{isPoolCollapsed ? 'Show Subject Pool' : 'Maximize Grid View'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setSelectedTeacherId(teachers[0]?._id || '')
-              setIsTeacherTimetableOpen(true)
-            }}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <User className="h-3.5 w-3.5 text-blue-500" />
-            <span>Teacher View</span>
-          </button>
-
-          <button
-            onClick={() => setIsExportImportOpen(true)}
-            className="h-9 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-          >
-            <Download className="h-3.5 w-3.5 text-red-500" />
-            <span>Export / Import</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Analytics Dashboard Drawer / Toggle */}
+      {/* Analytics Drawer */}
       {isAnalyticsOpen && (
         <div className="shrink-0 print:hidden">
           <TimetableAnalytics academicYear={academicYearFilter} />
         </div>
       )}
 
-      {/* 1. Print/PDF Header FOR CLASS TIMETABLE (Visible during printing only) */}
+      {/* ═══════════ 2. HEADER BAR (CLASS POOL OR TEACHER PROFILE) ═══════════ */}
+      {viewMode === 'teacher' ? (
+        <div className="shrink-0 print:hidden">
+          <TeacherInfoHeader
+            teachers={teachers}
+            subjects={subjects}
+            timetableSlots={timetableSlots}
+            periods={periods}
+            selectedTeacherIds={selectedTeacherIds}
+            activeTeacherId={activeTeacherId}
+            onSelectTeacher={handleSelectTeacher}
+            onRemoveTeacher={handleRemoveTeacher}
+            onSetActiveTeacher={setActiveTeacherId}
+          />
+        </div>
+      ) : (
+        <div className="shrink-0 print:hidden">
+          <UnscheduledPool
+            subjects={subjects}
+            timetableSlots={timetableSlots}
+            currentClass={classFilter}
+            onClassChange={(c) => setClassFilter(c)}
+            classes={classes}
+            onDragStartSubject={handleDragStartSubject}
+            onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
+            onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* 1. Print/PDF Header FOR CLASS TIMETABLE */}
       <div className="hidden print:print-class-view flex items-center justify-between border-b border-slate-200 pb-4 mb-6 select-none w-full">
         <div className="text-left space-y-1">
           <div className="flex items-center gap-2">
@@ -1195,7 +1174,7 @@ export default function Timetable() {
         </div>
       </div>
 
-      {/* 2. Print/PDF Header FOR TEACHER TIMETABLE (Visible during printing only) */}
+      {/* 2. Print/PDF Header FOR TEACHER TIMETABLE */}
       <div className="hidden print:print-teacher-view flex items-center justify-between border-b border-slate-200 pb-4 mb-6 select-none w-full">
         <div className="text-left space-y-1">
           <div className="flex items-center gap-2">
@@ -1213,51 +1192,38 @@ export default function Timetable() {
         </div>
       </div>
 
-      {/* 3. Dual-Pane Drag & Drop Scheduling Workspace */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-grow min-h-0">
-        {/* Left Sidebar: Unscheduled Class Pool */}
-        {!isPoolCollapsed && (
-          <div className="w-full lg:w-72 shrink-0 print:hidden transition-all duration-300">
-            <UnscheduledPool
-              subjects={subjects}
-              timetableSlots={timetableSlots}
-              currentClass={classFilter}
-              onDragStartSubject={handleDragStartSubject}
-              onAutoScheduleRemaining={() => setIsAutoGeneratorOpen(true)}
-              onOpenSubjectPlanner={() => setIsSearchPaletteOpen(true)}
-            />
-          </div>
-        )}
-
-        {/* Right Main Board: Interactive Timetable Grid */}
-        <div 
-          style={{ borderRadius: '28px', border: '1px solid #ECECEC', padding: '24px' }}
-          className="flex-1 min-w-0 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col justify-between overflow-hidden print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
-        >
-          <TimetableGrid
-            periods={periods}
-            days={daysOfWeek}
-            slots={timetableSlots.filter(s => s.class === classFilter)}
-            dayFilter={dayFilter}
-            loading={loading}
-            hoverCell={hoverCell}
-            onCellClick={(day, periodObj, slot) => {
-              if (slot) {
-                setSelectedSlotForView(slot)
-                setIsViewModalOpen(true)
-              } else {
-                handleCellClick(day, periodObj)
-              }
-            }}
-            onDragStart={handleDragStartSlot}
-            onDragOver={handleDragOverCell}
-            onDragLeave={handleDragLeaveCell}
-            onDrop={executeDrop}
-            onDeletePeriod={handleDeletePeriod}
-            selectedSlotIds={selectedSlotIds}
-            viewMode={viewMode}
-          />
-        </div>
+      {/* ═══════════ 3. FULL-WIDTH INTERACTIVE TIMETABLE GRID ═══════════ */}
+      <div 
+        style={{ borderRadius: '20px', border: '1px solid #E2E8F0', padding: '16px' }}
+        className="w-full flex-1 min-w-0 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden print:border-none print:shadow-none print:p-0 print-main-card print:print-class-view"
+      >
+        <TimetableGrid
+          periods={periods}
+          days={daysOfWeek}
+          slots={
+            viewMode === 'teacher'
+              ? timetableSlots.filter(s => s.teacher && ((s.teacher._id || s.teacher) === activeTeacherId))
+              : timetableSlots.filter(s => s.class === classFilter)
+          }
+          dayFilter={dayFilter}
+          loading={loading}
+          hoverCell={hoverCell}
+          onCellClick={(day, periodObj, slot) => {
+            if (slot) {
+              setSelectedSlotForView(slot)
+              setIsViewModalOpen(true)
+            } else {
+              handleCellClick(day, periodObj)
+            }
+          }}
+          onDragStart={handleDragStartSlot}
+          onDragOver={handleDragOverCell}
+          onDragLeave={handleDragLeaveCell}
+          onDrop={executeDrop}
+          onDeletePeriod={handleDeletePeriod}
+          selectedSlotIds={selectedSlotIds}
+          viewMode={viewMode}
+        />
       </div>
 
       {/* 4. Teacher Printable Grid view (Visible during printing only, when printMode === 'teacher') */}
@@ -1691,163 +1657,6 @@ export default function Timetable() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 8. TEACHER TIMETABLE PREVIEW MODAL */}
-      <AnimatePresence>
-        {isTeacherTimetableOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm print:hidden">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={spring}
-              className="bg-white w-full max-w-5xl shadow-premium-4 flex flex-col relative max-h-[92vh] overflow-hidden"
-              style={{ borderRadius: '28px', border: '1px solid #ECECEC' }}
-            >
-              {/* Modal Header */}
-              <div className="p-7 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="text-left space-y-1">
-                  <h3 className="text-base font-black text-slate-800 tracking-tight leading-none uppercase">
-                    Teacher Timetable View
-                  </h3>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Search and preview read-only schedules of individual coaching teachers
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsTeacherTimetableOpen(false)}
-                  className="h-8.5 w-8.5 rounded-full border border-slate-100 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors shadow-sm cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Selection Bar inside Modal */}
-              <div className="px-7 py-4.5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between gap-5 shrink-0">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black text-slate-455 uppercase tracking-widest">Select Instructor:</span>
-                  <SearchableSelect
-                    placeholder="Search teacher..."
-                    value={selectedTeacherId}
-                    onChange={(val) => setSelectedTeacherId(val)}
-                    options={teacherOptions}
-                    renderOption={renderTeacherOption}
-                    className="w-64"
-                  />
-                </div>
-
-                <button
-                  onClick={handlePrintTeacherTimetable}
-                  disabled={!selectedTeacherId}
-                  className="h-9.5 px-4 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-40"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Timetable</span>
-                </button>
-              </div>
-
-              {/* Scrollable teacher layout */}
-              <div className="flex-1 overflow-y-auto overflow-x-auto p-7 min-h-0 flex flex-col">
-                {!selectedTeacherId ? (
-                  <div className="py-24 text-center flex flex-col items-center justify-center gap-2 flex-grow">
-                    <User className="h-8 w-8 text-slate-350" />
-                    <span className="text-xs font-bold text-slate-400">Please select an instructor above to view details.</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Summary Header - Fixed overlap bug, proper responsive LEFT, CENTER, RIGHT flex layout */}
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-5 flex flex-col md:flex-row justify-between gap-6 text-left items-start">
-                      {/* Left: Selected Instructor */}
-                      <div className="md:w-1/3 min-w-0 space-y-1">
-                        <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none block">Selected Instructor</span>
-                        <h4 className="text-base font-black text-slate-800 leading-tight mt-1">{selectedTeacherName}</h4>
-                      </div>
-
-                      {/* Center: Subjects List */}
-                      <div className="md:w-1/3 min-w-0 space-y-1">
-                        <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none block">Subjects</span>
-                        <ul className="text-xs font-extrabold text-slate-650 space-y-1 mt-2 list-none pl-0">
-                          {teacherAssignedSubjects.length > 0 ? (
-                            teacherAssignedSubjects.map(subName => (
-                              <li key={subName} className="flex items-center gap-1.5 leading-tight">
-                                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                                <span className="truncate">{subName}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <span className="text-slate-400 italic">No assigned subjects</span>
-                          )}
-                        </ul>
-                      </div>
-
-                      {/* Right: Weekly Lectures */}
-                      <div className="md:w-1/3 shrink-0 flex flex-col md:items-end justify-center">
-                        <div className="text-left md:text-right">
-                          <span className="text-3xl font-black text-blue-600 leading-none block">{selectedTeacherSlots.length}</span>
-                          <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest mt-1 block">Weekly Lectures</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Teacher Read Only Grid Table */}
-                    {activePeriodsList.length === 0 ? (
-                      <div className="py-24 text-center flex-grow">No periods configured.</div>
-                    ) : (
-                      <table className="w-full text-left min-w-[850px] border-collapse flex flex-col h-full flex-grow">
-                        <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none block shrink-0">
-                          <tr className="flex w-full items-center h-14">
-                            <th className="pl-6 border-r border-slate-100 shrink-0 flex items-center h-full sticky left-0 z-30 bg-slate-50" style={{ width: '130px' }}>Time / Period</th>
-                            {daysOfWeek.map(day => (
-                              <th key={day} className="flex-1 min-w-[230px] flex items-center justify-center border-r border-slate-100 last:border-r-0 tracking-widest font-black h-full">
-                                {day}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y-0 flex flex-col flex-1 min-h-0">
-                          {activePeriodsList.map((periodObj) => (
-                            <tr key={periodObj._id} className="flex w-full items-stretch flex-1 min-h-[72px] transition-all duration-300 group hover:bg-slate-50/10">
-                              {/* Hours label */}
-                              <td className="pl-6 font-extrabold text-slate-800 bg-white group-hover:bg-slate-50 border-r border-slate-200/80 text-left select-none pr-4 shrink-0 flex flex-col justify-center overflow-hidden h-full sticky left-0 z-10 transition-colors duration-200" style={{ width: '130px' }}>
-                                <div className="text-[13px] font-semibold tracking-tight text-brand-blue-700 leading-none">{periodObj.name}</div>
-                                <div className="text-[11px] font-medium text-slate-500 mt-2.5 flex items-center gap-1 leading-none">
-                                  <span>🕓</span>
-                                  <span className="whitespace-nowrap">{periodObj.startTime} – {periodObj.endTime}</span>
-                                </div>
-                              </td>
-                              {/* Read-only cells */}
-                              {daysOfWeek.map((day) => {
-                                const tSlot = selectedTeacherSlots.find(s => s.day === day && (s.period?._id || s.period) === periodObj._id)
-                                return (
-                                  <td key={day} className="flex-1 min-w-[230px] px-2 border-r border-slate-100 last:border-r-0 text-center overflow-hidden flex flex-col justify-center h-full">
-                                    <TimetableCell slot={tSlot} showTeacherView={true} />
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Close footer action */}
-              <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-center shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsTeacherTimetableOpen(false)}
-                  className="h-10 px-5 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 rounded-full cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-
             </motion.div>
           </div>
         )}

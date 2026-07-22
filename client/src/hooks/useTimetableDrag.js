@@ -24,9 +24,6 @@ export default function useTimetableDrag({
   const [hoverCell, setHoverCell] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Undo / Redo Command History Stacks
-  const undoStackRef = useRef([])
-  const redoStackRef = useRef([])
 
   // Global drag ref for cross-event data access
   const dragStoreRef = useRef(null)
@@ -259,12 +256,7 @@ export default function useTimetableDrag({
           const mergedSlots = slotsRef.current.map(s => s._id === tempId ? createdSlot : s)
           onSlotsChange(mergedSlots)
 
-          undoStackRef.current.push({
-            type: 'ADD_SLOT',
-            slotId: createdSlot._id,
-            previousSnapshot: snapshot
-          })
-          redoStackRef.current = []
+
         }
 
         showToast('success', `Scheduled ${sub.name} on ${day}, ${periodObj.name}`)
@@ -313,13 +305,6 @@ export default function useTimetableDrag({
             slot2Id: getId(targetSlot)
           })
 
-          undoStackRef.current.push({
-            type: 'SWAP_SLOTS',
-            slot1Id: getId(slotToMove),
-            slot2Id: getId(targetSlot),
-            previousSnapshot: snapshot
-          })
-          redoStackRef.current = []
 
           showToast('success', `Swapped lectures on ${day}`)
           onSubjectsRefresh()
@@ -369,16 +354,6 @@ export default function useTimetableDrag({
           onSlotsChange(mergedSlots)
         }
 
-        undoStackRef.current.push({
-          type: 'MOVE_SLOT',
-          slotId: getId(slotToMove),
-          previousDay: slotToMove.day,
-          previousPeriod: slotToMove.period,
-          newDay: day,
-          newPeriod: targetPeriodId,
-          previousSnapshot: snapshot
-        })
-        redoStackRef.current = []
 
         console.log('[DnD Lifecycle] 7. Move Persisted Successfully')
         showToast('success', `Moved lecture to ${day}, ${periodObj.name}`)
@@ -396,35 +371,6 @@ export default function useTimetableDrag({
     }
   }, [dragItem, validateDrop, currentClass, academicYear, teachers, onSlotsChange, onSubjectsRefresh, showToast])
 
-  // Undo Handler
-  const handleUndo = useCallback(async () => {
-    const lastCmd = undoStackRef.current.pop()
-    if (!lastCmd) {
-      showToast('info', 'Nothing to undo')
-      return
-    }
-
-    redoStackRef.current.push(lastCmd)
-    if (lastCmd.previousSnapshot) {
-      onSlotsChange(lastCmd.previousSnapshot)
-      showToast('success', 'Undid last timetable change')
-      onSubjectsRefresh()
-    }
-  }, [onSlotsChange, onSubjectsRefresh, showToast])
-
-  // Redo Handler
-  const handleRedo = useCallback(async () => {
-    const nextCmd = redoStackRef.current.pop()
-    if (!nextCmd) {
-      showToast('info', 'Nothing to redo')
-      return
-    }
-
-    undoStackRef.current.push(nextCmd)
-    showToast('success', 'Redid last timetable change')
-    onSubjectsRefresh()
-  }, [onSubjectsRefresh, showToast])
-
   return {
     dragItem,
     hoverCell,
@@ -434,10 +380,6 @@ export default function useTimetableDrag({
     handleDragOverCell,
     handleDragLeaveCell,
     handleDragEnd,
-    executeDrop,
-    handleUndo,
-    handleRedo,
-    canUndo: undoStackRef.current.length > 0,
-    canRedo: redoStackRef.current.length > 0
+    executeDrop
   }
 }
