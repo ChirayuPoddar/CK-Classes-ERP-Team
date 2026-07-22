@@ -237,6 +237,11 @@ export default function Attendance() {
   const [isLectureSelectOpen, setIsLectureSelectOpen] = useState(false)
   const [isMarkModalOpen, setIsMarkModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [selectedSessionForView, setSelectedSessionForView] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [isHeaderOverflowOpen, setIsHeaderOverflowOpen] = useState(false)
+
   // Notification System State
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false)
   const [notifications, setNotifications] = useState([
