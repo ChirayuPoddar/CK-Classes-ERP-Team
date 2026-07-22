@@ -1,6 +1,7 @@
 import React from 'react'
 import { Calendar as CalendarIcon, Clock, User, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 
 export default function AttendanceCalendarView({
   sessions = [],
@@ -120,20 +121,15 @@ export default function AttendanceCalendarView({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <span className={cn(
-                          "px-2 py-0.5 text-[9.5px] font-black rounded-full border uppercase block tracking-wider",
-                          session.status === 'Submitted'
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                        )}>
-                          {session.status}
-                        </span>
-                        <span className="text-[9px] font-black text-slate-500 block mt-0.5">
-                          {pct}% Rate
-                        </span>
-                      </div>
-
+                      <AttendanceProgress
+                        percentage={pct}
+                        presentCount={session.stats?.presentCount || 0}
+                        absentCount={session.stats?.absentCount || 0}
+                        lateCount={session.stats?.lateCount || 0}
+                        status={session.status}
+                        isLocked={session.isLocked}
+                        compact
+                      />
                       <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-brand-blue-600 transition-colors" />
                     </div>
                   </div>

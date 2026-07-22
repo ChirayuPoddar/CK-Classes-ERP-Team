@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/utils/cn'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 
 export default function AttendanceDrawer({
   isOpen,
@@ -164,23 +165,34 @@ export default function AttendanceDrawer({
             </button>
           </div>
 
-          {/* 2. LIVE SUMMARY BAR */}
-          <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-200/60 text-center">
-            <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-1.5">
-              <span className="text-[9.5px] font-black uppercase text-emerald-600 block">Present</span>
-              <span className="text-sm font-black text-emerald-700">{presentCount}</span>
-            </div>
-            <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-1.5">
-              <span className="text-[9.5px] font-black uppercase text-rose-600 block">Absent</span>
-              <span className="text-sm font-black text-rose-700">{absentCount}</span>
-            </div>
-            <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-1.5">
-              <span className="text-[9.5px] font-black uppercase text-amber-600 block">Late</span>
-              <span className="text-sm font-black text-amber-700">{lateCount}</span>
-            </div>
-            <div className="bg-blue-50 border border-blue-200/80 rounded-xl p-1.5">
-              <span className="text-[9.5px] font-black uppercase text-blue-600 block">Leave</span>
-              <span className="text-sm font-black text-blue-700">{leaveCount}</span>
+          {/* 2. LIVE SUMMARY BAR & PROGRESS */}
+          <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-2">
+            <AttendanceProgress
+              percentage={students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0}
+              presentCount={presentCount}
+              absentCount={absentCount}
+              lateCount={lateCount}
+              leaveCount={leaveCount}
+              totalStudents={students.length}
+              status={editSessionId ? 'Submitted' : 'In Progress'}
+            />
+            <div className="grid grid-cols-4 gap-2 text-center pt-1">
+              <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-1.5">
+                <span className="text-[9.5px] font-black uppercase text-emerald-600 block">Present</span>
+                <span className="text-sm font-black text-emerald-700">{presentCount}</span>
+              </div>
+              <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-1.5">
+                <span className="text-[9.5px] font-black uppercase text-rose-600 block">Absent</span>
+                <span className="text-sm font-black text-rose-700">{absentCount}</span>
+              </div>
+              <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-1.5">
+                <span className="text-[9.5px] font-black uppercase text-amber-600 block">Late</span>
+                <span className="text-sm font-black text-amber-700">{lateCount}</span>
+              </div>
+              <div className="bg-blue-50 border border-blue-200/80 rounded-xl p-1.5">
+                <span className="text-[9.5px] font-black uppercase text-blue-600 block">Leave</span>
+                <span className="text-sm font-black text-blue-700">{leaveCount}</span>
+              </div>
             </div>
           </div>
         </div>

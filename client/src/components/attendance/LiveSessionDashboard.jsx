@@ -12,6 +12,7 @@ import {
   Zap
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 
 export default function LiveSessionDashboard({
   sessions = [],
@@ -137,19 +138,16 @@ export default function LiveSessionDashboard({
               </div>
 
               {/* Live Attendance Progress Bar */}
-              <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 space-y-1 mb-2">
-                <div className="flex items-center justify-between text-[9.5px] font-extrabold">
-                  <span className="text-slate-400 uppercase">Rate</span>
-                  <span className={cn(pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-600" : "text-rose-600")}>
-                    {pct}%
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-300", pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500")}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 mb-2">
+                <AttendanceProgress
+                  percentage={pct}
+                  presentCount={present}
+                  absentCount={absent}
+                  lateCount={late}
+                  status={session.status}
+                  isLocked={session.isLocked}
+                  showBadge={false}
+                />
               </div>
 
               {/* Action Button */}

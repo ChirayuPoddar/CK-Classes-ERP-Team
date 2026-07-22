@@ -37,6 +37,7 @@ import AttendanceCardView from '@/components/attendance/AttendanceCardView'
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView'
 import AttendanceDrawer from '@/components/attendance/AttendanceDrawer'
 import LiveSessionDashboard from '@/components/attendance/LiveSessionDashboard'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
@@ -1346,12 +1347,15 @@ export default function Attendance() {
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          <span className={cn(
-                            "font-black text-xs",
-                            (session.stats?.attendancePercentage || 0) >= 80 ? "text-emerald-600" : (session.stats?.attendancePercentage || 0) >= 50 ? "text-amber-500" : "text-rose-500"
-                          )}>
-                            {session.stats?.attendancePercentage || 0}%
-                          </span>
+                          <AttendanceProgress
+                            percentage={session.stats?.attendancePercentage || 0}
+                            presentCount={session.stats?.presentCount || 0}
+                            absentCount={session.stats?.absentCount || 0}
+                            lateCount={session.stats?.lateCount || 0}
+                            status={session.status}
+                            isLocked={session.isLocked}
+                            compact
+                          />
                         </td>
                         <td className="py-2.5 px-3 text-center text-emerald-650 font-bold">
                           {session.stats?.presentCount || 0}

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Calendar, Clock, User, BookOpen, Lock, Unlock, Edit3, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 
 export default function AttendanceCardView({
   sessions = [],
@@ -92,34 +93,16 @@ export default function AttendanceCardView({
             </div>
 
             {/* Attendance Progress Bar & Metrics */}
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1.5 my-1">
-              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
-                <span className="text-slate-400">Attendance Rate</span>
-                <span className={cn(isHigh ? "text-emerald-600" : isMid ? "text-amber-600" : "text-rose-600")}>
-                  {pct}%
-                </span>
-              </div>
-
-              {/* Progress bar line */}
-              <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all duration-300", isHigh ? "bg-emerald-500" : isMid ? "bg-amber-500" : "bg-rose-500")}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-
-              {/* Counts Breakdown */}
-              <div className="grid grid-cols-3 gap-1 pt-1 text-center text-[10px] font-extrabold">
-                <div className="bg-emerald-100/60 text-emerald-800 rounded py-0.5">
-                  {session.stats?.presentCount || 0} Present
-                </div>
-                <div className="bg-rose-100/60 text-rose-800 rounded py-0.5">
-                  {session.stats?.absentCount || 0} Absent
-                </div>
-                <div className="bg-amber-100/60 text-amber-800 rounded py-0.5">
-                  {session.stats?.lateCount || 0} Late
-                </div>
-              </div>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 my-1">
+              <AttendanceProgress
+                percentage={pct}
+                presentCount={session.stats?.presentCount || 0}
+                absentCount={session.stats?.absentCount || 0}
+                lateCount={session.stats?.lateCount || 0}
+                status={session.status}
+                isLocked={session.isLocked}
+                showBadge={false}
+              />
             </div>
 
             {/* Footer Action Buttons */}
