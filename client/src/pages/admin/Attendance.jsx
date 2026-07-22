@@ -22,7 +22,9 @@ import {
   Settings,
   MoreVertical,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Filter,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -90,7 +92,18 @@ export default function Attendance() {
   const [classFilter, setClassFilter] = useState('')
   const [teacherFilter, setTeacherFilter] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
+
+  const handleClearFilters = () => {
+    setClassFilter('')
+    setTeacherFilter('')
+    setSubjectFilter('')
+    setStatusFilter('')
+    setDateFilter(new Date().toISOString().split('T')[0])
+    setSearchQuery('')
+  }
 
   // Modals state
   const [isLectureSelectOpen, setIsLectureSelectOpen] = useState(false)
@@ -147,14 +160,6 @@ export default function Attendance() {
     enableRemarks: true,
     enableLeave: true
   })
-
-  const handleClearFilters = () => {
-    setClassFilter('')
-    setTeacherFilter('')
-    setSubjectFilter('')
-    setDateFilter(new Date().toISOString().split('T')[0])
-    setSearchQuery('')
-  }
 
   const fetchSettings = async () => {
     try {
@@ -542,6 +547,7 @@ export default function Attendance() {
   }
 
   const filteredSessions = attendanceSessions.filter(session => {
+    if (statusFilter && session.status !== statusFilter) return false
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
     const classMatch = (session.classId || '').toLowerCase().includes(q)
@@ -552,6 +558,27 @@ export default function Attendance() {
     const teacherMatch = teacherName.includes(q)
     return classMatch || subjectMatch || teacherMatch
   })
+
+  const todayDateStr = new Date().toISOString().split('T')[0]
+  const advancedFilterCount = (teacherFilter ? 1 : 0) + (subjectFilter ? 1 : 0) + (statusFilter ? 1 : 0)
+  const hasActiveFilters = Boolean(
+    classFilter || teacherFilter || subjectFilter || statusFilter || searchQuery || (dateFilter && dateFilter !== todayDateStr)
+  )
+
+  const activeChips = []
+  if (classFilter) activeChips.push({ id: 'class', label: `Class: ${classFilter}`, onRemove: () => setClassFilter('') })
+  if (teacherFilter) {
+    const tObj = teachers.find(t => t._id === teacherFilter)
+    const tName = tObj ? `${tObj.firstName || ''} ${tObj.lastName || ''}`.trim() : teacherFilter
+    activeChips.push({ id: 'teacher', label: `Teacher: ${tName}`, onRemove: () => setTeacherFilter('') })
+  }
+  if (subjectFilter) {
+    const sObj = subjects.find(s => s._id === subjectFilter)
+    activeChips.push({ id: 'subject', label: `Subject: ${sObj?.name || subjectFilter}`, onRemove: () => setSubjectFilter('') })
+  }
+  if (statusFilter) activeChips.push({ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => setStatusFilter('') })
+  if (dateFilter && dateFilter !== todayDateStr) activeChips.push({ id: 'date', label: `Date: ${dateFilter}`, onRemove: () => setDateFilter(todayDateStr) })
+  if (searchQuery) activeChips.push({ id: 'search', label: `Search: "${searchQuery}"`, onRemove: () => setSearchQuery('') })
 
   return (
     <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-2.5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
@@ -874,58 +901,161 @@ export default function Attendance() {
         </AnimatePresence>
       </div>
 
-      {/* 3. Compact Filter Bar Only (Actions moved to Header) */}
-      <div 
-        style={{ borderRadius: '16px', border: '1px solid #ECECEC' }}
-        className="py-2 px-3 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-wrap items-center gap-2 shrink-0 print:hidden"
-      >
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Filters:</span>
-
-        <select
-          value={classFilter}
-          onChange={(e) => setClassFilter(e.target.value)}
-          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+      {/* 3. Modern Compact Filter Bar & Advanced Filter Panel */}
+      <div className="shrink-0 print:hidden select-none space-y-2">
+        <div 
+          style={{ borderRadius: '16px', border: '1px solid #ECECEC' }}
+          className="py-2 px-3 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-wrap items-center justify-between gap-2"
         >
-          <option value="">All Classes</option>
-          {classesList.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+          {/* Always Visible Primary Controls */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            {/* Class Dropdown */}
+            <select
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+            >
+              <option value="">All Classes</option>
+              {classesList.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
 
-        <select
-          value={teacherFilter}
-          onChange={(e) => setTeacherFilter(e.target.value)}
-          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-        >
-          <option value="">All Teachers</option>
-          {teachers.map(t => (
-            <option key={t._id} value={t._id}>
-              {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
-            </option>
-          ))}
-        </select>
+            {/* Date Picker */}
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+            />
 
-        <select
-          value={subjectFilter}
-          onChange={(e) => setSubjectFilter(e.target.value)}
-          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-        >
-          <option value="">All Subjects</option>
-          {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-        </select>
+            {/* Advanced Filters Button (with active count badge) */}
+            <div className="relative">
+              <button
+                onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                className={cn(
+                  "h-8 px-3 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs",
+                  isAdvancedFiltersOpen || advancedFilterCount > 0
+                    ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700 font-extrabold"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue-600" />
+                <span>Filters</span>
+                {advancedFilterCount > 0 && (
+                  <span className="h-4 px-1.5 rounded-full bg-brand-blue-600 text-white text-[9px] font-black flex items-center justify-center ml-0.5">
+                    {advancedFilterCount}
+                  </span>
+                )}
+              </button>
 
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-        />
+              {/* Advanced Filter Slide-Down Dropdown Panel */}
+              <AnimatePresence>
+                {isAdvancedFiltersOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsAdvancedFiltersOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 top-10 z-50 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 select-none text-left space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                          Advanced Filters
+                        </span>
+                        <button
+                          onClick={() => setIsAdvancedFiltersOpen(false)}
+                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
 
-        <button
-          onClick={handleClearFilters}
-          className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 shadow-2xs"
-          title="Clear All Filters"
-        >
-          Clear Filters
-        </button>
+                      {/* Teacher Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Teacher</label>
+                        <select
+                          value={teacherFilter}
+                          onChange={(e) => setTeacherFilter(e.target.value)}
+                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">All Teachers</option>
+                          {teachers.map(t => (
+                            <option key={t._id} value={t._id}>
+                              {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Subject Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Subject</label>
+                        <select
+                          value={subjectFilter}
+                          onChange={(e) => setSubjectFilter(e.target.value)}
+                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">All Subjects</option>
+                          {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                        </select>
+                      </div>
+
+                      {/* Status Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Submission Status</label>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">All Statuses</option>
+                          <option value="Submitted">Submitted</option>
+                          <option value="Pending">Pending</option>
+                        </select>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Smart Clear All Button (Only visible when active filters exist) */}
+          {hasActiveFilters && (
+            <button
+              onClick={handleClearFilters}
+              className="h-8 px-3 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-2xs"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Clear All</span>
+            </button>
+          )}
+        </div>
+
+        {/* PART 4 — Active Filter Chips Bar */}
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
+            <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mr-1">Active:</span>
+            {activeChips.map(chip => (
+              <span
+                key={chip.id}
+                className="h-6 px-2.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10.5px] font-bold flex items-center gap-1.5 shadow-2xs transition-colors hover:bg-slate-200/80"
+              >
+                <span>{chip.label}</span>
+                <button
+                  onClick={chip.onRemove}
+                  className="h-3.5 w-3.5 rounded-full hover:bg-slate-300/80 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Print-only Header block */}
