@@ -26,7 +26,7 @@ class EmailService {
   /**
    * Dispatches branded OTP email template via SMTP
    */
-  async sendOtpEmail({ to, otp, purpose, expiresMinutes = 5 }) {
+  async sendOtpEmail({ to, otp, purpose, expiresMinutes = 5, tenantName = 'C.K. Classes' }) {
     const transporter = this.getTransporter()
     if (!transporter) {
       throw new ApiError('SMTP email provider is not configured.', 500, 'OTP_DELIVERY_FAILED')
@@ -48,7 +48,7 @@ class EmailService {
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #FFFFFF;">
         <div style="text-align: center; padding-bottom: 16px; border-bottom: 1px solid #EDF2F7;">
-          <h2 style="color: #1E3A8A; margin: 0; font-size: 20px; font-weight: 800;">C.K. Classes ERP</h2>
+          <h2 style="color: #1E3A8A; margin: 0; font-size: 20px; font-weight: 800;">${tenantName}</h2>
           <p style="color: #64748B; font-size: 12px; margin-top: 4px; font-weight: 600;">Institutional Management Portal</p>
         </div>
         <div style="padding: 24px 0; text-align: center;">
@@ -66,15 +66,41 @@ class EmailService {
 
     try {
       await transporter.sendMail({
-        from: `C.K. Classes <${fromAddress}>`,
+        from: `${tenantName} <${fromAddress}>`,
         to,
-        subject: `[C.K. Classes] Your Verification Code: ${otp}`,
+        subject: `[${tenantName}] Your Verification Code: ${otp}`,
         html: htmlContent
       })
       return { success: true }
     } catch (err) {
       console.error('[EmailService Error]:', err.message)
       throw new ApiError('Failed to dispatch OTP email. Please try again later.', 500, 'OTP_DELIVERY_FAILED')
+    }
+  }
+
+  /**
+   * Dispatches general/bulk email template via SMTP
+   */
+  async sendEmail({ to, subject, html, text, tenantName = 'C.K. Classes' }) {
+    const transporter = this.getTransporter()
+    if (!transporter) {
+      throw new ApiError('SMTP email provider is not configured.', 500, 'EMAIL_DELIVERY_FAILED')
+    }
+
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@ckclasses.com'
+
+    try {
+      await transporter.sendMail({
+        from: `${tenantName} <${fromAddress}>`,
+        to,
+        subject: subject || `Notification from ${tenantName}`,
+        html: html || `<div style="font-family: Arial, sans-serif;">${text || ''}</div>`,
+        text: text || ''
+      })
+      return { success: true }
+    } catch (err) {
+      console.error('[EmailService Error]:', err.message)
+      throw new ApiError('Failed to dispatch email. Please try again later.', 500, 'EMAIL_DELIVERY_FAILED')
     }
   }
 }

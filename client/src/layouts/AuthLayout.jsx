@@ -1,8 +1,11 @@
 import React from 'react'
 import { Outlet } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export const AuthLayout = () => {
+  const { user } = useAuth()
+  
   return (
     <div className="relative min-h-screen w-screen flex items-center justify-center bg-[var(--bg-secondary)] overflow-hidden">
       {/* Decorative gradient blur rings */}
@@ -19,7 +22,7 @@ export const AuthLayout = () => {
           <GraduationCap className="h-6 w-6" />
         </div>
         
-        <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">C.K. Classes</h2>
+        <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">{user?.tenantName || 'Institutional ERP'}</h2>
         <p className="text-xs text-[var(--text-tertiary)] font-semibold mt-1 mb-8 uppercase tracking-wider">Management Portal</p>
 
         {/* Dynamic portal contents */}

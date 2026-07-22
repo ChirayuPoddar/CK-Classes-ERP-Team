@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const attendanceAuditLogSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   attendanceSessionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AttendanceSession',

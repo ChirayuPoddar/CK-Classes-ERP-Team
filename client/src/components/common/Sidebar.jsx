@@ -97,7 +97,7 @@ export const Sidebar = ({ collapsed, onToggleCollapse }) => {
             whileHover={{ scale: 1.05, rotate: 6 }}
             className="h-[52px] w-[52px] rounded-[20px] bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-xl shadow-md shrink-0 cursor-pointer relative overflow-hidden"
           >
-            <span className="relative z-10">CK</span>
+            <span className="relative z-10">{user?.tenantName ? user.tenantName.substring(0, 2).toUpperCase() : 'ERP'}</span>
             <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity duration-300" />
           </motion.div>
           
@@ -110,7 +110,7 @@ export const Sidebar = ({ collapsed, onToggleCollapse }) => {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden whitespace-nowrap text-left"
               >
-                <h1 className="font-extrabold text-[18px] tracking-tight text-slate-800 leading-tight">C.K. Classes</h1>
+                <h1 className="font-extrabold text-[18px] tracking-tight text-slate-800 leading-tight">{user?.tenantName || 'Institutional ERP'}</h1>
                 <p className="text-[11px] text-slate-400 font-extrabold tracking-[3px] uppercase mt-0.5">Management ERP</p>
               </motion.div>
             )}

@@ -7,7 +7,7 @@ class AttendanceController {
    */
   async getSessions(req, res, next) {
     try {
-      const result = await AttendanceService.getAttendanceSessions(req.query)
+      const result = await AttendanceService.getAttendanceSessions({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Attendance sessions retrieved successfully',
@@ -24,7 +24,7 @@ class AttendanceController {
    */
   async getSessionById(req, res, next) {
     try {
-      const session = await AttendanceService.getAttendanceSessionById(req.params.id)
+      const session = await AttendanceService.getAttendanceSessionById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance session retrieved successfully',
@@ -41,7 +41,7 @@ class AttendanceController {
    */
   async createSession(req, res, next) {
     try {
-      const session = await AttendanceService.createAttendanceSession(req.body, req.user.id)
+      const session = await AttendanceService.createAttendanceSession({ ...req.body, tenantId: req.tenantId }, req.user.id)
       res.status(201).json({
         success: true,
         message: 'Attendance recorded successfully',
@@ -65,7 +65,7 @@ class AttendanceController {
    */
   async updateSession(req, res, next) {
     try {
-      const session = await AttendanceService.updateAttendanceSession(req.params.id, req.body, req.user.id)
+      const session = await AttendanceService.updateAttendanceSession(req.params.id, req.body, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance updated successfully',
@@ -82,7 +82,7 @@ class AttendanceController {
    */
   async deleteSession(req, res, next) {
     try {
-      await AttendanceService.deleteAttendanceSession(req.params.id, req.user.id)
+      await AttendanceService.deleteAttendanceSession(req.params.id, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance session deleted successfully'
@@ -98,7 +98,7 @@ class AttendanceController {
    */
   async getTimetableSlotsStatus(req, res, next) {
     try {
-      const slots = await AttendanceService.getTodayTimetableSlotsWithStatus(req.query.date, req.query.classId)
+      const slots = await AttendanceService.getTodayTimetableSlotsWithStatus(req.query.date, req.query.classId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Timetable slots with attendance status retrieved successfully',
@@ -114,7 +114,7 @@ class AttendanceController {
    */
   async getOverrideHistory(req, res, next) {
     try {
-      const logs = await AttendanceService.getOverrideHistoryForSession(req.params.id)
+      const logs = await AttendanceService.getOverrideHistoryForSession(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance override history logs retrieved successfully',
@@ -131,7 +131,7 @@ class AttendanceController {
    */
   async getAnalytics(req, res, next) {
     try {
-      const stats = await AttendanceService.getAttendanceAnalytics(req.query)
+      const stats = await AttendanceService.getAttendanceAnalytics({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Attendance analytics calculated successfully',
@@ -148,7 +148,7 @@ class AttendanceController {
    */
   async getStudentProfile(req, res, next) {
     try {
-      const profile = await AttendanceService.getStudentAttendanceProfile(req.params.id)
+      const profile = await AttendanceService.getStudentAttendanceProfile(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student attendance profile retrieved successfully',
@@ -165,7 +165,7 @@ class AttendanceController {
    */
   async getSettings(req, res, next) {
     try {
-      const settings = await AttendanceService.getSettings()
+      const settings = await AttendanceService.getSettings(req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance settings loaded successfully',
@@ -182,7 +182,7 @@ class AttendanceController {
    */
   async updateSettings(req, res, next) {
     try {
-      const settings = await AttendanceService.updateSettings(req.body)
+      const settings = await AttendanceService.updateSettings(req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance settings updated successfully',
@@ -199,7 +199,7 @@ class AttendanceController {
    */
   async getTimeline(req, res, next) {
     try {
-      const timeline = await AttendanceService.getTimeline()
+      const timeline = await AttendanceService.getTimeline(req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Attendance audit timeline retrieved successfully',
@@ -217,7 +217,7 @@ class AttendanceController {
   async bulkUpdate(req, res, next) {
     try {
       const { ids, action } = req.body
-      await AttendanceService.bulkUpdateSessions(ids, action, req.user.id)
+      await AttendanceService.bulkUpdateSessions(ids, action, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Bulk ${action.toLowerCase()} completed successfully`
@@ -233,7 +233,7 @@ class AttendanceController {
    */
   async getRoster(req, res, next) {
     try {
-      const rosterData = await AttendanceService.getAttendanceRoster(req.query)
+      const rosterData = await AttendanceService.getAttendanceRoster({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Attendance roster retrieved successfully',

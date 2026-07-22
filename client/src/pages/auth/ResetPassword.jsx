@@ -74,7 +74,7 @@ export default function ResetPassword() {
     >
       <div className="mb-2">
         <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-          Set a strong, secure password for your C.K. Classes account access.
+          Set a strong, secure password for your account access.
         </p>
       </div>
 

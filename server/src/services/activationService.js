@@ -23,23 +23,24 @@ class ActivationService {
   }
 
   /**
-   * Helper: Resolves Student record safely by Student ID or ObjectId
+   * Helper: Resolves Student record safely by Student ID or ObjectId scoped to tenant
    */
-  async findStudentByIdentifier(identifierStr) {
+  async findStudentByIdentifier(identifierStr, tenantId) {
     if (!identifierStr || typeof identifierStr !== 'string') return null
     const cleanStr = identifierStr.trim()
+    const scope = tenantId ? { tenantId } : {}
 
     // 1. Try finding by unique studentId (e.g. CK20260001, STU-101)
-    let student = await Student.findOne({ studentId: cleanStr })
+    let student = await Student.findOne({ ...scope, studentId: cleanStr })
     if (student) return student
 
     // 2. Try case-insensitive regex for studentId
-    student = await Student.findOne({ studentId: new RegExp(`^${cleanStr}$`, 'i') })
+    student = await Student.findOne({ ...scope, studentId: new RegExp(`^${cleanStr}$`, 'i') })
     if (student) return student
 
     // 3. Fallback to ObjectId if valid
     if (mongoose.Types.ObjectId.isValid(cleanStr)) {
-      student = await Student.findById(cleanStr)
+      student = await Student.findOne({ ...scope, _id: cleanStr })
       if (student) return student
     }
 
@@ -47,20 +48,21 @@ class ActivationService {
   }
 
   /**
-   * Helper: Resolves Teacher record safely by Teacher ID or ObjectId
+   * Helper: Resolves Teacher record safely by Teacher ID or ObjectId scoped to tenant
    */
-  async findTeacherByIdentifier(identifierStr) {
+  async findTeacherByIdentifier(identifierStr, tenantId) {
     if (!identifierStr || typeof identifierStr !== 'string') return null
     const cleanStr = identifierStr.trim()
+    const scope = tenantId ? { tenantId } : {}
 
-    let teacher = await Teacher.findOne({ teacherId: cleanStr })
+    let teacher = await Teacher.findOne({ ...scope, teacherId: cleanStr })
     if (teacher) return teacher
 
-    teacher = await Teacher.findOne({ teacherId: new RegExp(`^${cleanStr}$`, 'i') })
+    teacher = await Teacher.findOne({ ...scope, teacherId: new RegExp(`^${cleanStr}$`, 'i') })
     if (teacher) return teacher
 
     if (mongoose.Types.ObjectId.isValid(cleanStr)) {
-      teacher = await Teacher.findById(cleanStr)
+      teacher = await Teacher.findOne({ ...scope, _id: cleanStr })
       if (teacher) return teacher
     }
 
@@ -68,17 +70,17 @@ class ActivationService {
   }
 
   /**
-   * Step 1: Request Activation OTP by Institution ID (Student ID / Teacher ID)
+   * Step 1: Request Activation OTP by Institution ID (Student ID or Teacher ID)
    */
-  async requestActivationOtp({ role, studentId, teacherId }) {
-    if (!role || !['student', 'parent', 'teacher'].includes(role)) {
-      throw new ApiError('Invalid role specified for activation.', 400, 'VALIDATION_ERROR')
+  async requestActivationOtp({ tenantId, role, studentId, teacherId }) {
+    if (!role || (!studentId && !teacherId)) {
+      throw new ApiError('Role and institution ID (Student ID or Teacher ID) are required.', 400, 'VALIDATION_ERROR')
     }
 
     // 1. STUDENT ACTIVATION
     if (role === 'student') {
       const targetId = studentId
-      const student = await this.findStudentByIdentifier(targetId)
+      const student = await this.findStudentByIdentifier(targetId, tenantId)
 
       // Account enumeration protection: Generic error if not found
       if (!student) {
@@ -86,9 +88,9 @@ class ActivationService {
       }
 
       // Check if student is already activated
-      const existingUser = await User.findOne({ linkedStudent: student._id })
+      const existingUser = await User.findOne({ tenantId, linkedStudent: student._id })
       if (existingUser) {
-        throw new ApiError('This account is already activated. Please sign in.', 409, 'STUDENT_ACCOUNT_ALREADY_EXISTS')
+        throw new ApiError('Your account is already activated. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
       }
 
       const regEmail = (student.email || student.parentEmail || '').toLowerCase().trim()
@@ -96,8 +98,19 @@ class ActivationService {
         throw new ApiError('No registered institutional email found for this student. Please contact administration.', 400, 'ACTIVATION_EMAIL_MISSING')
       }
 
+      // Check if email belongs to another User account within this institution
+      const existingEmailUser = await User.findOne({ tenantId, email: regEmail })
+      if (existingEmailUser) {
+        if (existingEmailUser.linkedStudent && existingEmailUser.linkedStudent.toString() === student._id.toString()) {
+          throw new ApiError('Your account is already activated. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
+        } else {
+          throw new ApiError('This email address is already connected to another user account. Please contact administration.', 409, 'EMAIL_ALREADY_IN_USE')
+        }
+      }
+
       // Dispatch 6-digit OTP using centralized OTP infrastructure
       await otpService.requestOtp({
+        tenantId,
         identifier: regEmail,
         channel: 'email',
         purpose: 'student_activation'
@@ -116,15 +129,15 @@ class ActivationService {
     // 2. TEACHER ACTIVATION
     if (role === 'teacher') {
       const targetId = teacherId || studentId
-      const teacher = await this.findTeacherByIdentifier(targetId)
+      const teacher = await this.findTeacherByIdentifier(targetId, tenantId)
 
       if (!teacher) {
         throw new ApiError('Invalid or unavailable activation credentials.', 400, 'ACTIVATION_INVALID')
       }
 
-      const existingUser = await User.findOne({ linkedTeacher: teacher._id })
+      const existingUser = await User.findOne({ tenantId, linkedTeacher: teacher._id })
       if (existingUser) {
-        throw new ApiError('This staff account is already activated. Please sign in.', 409, 'STAFF_ACCOUNT_ALREADY_EXISTS')
+        throw new ApiError('Your account is already activated. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
       }
 
       const regEmail = (teacher.email || '').toLowerCase().trim()
@@ -132,7 +145,17 @@ class ActivationService {
         throw new ApiError('No registered email found for this teacher. Please contact administration.', 400, 'ACTIVATION_EMAIL_MISSING')
       }
 
+      const existingEmailUser = await User.findOne({ tenantId, email: regEmail })
+      if (existingEmailUser) {
+        if (existingEmailUser.linkedTeacher && existingEmailUser.linkedTeacher.toString() === teacher._id.toString()) {
+          throw new ApiError('Your account is already activated. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
+        } else {
+          throw new ApiError('This email address is already connected to another user account. Please contact administration.', 409, 'EMAIL_ALREADY_IN_USE')
+        }
+      }
+
       await otpService.requestOtp({
+        tenantId,
         identifier: regEmail,
         channel: 'email',
         purpose: 'staff_activation'
@@ -151,7 +174,7 @@ class ActivationService {
     // 3. PARENT ACTIVATION
     if (role === 'parent') {
       const targetId = studentId
-      const student = await this.findStudentByIdentifier(targetId)
+      const student = await this.findStudentByIdentifier(targetId, tenantId)
 
       if (!student) {
         throw new ApiError('Invalid or unavailable activation credentials.', 400, 'ACTIVATION_INVALID')
@@ -162,13 +185,17 @@ class ActivationService {
         throw new ApiError('No registered parent contact found for this student. Please contact administration.', 400, 'ACTIVATION_EMAIL_MISSING')
       }
 
+      const parentUser = await User.findOne({ tenantId, email: parentEmail })
+      if (parentUser && parentUser.role !== 'parent') {
+        throw new ApiError('This email address is already connected to a non-parent user account. Please contact administration.', 409, 'EMAIL_ALREADY_IN_USE')
+      }
+
       await otpService.requestOtp({
+        tenantId,
         identifier: parentEmail,
         channel: 'email',
         purpose: 'parent_activation'
       })
-
-      const parentUser = await User.findOne({ email: parentEmail, role: 'parent' })
 
       return {
         success: true,
@@ -177,7 +204,7 @@ class ActivationService {
         identifier: parentEmail,
         studentId: student.studentId,
         studentName: student.firstName,
-        existingParentUser: !!parentUser
+        accountExists: parentUser && parentUser.role === 'parent'
       }
     }
 
@@ -187,7 +214,7 @@ class ActivationService {
   /**
    * Step 2: Verify Activation OTP & Issue Short-lived Activation Token
    */
-  async verifyActivationOtp({ role, studentId, teacherId, identifier, otp }) {
+  async verifyActivationOtp({ tenantId, role, studentId, teacherId, identifier, otp }) {
     if (!role || !identifier || !otp) {
       throw new ApiError('Missing required parameters for OTP verification.', 400, 'VALIDATION_ERROR')
     }
@@ -202,6 +229,7 @@ class ActivationService {
 
     // Verify OTP using existing OTP service
     await otpService.verifyOtp({
+      tenantId,
       identifier: cleanIdentifier,
       purpose: otpPurpose,
       otp
@@ -209,6 +237,7 @@ class ActivationService {
 
     // Consume OTP
     await otpService.consumeOtp({
+      tenantId,
       identifier: cleanIdentifier,
       purpose: otpPurpose,
       otp
@@ -219,12 +248,12 @@ class ActivationService {
     let targetTeacher = null
 
     if (role === 'student' || role === 'parent') {
-      targetStudent = await this.findStudentByIdentifier(studentId)
+      targetStudent = await this.findStudentByIdentifier(studentId, tenantId)
       if (!targetStudent) {
         throw new ApiError('Invalid or unavailable student record.', 400, 'ACTIVATION_INVALID')
       }
     } else if (role === 'teacher') {
-      targetTeacher = await this.findTeacherByIdentifier(teacherId || studentId)
+      targetTeacher = await this.findTeacherByIdentifier(teacherId || studentId, tenantId)
       if (!targetTeacher) {
         throw new ApiError('Invalid or unavailable teacher record.', 400, 'ACTIVATION_INVALID')
       }
@@ -232,7 +261,7 @@ class ActivationService {
 
     // SPECIAL PARENT HANDLING: If Parent User already exists for verified email, link child immediately without password overwrite!
     if (role === 'parent') {
-      const parentUser = await User.findOne({ email: cleanIdentifier, role: 'parent' })
+      const parentUser = await User.findOne({ tenantId, email: cleanIdentifier, role: 'parent' })
       if (parentUser) {
         const currentChildren = (parentUser.linkedChildren || []).map(id => id.toString())
         if (!currentChildren.includes(targetStudent._id.toString())) {
@@ -269,7 +298,7 @@ class ActivationService {
   /**
    * Step 3: Complete Activation & Create Password
    */
-  async completeActivation({ activationToken, role, studentId, teacherId, password, confirmPassword }) {
+  async completeActivation({ tenantId, activationToken, role, studentId, teacherId, password, confirmPassword }) {
     if (!activationToken || !password) {
       throw new ApiError('Activation token and password are required.', 400, 'VALIDATION_ERROR')
     }
@@ -284,40 +313,69 @@ class ActivationService {
 
     // Verify token hash
     const tokenHash = crypto.createHash('sha256').update(activationToken).digest('hex')
-    const resetTokenRecord = await PasswordResetToken.findOne({
-      tokenHash,
-      usedAt: null,
-      expiresAt: { $gt: new Date() }
-    })
+    const resetTokenRecord = await PasswordResetToken.findOne({ tokenHash })
 
     if (!resetTokenRecord) {
-      throw new ApiError('Invalid or expired activation authorization token.', 400, 'ACTIVATION_EXPIRED')
+      throw new ApiError('Invalid activation authorization token.', 400, 'INVALID_ACTIVATION_TOKEN')
+    }
+
+    if (resetTokenRecord.usedAt) {
+      throw new ApiError('This activation session has already been completed. Please sign in.', 400, 'ACTIVATION_TOKEN_USED')
+    }
+
+    if (new Date(resetTokenRecord.expiresAt) <= new Date()) {
+      throw new ApiError('Your activation session has expired. Please restart account activation.', 400, 'ACTIVATION_TOKEN_EXPIRED')
     }
 
     // 1. STUDENT ACTIVATION
     if (role === 'student') {
-      const student = await this.findStudentByIdentifier(studentId)
+      const student = await this.findStudentByIdentifier(studentId, tenantId)
       if (!student) {
         throw new ApiError('Student record not found.', 404, 'STUDENT_NOT_FOUND')
       }
 
-      const existingUser = await User.findOne({ linkedStudent: student._id })
-      if (existingUser) {
-        throw new ApiError('Student account is already activated.', 409, 'STUDENT_ACCOUNT_ALREADY_EXISTS')
+      // Check if student profile is already linked to a User account
+      const existingLinkedUser = await User.findOne({ tenantId, linkedStudent: student._id })
+      if (existingLinkedUser) {
+        throw new ApiError('An account has already been activated for this student. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
       }
 
-      const regEmail = (student.email || student.parentEmail).toLowerCase().trim()
+      const regEmail = (student.email || student.parentEmail || '').toLowerCase().trim()
+      if (!regEmail) {
+        throw new ApiError('No registered email found for this student profile.', 400, 'MISSING_EMAIL')
+      }
+
+      // Check if email already belongs to another User within this institution
+      const existingEmailUser = await User.findOne({ tenantId, email: regEmail })
+      if (existingEmailUser) {
+        if (existingEmailUser.linkedStudent && existingEmailUser.linkedStudent.toString() === student._id.toString()) {
+          throw new ApiError('An account has already been activated for this student. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
+        } else {
+          throw new ApiError('This email address is already connected to another user account. Please contact administration.', 409, 'EMAIL_ALREADY_IN_USE')
+        }
+      }
+
+      // Check if phone already belongs to another User within this institution
+      if (student.phone && student.phone.trim()) {
+        const cleanPhone = student.phone.trim()
+        const existingPhoneUser = await User.findOne({ tenantId, phone: cleanPhone })
+        if (existingPhoneUser) {
+          throw new ApiError('This phone number is already connected to another user account.', 409, 'PHONE_ALREADY_IN_USE')
+        }
+      }
+
       const salt = await bcrypt.genSalt(10)
       const passwordHash = await bcrypt.hash(password, salt)
 
-      await User.create({
+      const newUser = await User.create({
         email: regEmail,
         passwordHash,
         role: 'student',
         firstName: student.firstName,
         lastName: student.lastName,
-        phone: student.phone,
+        phone: student.phone || '',
         linkedStudent: student._id,
+        tenantId: student.tenantId,
         maxSessions: 1,
         isActive: true
       })
@@ -327,34 +385,45 @@ class ActivationService {
 
       return {
         success: true,
-        message: 'Student account activated successfully. Please sign in with your credentials.'
+        message: 'Student account activated successfully. Please sign in with your credentials.',
+        user: { id: newUser._id, email: newUser.email }
       }
     }
 
     // 2. TEACHER ACTIVATION
     if (role === 'teacher') {
-      const teacher = await this.findTeacherByIdentifier(teacherId || studentId)
+      const teacher = await this.findTeacherByIdentifier(teacherId || studentId, tenantId)
       if (!teacher) {
         throw new ApiError('Teacher record not found.', 404, 'TEACHER_NOT_FOUND')
       }
 
-      const existingUser = await User.findOne({ linkedTeacher: teacher._id })
-      if (existingUser) {
-        throw new ApiError('Teacher account is already activated.', 409, 'STAFF_ACCOUNT_ALREADY_EXISTS')
+      const existingLinkedUser = await User.findOne({ tenantId, linkedTeacher: teacher._id })
+      if (existingLinkedUser) {
+        throw new ApiError('An account has already been activated for this teacher. Please sign in or use Forgot Password.', 409, 'ACCOUNT_ALREADY_ACTIVATED')
       }
 
-      const regEmail = (teacher.email).toLowerCase().trim()
+      const regEmail = (teacher.email || '').toLowerCase().trim()
+      if (!regEmail) {
+        throw new ApiError('No registered email found for this teacher profile.', 400, 'MISSING_EMAIL')
+      }
+
+      const existingEmailUser = await User.findOne({ tenantId, email: regEmail })
+      if (existingEmailUser) {
+        throw new ApiError('This email address is already connected to another user account. Please contact administration.', 409, 'EMAIL_ALREADY_IN_USE')
+      }
+
       const salt = await bcrypt.genSalt(10)
       const passwordHash = await bcrypt.hash(password, salt)
 
-      await User.create({
+      const newUser = await User.create({
         email: regEmail,
         passwordHash,
         role: 'teacher',
         firstName: teacher.firstName,
         lastName: teacher.lastName,
-        phone: teacher.phone,
+        phone: teacher.phone || '',
         linkedTeacher: teacher._id,
+        tenantId: teacher.tenantId,
         maxSessions: 2,
         isActive: true
       })
@@ -364,47 +433,54 @@ class ActivationService {
 
       return {
         success: true,
-        message: 'Teacher account activated successfully. Please sign in with your credentials.'
+        message: 'Teacher account activated successfully. Please sign in with your credentials.',
+        user: { id: newUser._id, email: newUser.email }
       }
     }
 
-    // 3. NEW PARENT ACCOUNT ACTIVATION
+    // 3. PARENT ACTIVATION
     if (role === 'parent') {
-      const student = await this.findStudentByIdentifier(studentId)
+      const student = await this.findStudentByIdentifier(studentId, tenantId)
       if (!student) {
         throw new ApiError('Student record not found.', 404, 'STUDENT_NOT_FOUND')
       }
 
-      const parentEmail = (student.parentEmail || student.email).toLowerCase().trim()
-      const existingParentUser = await User.findOne({ email: parentEmail, role: 'parent' })
+      const parentEmail = (student.parentEmail || student.email || '').toLowerCase().trim()
+      if (!parentEmail) {
+        throw new ApiError('No registered parent email found.', 400, 'MISSING_EMAIL')
+      }
 
+      const existingParentUser = await User.findOne({ tenantId, email: parentEmail })
       if (existingParentUser) {
-        const currentChildren = (existingParentUser.linkedChildren || []).map(id => id.toString())
-        if (!currentChildren.includes(student._id.toString())) {
-          existingParentUser.linkedChildren.push(student._id)
-          await existingParentUser.save()
-        }
-
-        resetTokenRecord.usedAt = new Date()
-        await resetTokenRecord.save()
-
-        return {
-          success: true,
-          accountExists: true,
-          message: `Student ${student.firstName} successfully linked to your existing parent account. Please sign in.`
+        if (existingParentUser.role === 'parent') {
+          const currentChildren = (existingParentUser.linkedChildren || []).map(id => id.toString())
+          if (!currentChildren.includes(student._id.toString())) {
+            existingParentUser.linkedChildren.push(student._id)
+            await existingParentUser.save()
+          }
+          resetTokenRecord.usedAt = new Date()
+          await resetTokenRecord.save()
+          return {
+            success: true,
+            accountExists: true,
+            message: `Student ${student.firstName} successfully linked to your existing parent account. Please sign in.`
+          }
+        } else {
+          throw new ApiError('This email address is already connected to a non-parent user account.', 409, 'EMAIL_ALREADY_IN_USE')
         }
       }
 
       const salt = await bcrypt.genSalt(10)
       const passwordHash = await bcrypt.hash(password, salt)
 
-      await User.create({
+      const newUser = await User.create({
         email: parentEmail,
         passwordHash,
         role: 'parent',
         firstName: 'Parent of',
         lastName: student.lastName || 'Student',
         linkedChildren: [student._id],
+        tenantId: student.tenantId,
         maxSessions: 2,
         isActive: true
       })
@@ -425,17 +501,19 @@ class ActivationService {
   /**
    * Admin: Get Account Activation Status for Student / Teacher Profile
    */
-  async getAccountActivationStatus(targetId) {
+  async getAccountActivationStatus(targetId, tenantId) {
     if (!targetId) {
       return { status: 'Not Activated' }
     }
 
-    let targetStudent = await this.findStudentByIdentifier(targetId)
-    let targetTeacher = await this.findTeacherByIdentifier(targetId)
+    let targetStudent = await this.findStudentByIdentifier(targetId, tenantId)
+    let targetTeacher = await this.findTeacherByIdentifier(targetId, tenantId)
 
     const searchId = targetStudent ? targetStudent._id : targetTeacher ? targetTeacher._id : targetId
+    const scope = tenantId ? { tenantId } : {}
 
     const existingUser = await User.findOne({
+      ...scope,
       $or: [{ linkedStudent: searchId }, { linkedTeacher: searchId }]
     })
 
@@ -444,6 +522,7 @@ class ActivationService {
         status: 'Activated',
         userId: existingUser._id,
         email: existingUser.email,
+        maskedEmail: existingUser.email,
         role: existingUser.role,
         activatedAt: existingUser.createdAt
       }

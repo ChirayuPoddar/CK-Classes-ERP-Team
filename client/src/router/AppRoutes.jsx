@@ -96,6 +96,7 @@ export const AppRoutes = () => {
         }
       >
         <Route index element={<TeacherDashboard />} />
+        <Route path="timetable" element={<Timetable />} />
         <Route path="attendance" element={<TeacherDashboard />} />
         <Route path="homework" element={<Homework />} />
         <Route path="exams" element={<Exams />} />
@@ -116,6 +117,7 @@ export const AppRoutes = () => {
         }
       >
         <Route index element={<StudentDashboard />} />
+        <Route path="timetable" element={<Timetable />} />
         <Route path="attendance" element={<StudentDashboard />} />
         <Route path="homework" element={<Homework />} />
         <Route path="exams" element={<Exams />} />

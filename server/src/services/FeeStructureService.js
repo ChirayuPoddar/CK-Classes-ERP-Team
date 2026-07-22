@@ -11,7 +11,8 @@ class FeeStructureService {
     if (feeStructureData.course && feeStructureData.academicYear) {
       const exists = await FeeStructure.findOne({
         course: { $regex: new RegExp(`^${feeStructureData.course.trim()}$`, 'i') },
-        academicYear: feeStructureData.academicYear.trim()
+        academicYear: feeStructureData.academicYear.trim(),
+        tenantId: feeStructureData.tenantId
       })
       if (exists) {
         throw new Error(`A fee structure for course "${feeStructureData.course}" and academic year "${feeStructureData.academicYear}" already exists`)
@@ -28,8 +29,8 @@ class FeeStructureService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async getFeeStructureById(id) {
-    const feeStructure = await FeeStructure.findById(id)
+  async getFeeStructureById(id, tenantId) {
+    const feeStructure = await FeeStructure.findOne({ _id: id, tenantId })
     if (!feeStructure) {
       throw new Error('Fee structure not found')
     }
@@ -46,7 +47,7 @@ class FeeStructureService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
 
     // Search by course or academicYear
     if (queryParams.search) {
@@ -96,9 +97,9 @@ class FeeStructureService {
     const total = await FeeStructure.countDocuments(filter)
 
     // Calculate quick stats
-    const totalCount = await FeeStructure.countDocuments()
-    const activeCount = await FeeStructure.countDocuments({ status: 'Active' })
-    const inactiveCount = await FeeStructure.countDocuments({ status: 'Inactive' })
+    const totalCount = await FeeStructure.countDocuments({ tenantId: queryParams.tenantId })
+    const activeCount = await FeeStructure.countDocuments({ status: 'Active', tenantId: queryParams.tenantId })
+    const inactiveCount = await FeeStructure.countDocuments({ status: 'Inactive', tenantId: queryParams.tenantId })
 
     return {
       feeStructures: feeStructures.map(fs => fs.toObject()),
@@ -122,8 +123,8 @@ class FeeStructureService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateFeeStructure(id, updateData) {
-    const feeStructure = await FeeStructure.findById(id)
+  async updateFeeStructure(id, updateData, tenantId) {
+    const feeStructure = await FeeStructure.findOne({ _id: id, tenantId })
     if (!feeStructure) {
       throw new Error('Fee structure not found')
     }
@@ -136,7 +137,8 @@ class FeeStructureService {
       const exists = await FeeStructure.findOne({
         _id: { $ne: id },
         course: { $regex: new RegExp(`^${checkCourse}$`, 'i') },
-        academicYear: checkYear
+        academicYear: checkYear,
+        tenantId
       })
       if (exists) {
         throw new Error(`A fee structure for course "${checkCourse}" and academic year "${checkYear}" already exists`)
@@ -158,12 +160,12 @@ class FeeStructureService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async deleteFeeStructure(id) {
-    const feeStructure = await FeeStructure.findById(id)
+  async deleteFeeStructure(id, tenantId) {
+    const feeStructure = await FeeStructure.findOne({ _id: id, tenantId })
     if (!feeStructure) {
       throw new Error('Fee structure not found')
     }
-    await FeeStructure.findByIdAndDelete(id)
+    await FeeStructure.findOneAndDelete({ _id: id, tenantId })
     return feeStructure.toObject()
   }
 }

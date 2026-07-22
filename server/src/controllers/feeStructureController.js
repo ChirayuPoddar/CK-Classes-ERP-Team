@@ -6,7 +6,7 @@ class FeeStructureController {
    */
   async createFeeStructure(req, res, next) {
     try {
-      const feeStructure = await FeeStructureService.createFeeStructure(req.body)
+      const feeStructure = await FeeStructureService.createFeeStructure({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Fee structure created successfully',
@@ -22,7 +22,7 @@ class FeeStructureController {
    */
   async getFeeStructureById(req, res, next) {
     try {
-      const feeStructure = await FeeStructureService.getFeeStructureById(req.params.id)
+      const feeStructure = await FeeStructureService.getFeeStructureById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: feeStructure
@@ -37,7 +37,7 @@ class FeeStructureController {
    */
   async getAllFeeStructures(req, res, next) {
     try {
-      const result = await FeeStructureService.getAllFeeStructures(req.query)
+      const result = await FeeStructureService.getAllFeeStructures({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -52,7 +52,7 @@ class FeeStructureController {
    */
   async updateFeeStructure(req, res, next) {
     try {
-      const feeStructure = await FeeStructureService.updateFeeStructure(req.params.id, req.body)
+      const feeStructure = await FeeStructureService.updateFeeStructure(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Fee structure updated successfully',
@@ -68,7 +68,7 @@ class FeeStructureController {
    */
   async deleteFeeStructure(req, res, next) {
     try {
-      await FeeStructureService.deleteFeeStructure(req.params.id)
+      await FeeStructureService.deleteFeeStructure(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Fee structure deleted successfully'
@@ -91,7 +91,7 @@ class FeeStructureController {
       const deletedList = []
       for (const id of ids) {
         try {
-          const item = await FeeStructureService.deleteFeeStructure(id)
+          const item = await FeeStructureService.deleteFeeStructure(id, req.tenantId)
           deletedList.push(item)
         } catch (e) {
           console.warn(`Failed to delete fee structure with ID ${id} in bulk:`, e)

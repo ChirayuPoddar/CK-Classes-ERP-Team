@@ -22,57 +22,22 @@ const connectDB = async () => {
     console.log(`[Database] Connection type: ${connType}`)
 
     try {
-      const bcrypt = require('bcryptjs')
-      const User = require('../models/User')
+      const Tenant = require('../models/Tenant')
 
-      // Auto-seed Keerthi Admin
-      const keerthiEmail = 'keerthi@ckclasses.com'
-      const keerthiExists = await User.findOne({ email: keerthiEmail })
-      if (!keerthiExists) {
-        const salt = await bcrypt.genSalt(10)
-        const passwordHash = await bcrypt.hash('kk123', salt)
-        await User.create({
-          email: keerthiEmail,
-          passwordHash,
-          role: 'admin',
-          firstName: 'Keerthi',
-          lastName: 'Kumar',
-          isActive: true
+      // Ensure primary default tenant exists (one-time bootstrap)
+      let defaultTenant = await Tenant.findOne({ slug: 'ck-classes-main' })
+      if (!defaultTenant) {
+        defaultTenant = await Tenant.create({
+          name: 'Primary Default Tenant',
+          slug: 'ck-classes-main',
+          contactEmail: 'admin@example.com',
+          isActive: true,
+          subscriptionStatus: 'active'
         })
-        console.log(`[Auto-Seed] Created admin account: ${keerthiEmail}`)
-      } else {
-        const salt = await bcrypt.genSalt(10)
-        keerthiExists.passwordHash = await bcrypt.hash('kk123', salt)
-        keerthiExists.role = 'admin'
-        keerthiExists.isActive = true
-        await keerthiExists.save()
-        console.log(`[Auto-Seed] Synchronized admin credentials for: ${keerthiEmail}`)
-      }
-
-      // Also ensure default admin@ckclasses.com exists with password123
-      const defaultEmail = 'admin@ckclasses.com'
-      const defaultExists = await User.findOne({ email: defaultEmail })
-      const defaultSalt = await bcrypt.genSalt(10)
-      const defaultHash = await bcrypt.hash('password123', defaultSalt)
-      if (!defaultExists) {
-        await User.create({
-          email: defaultEmail,
-          passwordHash: defaultHash,
-          role: 'admin',
-          firstName: 'Chirayu',
-          lastName: 'Poddar',
-          isActive: true
-        })
-        console.log(`[Auto-Seed] Created default admin account: ${defaultEmail}`)
-      } else {
-        defaultExists.passwordHash = defaultHash
-        defaultExists.isActive = true
-        defaultExists.role = 'admin'
-        await defaultExists.save()
-        console.log(`[Auto-Seed] Synchronized default admin credentials for: ${defaultEmail}`)
+        console.log(`[Auto-Seed] Created primary default tenant: Primary Default Tenant (${defaultTenant._id})`)
       }
     } catch (seedErr) {
-      console.error(`[Auto-Seed Warning] Could not seed admin users: ${seedErr.message}`)
+      console.error(`[Auto-Seed Warning] Could not check or create bootstrap tenant: ${seedErr.message}`)
     }
   } catch (error) {
     console.error(`[Database Error] MongoDB Connection Error: ${error.message}`)

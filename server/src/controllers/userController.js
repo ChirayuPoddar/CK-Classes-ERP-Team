@@ -3,7 +3,7 @@ const userService = require('../services/userService')
 class UserController {
   async getUsers(req, res, next) {
     try {
-      const result = await userService.getUsers(req.query)
+      const result = await userService.getUsers({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -15,7 +15,7 @@ class UserController {
 
   async getUserStats(req, res, next) {
     try {
-      const stats = await userService.getUserStats()
+      const stats = await userService.getUserStats(req.tenantId)
       res.status(200).json({
         success: true,
         data: stats
@@ -27,7 +27,7 @@ class UserController {
 
   async getUnlinkedProfiles(req, res, next) {
     try {
-      const profiles = await userService.getUnlinkedProfiles()
+      const profiles = await userService.getUnlinkedProfiles(req.tenantId)
       res.status(200).json({
         success: true,
         data: profiles
@@ -39,7 +39,7 @@ class UserController {
 
   async getUserById(req, res, next) {
     try {
-      const user = await userService.getUserById(req.params.id)
+      const user = await userService.getUserById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: user
@@ -59,7 +59,7 @@ class UserController {
         })
       }
 
-      const newUser = await userService.createUser(req.body)
+      const newUser = await userService.createUser({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'User account created successfully.',
@@ -72,7 +72,7 @@ class UserController {
 
   async updateUser(req, res, next) {
     try {
-      const updatedUser = await userService.updateUser(req.params.id, req.body, req.user.id)
+      const updatedUser = await userService.updateUser(req.params.id, req.body, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'User account updated successfully.',
@@ -85,7 +85,7 @@ class UserController {
 
   async blockUser(req, res, next) {
     try {
-      const user = await userService.blockUser(req.params.id, req.user.id)
+      const user = await userService.blockUser(req.params.id, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'User account blocked successfully.',
@@ -98,7 +98,7 @@ class UserController {
 
   async unblockUser(req, res, next) {
     try {
-      const user = await userService.unblockUser(req.params.id)
+      const user = await userService.unblockUser(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'User account unblocked successfully.',
@@ -112,7 +112,7 @@ class UserController {
   async resetPassword(req, res, next) {
     try {
       const { password } = req.body
-      await userService.resetPassword(req.params.id, password)
+      await userService.resetPassword(req.params.id, password, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Password reset successfully. Active sessions have been invalidated.'
@@ -124,7 +124,7 @@ class UserController {
 
   async revokeSession(req, res, next) {
     try {
-      const user = await userService.revokeSession(req.params.id, req.params.sessionId)
+      const user = await userService.revokeSession(req.params.id, req.params.sessionId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Session revoked successfully.',
@@ -137,7 +137,7 @@ class UserController {
 
   async revokeAllSessions(req, res, next) {
     try {
-      const user = await userService.revokeAllSessions(req.params.id)
+      const user = await userService.revokeAllSessions(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'All active sessions signed out successfully.',
@@ -150,7 +150,7 @@ class UserController {
 
   async deleteUser(req, res, next) {
     try {
-      await userService.deleteUser(req.params.id, req.user.id)
+      await userService.deleteUser(req.params.id, req.user.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'User login account removed successfully. Linked institutional profile data remains preserved.'

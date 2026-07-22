@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
@@ -98,6 +99,7 @@ const FloatingParticles = () => {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const videoTrackRef = useRef(null)
   const videoRef = useRef(null)
   const [videoDuration, setVideoDuration] = useState(0)
@@ -264,7 +266,7 @@ export default function Home() {
             <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] flex items-center justify-center text-slate-950 font-black text-sm shadow-lg shadow-[#FFD8C4]/30 group-hover:scale-105 transition-transform duration-200">
               ERP
             </div>
-            <span className="font-bold text-base tracking-tight text-white">ERP System</span>
+            <span className="font-bold text-base tracking-tight text-white">{user?.tenantName || 'Institutional ERP'}</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-100">
@@ -498,7 +500,7 @@ export default function Home() {
 
           {/* Footer */}
           <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-300 font-medium gap-4">
-            <p>© {new Date().getFullYear()} ERP Platform. Parvat Patiya, Surat, India. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {user?.tenantName || 'Institutional ERP Platform'}. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <Link to="/login" className="hover:text-[#FFE4D6] transition">Portal Login</Link>
               <a href="#features" className="hover:text-[#FFE4D6] transition">ERP Features</a>

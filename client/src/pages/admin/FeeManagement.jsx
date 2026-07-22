@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect, useCallback } from 'react'
 import { 
   LayoutDashboard, 
@@ -82,6 +83,7 @@ const academicYears = [
 ]
 
 export default function FeeManagement() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard')
   const currentTabInfo = tabsList.find(tab => tab.id === activeTab) || tabsList[0]
 
@@ -846,7 +848,7 @@ export default function FeeManagement() {
         </head>
         <body>
           <div class="header">
-            <div class="logo">C.K. CLASSES</div>
+            <div class="logo">{user?.tenantName ? user.tenantName.toUpperCase() : 'INSTITUTION'}</div>
             <div class="title">Official Payment Receipt</div>
           </div>
           <div class="amount-box">
@@ -2619,7 +2621,7 @@ export default function FeeManagement() {
           <div className="space-y-6 text-left text-xs font-bold text-slate-700">
             <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-5">
               <div className="text-center border-b border-blue-100 pb-4">
-                <h2 className="text-lg font-black text-slate-800 tracking-tight">C.K. CLASSES</h2>
+                <h2 className="text-lg font-black text-slate-800 tracking-tight">{user?.tenantName ? user.tenantName.toUpperCase() : 'INSTITUTION'}</h2>
                 <p className="text-[10px] text-slate-400 font-extrabold tracking-wider uppercase mt-1">Official Payment Receipt</p>
               </div>
 

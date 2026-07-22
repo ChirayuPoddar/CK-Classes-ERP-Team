@@ -1683,7 +1683,7 @@ export default function AdminDashboard() {
           <span>Last Sync: {new Date().toLocaleTimeString()} (IST)</span>
         </div>
         <div>
-          <span>© {new Date().getFullYear()} C.K. Classes. Surat, Gujarat, India. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} {user?.tenantName || 'Institutional ERP Platform'}. All rights reserved.</span>
         </div>
       </footer>
     </div>

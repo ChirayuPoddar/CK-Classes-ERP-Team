@@ -12,9 +12,10 @@ class StudentFeeService {
   async createStudentFee(studentFeeData) {
     const studentId = studentFeeData.student
     const fsId = studentFeeData.feeStructure
+    const tenantId = studentFeeData.tenantId
 
     // 1. Fetch fee structure to verify existence and extract details
-    const fs = await FeeStructure.findById(fsId)
+    const fs = await FeeStructure.findOne({ _id: fsId, tenantId })
     if (!fs) {
       throw new Error('Selected fee structure configuration not found')
     }
@@ -22,13 +23,13 @@ class StudentFeeService {
     // 2. Verify duplicates
     if (studentId) {
       // Check if student already has this specific structure assigned
-      const exists = await StudentFee.findOne({ student: studentId, feeStructure: fsId })
+      const exists = await StudentFee.findOne({ student: studentId, feeStructure: fsId, tenantId })
       if (exists) {
         throw new Error('This fee configuration is already assigned to this student.')
       }
 
       // Check if student already has an assignment for the same academic year
-      const studentAssignments = await StudentFee.find({ student: studentId }).populate('feeStructure')
+      const studentAssignments = await StudentFee.find({ student: studentId, tenantId }).populate('feeStructure')
       const duplicateYear = studentAssignments.some(sa => sa.feeStructure && sa.feeStructure.academicYear === fs.academicYear)
       if (duplicateYear) {
         throw new Error(`This student already has a fee structure assigned for the academic year ${fs.academicYear}.`)
@@ -42,7 +43,8 @@ class StudentFeeService {
       transportFee: parseFloat(studentFeeData.transportFee) || fs.transportFee || 0,
       totalFee: parseFloat(studentFeeData.totalFee) || ((parseFloat(studentFeeData.tuitionFee) || fs.tuitionFee || 0) + (parseFloat(studentFeeData.transportFee) || fs.transportFee || 0)),
       dueDate: studentFeeData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
-      paidAmount: 0 // Always initialized to 0
+      paidAmount: 0, // Always initialized to 0
+      tenantId
     })
 
     await studentFee.save()
@@ -54,8 +56,8 @@ class StudentFeeService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async getStudentFeeById(id) {
-    const studentFee = await StudentFee.findById(id)
+  async getStudentFeeById(id, tenantId) {
+    const studentFee = await StudentFee.findOne({ _id: id, tenantId })
       .populate('student')
       .populate('feeStructure')
     
@@ -75,12 +77,13 @@ class StudentFeeService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
 
     // 1. Resolve keyword search (matches student name or studentId/admission number)
     if (queryParams.search) {
       const searchRegex = new RegExp(queryParams.search.trim(), 'i')
       const matchedStudents = await Student.find({
+        tenantId: queryParams.tenantId,
         $or: [
           { firstName: searchRegex },
           { lastName: searchRegex },
@@ -98,7 +101,7 @@ class StudentFeeService {
 
     // 2. Resolve filters by querying FeeStructure collection first (Course and Academic Year relationships)
     if (queryParams.course || queryParams.academicYear) {
-      const fsQuery = {}
+      const fsQuery = { tenantId: queryParams.tenantId }
       if (queryParams.course) {
         fsQuery.course = queryParams.course
       }
@@ -161,16 +164,17 @@ class StudentFeeService {
    * Fetch unified dashboard stats across Fee Management modules
    * @returns {Promise<Object>}
    */
-  async getDashboardStats() {
-    const totalFeeStructures = await FeeStructure.countDocuments()
-    const activeFeeStructures = await FeeStructure.countDocuments({ status: 'Active' })
-    const totalStudentFeeRecords = await StudentFee.countDocuments()
-    const paidStudents = await StudentFee.countDocuments({ status: 'Paid' })
-    const partialStudents = await StudentFee.countDocuments({ status: 'Partial' })
-    const unpaidStudents = await StudentFee.countDocuments({ status: 'Unpaid' })
-    const overdueStudents = await StudentFee.countDocuments({ status: 'Overdue' })
+  async getDashboardStats(tenantId) {
+    const totalFeeStructures = await FeeStructure.countDocuments({ tenantId })
+    const activeFeeStructures = await FeeStructure.countDocuments({ status: 'Active', tenantId })
+    const totalStudentFeeRecords = await StudentFee.countDocuments({ tenantId })
+    const paidStudents = await StudentFee.countDocuments({ status: 'Paid', tenantId })
+    const partialStudents = await StudentFee.countDocuments({ status: 'Partial', tenantId })
+    const unpaidStudents = await StudentFee.countDocuments({ status: 'Unpaid', tenantId })
+    const overdueStudents = await StudentFee.countDocuments({ status: 'Overdue', tenantId })
 
     const totalsResult = await StudentFee.aggregate([
+      { $match: { tenantId } },
       {
         $group: {
           _id: null,
@@ -185,6 +189,7 @@ class StudentFeeService {
 
     // Group collections by month aggregation
     const monthlyAggregation = await StudentFee.aggregate([
+      { $match: { tenantId } },
       { $unwind: '$payments' },
       {
         $group: {
@@ -208,7 +213,7 @@ class StudentFeeService {
     })
 
     // Fetch top 5 recent payment transactions
-    const recentFees = await StudentFee.find({ 'payments.0': { $exists: true } })
+    const recentFees = await StudentFee.find({ 'payments.0': { $exists: true }, tenantId })
       .populate('student')
       .populate('feeStructure')
 
@@ -231,7 +236,7 @@ class StudentFeeService {
     recentPayments = recentPayments.slice(0, 5)
 
     // Fetch top 5 students with highest pending fees
-    const pendingFees = await StudentFee.find({})
+    const pendingFees = await StudentFee.find({ tenantId })
       .populate('student')
       .populate('feeStructure')
 
@@ -256,7 +261,8 @@ class StudentFeeService {
     const now = new Date()
     const upcomingFees = await StudentFee.find({
       status: { $ne: 'Paid' },
-      dueDate: { $gte: now }
+      dueDate: { $gte: now },
+      tenantId
     })
       .populate('student')
       .populate('feeStructure')
@@ -300,7 +306,7 @@ class StudentFeeService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const studentFees = await StudentFee.find({ 'payments.0': { $exists: true } })
+    const studentFees = await StudentFee.find({ 'payments.0': { $exists: true }, tenantId: queryParams.tenantId })
       .populate('student')
       .populate('feeStructure')
 
@@ -355,8 +361,8 @@ class StudentFeeService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateStudentFee(id, updateData) {
-    const studentFee = await StudentFee.findById(id)
+  async updateStudentFee(id, updateData, tenantId) {
+    const studentFee = await StudentFee.findOne({ _id: id, tenantId })
     if (!studentFee) {
       throw new Error('Student fee assignment not found')
     }
@@ -388,8 +394,8 @@ class StudentFeeService {
    * @param {Object} paymentData 
    * @returns {Promise<Object>}
    */
-  async addPayment(id, paymentData) {
-    const studentFee = await StudentFee.findById(id)
+  async addPayment(id, paymentData, tenantId) {
+    const studentFee = await StudentFee.findOne({ _id: id, tenantId })
     if (!studentFee) {
       throw new Error('Student fee assignment not found')
     }
@@ -427,12 +433,12 @@ class StudentFeeService {
    * @param {String} id 
    * @returns {Promise<Object>}
    */
-  async deleteStudentFee(id) {
-    const studentFee = await StudentFee.findById(id)
+  async deleteStudentFee(id, tenantId) {
+    const studentFee = await StudentFee.findOne({ _id: id, tenantId })
     if (!studentFee) {
       throw new Error('Student fee assignment not found')
     }
-    await StudentFee.findByIdAndDelete(id)
+    await StudentFee.findOneAndDelete({ _id: id, tenantId })
     return studentFee.toObject()
   }
 }

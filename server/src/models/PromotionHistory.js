@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const promotionHistorySchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   studentId: {
     type: String,
     required: true

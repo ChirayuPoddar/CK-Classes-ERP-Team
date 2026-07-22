@@ -40,6 +40,12 @@ const errorHandler = (err, req, res, next) => {
     message = `Invalid ID format for field '${err.path}'.`
   }
 
+  // 4. Handle CORS policy violations specifically with 403 Forbidden
+  if (err.message && err.message.startsWith('CORS policy:')) {
+    statusCode = 403
+    code = 'CORS_POLICY_VIOLATION'
+  }
+
   // Log non-operational internal 500 server errors only
   if (statusCode === 500) {
     console.error(`[Internal 500 Error] ${req.method} ${req.originalUrl}:`, err)

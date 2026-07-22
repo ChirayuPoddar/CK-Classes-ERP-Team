@@ -1,9 +1,14 @@
 const mongoose = require('mongoose')
 
 const teacherSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   teacherId: {
     type: String,
-    unique: true,
     index: true
   },
   firstName: {
@@ -28,14 +33,12 @@ const teacherSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     trim: true
   },
   email: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     lowercase: true,
     trim: true
@@ -111,9 +114,9 @@ const teacherSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-generate teacherId on pre-save hook in format TCH20260001
+// Auto-generate teacherId on pre-save hook in format TCH20260001 if not explicitly provided
 teacherSchema.pre('save', async function(next) {
-  if (!this.isNew) {
+  if (!this.isNew || Boolean(this.teacherId)) {
     return next()
   }
 
@@ -121,9 +124,9 @@ teacherSchema.pre('save', async function(next) {
     const year = new Date().getFullYear()
     const prefix = `TCH${year}`
     
-    // Find the last teacher with teacherId starting with prefix
+    // Find the last teacher with teacherId starting with prefix scoped to this tenant
     const lastTeacher = await mongoose.model('Teacher').findOne(
-      { teacherId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, teacherId: new RegExp(`^${prefix}`) },
       { teacherId: 1 },
       { sort: { teacherId: -1 } }
     )
@@ -143,6 +146,10 @@ teacherSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+teacherSchema.index({ tenantId: 1, teacherId: 1 }, { unique: true })
+teacherSchema.index({ tenantId: 1, phone: 1 }, { unique: true })
+teacherSchema.index({ tenantId: 1, email: 1 }, { unique: true })
 
 const Teacher = mongoose.model('Teacher', teacherSchema)
 module.exports = Teacher

@@ -53,6 +53,7 @@ class AnnouncementService {
 
   async createAnnouncement(data, creatorId) {
     const docData = { ...data, createdBy: creatorId }
+    const tenantId = docData.tenantId
     
     if (docData.subject === 'null' || docData.subject === '') {
       docData.subject = null
@@ -64,14 +65,14 @@ class AnnouncementService {
 
     const announcement = new Announcement(docData)
     await announcement.save()
-    return this.getAnnouncementById(announcement._id)
+    return this.getAnnouncementById(announcement._id, tenantId)
   }
 
   /**
    * Retrieve details for a single announcement
    */
-  async getAnnouncementById(id) {
-    const announcement = await Announcement.findById(id)
+  async getAnnouncementById(id, tenantId) {
+    const announcement = await Announcement.findOne({ _id: id, tenantId })
       .populate('createdBy', 'name email role')
       .populate('subject', 'name code')
     
@@ -84,13 +85,13 @@ class AnnouncementService {
   /**
    * Update existing announcement details
    */
-  async updateAnnouncement(id, data) {
+  async updateAnnouncement(id, data, tenantId) {
     const docData = { ...data }
     if (docData.subject === 'null' || docData.subject === '') {
       docData.subject = null
     }
 
-    const announcement = await Announcement.findById(id)
+    const announcement = await Announcement.findOne({ _id: id, tenantId })
     if (!announcement) {
       throw new Error('Announcement not found')
     }
@@ -104,14 +105,14 @@ class AnnouncementService {
 
     Object.assign(announcement, docData)
     await announcement.save()
-    return this.getAnnouncementById(announcement._id)
+    return this.getAnnouncementById(announcement._id, tenantId)
   }
 
   /**
    * Delete an announcement
    */
-  async deleteAnnouncement(id) {
-    const result = await Announcement.findByIdAndDelete(id)
+  async deleteAnnouncement(id, tenantId) {
+    const result = await Announcement.findOneAndDelete({ _id: id, tenantId })
     if (!result) {
       throw new Error('Announcement not found')
     }
@@ -121,8 +122,8 @@ class AnnouncementService {
   /**
    * Toggle pinned state
    */
-  async togglePinStatus(id) {
-    const announcement = await Announcement.findById(id)
+  async togglePinStatus(id, tenantId) {
+    const announcement = await Announcement.findOne({ _id: id, tenantId })
     if (!announcement) {
       throw new Error('Announcement not found')
     }
@@ -134,31 +135,31 @@ class AnnouncementService {
   /**
    * Publish scheduled or draft announcement immediately
    */
-  async publishNow(id) {
-    const announcement = await Announcement.findById(id)
+  async publishNow(id, tenantId) {
+    const announcement = await Announcement.findOne({ _id: id, tenantId })
     if (!announcement) {
       throw new Error('Announcement not found')
     }
     announcement.isPublished = true
     announcement.publishAt = new Date()
     await announcement.save()
-    return this.getAnnouncementById(id)
+    return this.getAnnouncementById(id, tenantId)
   }
 
-  async getDashboardStats(userContext) {
+  async getDashboardStats(userContext, tenantId) {
     const now = new Date()
     // Recalculate status triggers in database
     await Announcement.updateMany(
-      { publishAt: { $lte: now }, status: { $ne: 'Published' } },
+      { publishAt: { $lte: now }, status: { $ne: 'Published' }, tenantId },
       { status: 'Published' }
     )
     await Announcement.updateMany(
-      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' } },
+      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, tenantId },
       { status: 'Scheduled' }
     )
 
     // Visibility filter (role guided)
-    const baseFilter = {}
+    const baseFilter = { tenantId }
     const isStaff = userContext.role === 'admin' || userContext.role === 'teacher'
     if (!isStaff) {
       baseFilter.status = 'Published'
@@ -203,15 +204,15 @@ class AnnouncementService {
     const now = new Date()
     // Trigger recalculations
     await Announcement.updateMany(
-      { publishAt: { $lte: now }, status: { $ne: 'Published' } },
+      { publishAt: { $lte: now }, status: { $ne: 'Published' }, tenantId: queryParams.tenantId },
       { status: 'Published' }
     )
     await Announcement.updateMany(
-      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' } },
+      { publishAt: { $gt: now }, status: { $ne: 'Scheduled' }, tenantId: queryParams.tenantId },
       { status: 'Scheduled' }
     )
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
     const isStaff = userContext.role === 'admin' || userContext.role === 'teacher'
 
     // 1. Role boundaries checks
@@ -251,7 +252,7 @@ class AnnouncementService {
     // 3. Search query filters
     if (queryParams.search) {
       const regex = new RegExp(queryParams.search.trim(), 'i')
-      const matchingSubjects = await Subject.find({ name: regex }).select('_id')
+      const matchingSubjects = await Subject.find({ name: regex, tenantId: queryParams.tenantId }).select('_id')
 
       const searchConditions = [
         { title: regex },
@@ -352,15 +353,15 @@ class AnnouncementService {
   /**
    * Log view increment
    */
-  async incrementView(id) {
-    return Announcement.findByIdAndUpdate(id, { $inc: { viewsCount: 1 } }, { new: true })
+  async incrementView(id, tenantId) {
+    return Announcement.findOneAndUpdate({ _id: id, tenantId }, { $inc: { viewsCount: 1 } }, { new: true })
   }
 
   /**
    * Log acknowledgment increment
    */
-  async incrementAcknowledgment(id) {
-    return Announcement.findByIdAndUpdate(id, { $inc: { acknowledgedCount: 1 } }, { new: true })
+  async incrementAcknowledgment(id, tenantId) {
+    return Announcement.findOneAndUpdate({ _id: id, tenantId }, { $inc: { acknowledgedCount: 1 } }, { new: true })
   }
 }
 

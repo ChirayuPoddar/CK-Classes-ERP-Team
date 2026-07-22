@@ -31,10 +31,10 @@ export const AuthProvider = ({ children }) => {
     checkSession()
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (email, password, slug) => {
     setIsLoading(true)
     try {
-      const data = await api.post('/auth/login', { email, password })
+      const data = await api.post('/auth/login', { email, password, slug })
       if (data && data.user) {
         setUser(data.user)
         setIsAuthenticated(true)

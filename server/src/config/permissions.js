@@ -45,6 +45,12 @@ const PERMISSIONS = {
   TIMETABLE_VIEW: 'timetable:view',
   TIMETABLE_MANAGE: 'timetable:manage',
 
+  // ROOMS & HOLIDAYS
+  ROOMS_VIEW: 'rooms:view',
+  ROOMS_MANAGE: 'rooms:manage',
+  HOLIDAYS_VIEW: 'holidays:view',
+  HOLIDAYS_MANAGE: 'holidays:manage',
+
   // ANNOUNCEMENTS
   ANNOUNCEMENTS_VIEW: 'announcements:view',
   ANNOUNCEMENTS_CREATE: 'announcements:create',

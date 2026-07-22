@@ -6,7 +6,7 @@ class TeacherController {
    */
   async createTeacher(req, res, next) {
     try {
-      const teacher = await TeacherService.createTeacher(req.body)
+      const teacher = await TeacherService.createTeacher({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Teacher profile created successfully',
@@ -22,7 +22,7 @@ class TeacherController {
    */
   async getTeacherById(req, res, next) {
     try {
-      const teacher = await TeacherService.getTeacherById(req.params.id)
+      const teacher = await TeacherService.getTeacherById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: teacher
@@ -37,7 +37,7 @@ class TeacherController {
    */
   async getAllTeachers(req, res, next) {
     try {
-      const result = await TeacherService.getAllTeachers(req.query)
+      const result = await TeacherService.getAllTeachers({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -52,7 +52,7 @@ class TeacherController {
    */
   async updateTeacher(req, res, next) {
     try {
-      const teacher = await TeacherService.updateTeacher(req.params.id, req.body)
+      const teacher = await TeacherService.updateTeacher(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Teacher profile updated successfully',
@@ -68,7 +68,7 @@ class TeacherController {
    */
   async deleteTeacher(req, res, next) {
     try {
-      await TeacherService.deleteTeacher(req.params.id)
+      await TeacherService.deleteTeacher(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Teacher deleted successfully'
@@ -90,7 +90,7 @@ class TeacherController {
       const deletedTeachers = []
       for (const id of ids) {
         try {
-          const teacher = await TeacherService.deleteTeacher(id)
+          const teacher = await TeacherService.deleteTeacher(id, req.tenantId)
           deletedTeachers.push(teacher)
         } catch (e) {
           console.warn(`Failed to delete teacher with ID ${id} in bulk operation:`, e)
@@ -111,7 +111,7 @@ class TeacherController {
    */
   async uploadTeacherPhoto(req, res, next) {
     try {
-      const teacher = await TeacherService.uploadTeacherPhoto(req.params.id, req.file)
+      const teacher = await TeacherService.uploadTeacherPhoto(req.params.id, req.file, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Teacher profile image uploaded successfully',
@@ -127,7 +127,7 @@ class TeacherController {
    */
   async deleteTeacherPhoto(req, res, next) {
     try {
-      const teacher = await TeacherService.deleteTeacherPhoto(req.params.id)
+      const teacher = await TeacherService.deleteTeacherPhoto(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Teacher profile image deleted successfully',

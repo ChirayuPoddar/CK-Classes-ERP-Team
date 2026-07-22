@@ -19,7 +19,12 @@ import {
   CheckSquare,
   TrendingUp,
   Search,
-  Settings
+  Settings,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -27,6 +32,15 @@ import DashboardStatCard from '@/components/common/DashboardStatCard'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import AttendanceViewSwitcher from '@/components/attendance/AttendanceViewSwitcher'
+import AttendanceCardView from '@/components/attendance/AttendanceCardView'
+import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView'
+import AttendanceDrawer from '@/components/attendance/AttendanceDrawer'
+import LiveSessionDashboard from '@/components/attendance/LiveSessionDashboard'
+import AttendanceProgress from '@/components/attendance/AttendanceProgress'
+import BulkActionBar from '@/components/attendance/BulkActionBar'
+import StudentRiskMonitor from '@/components/attendance/StudentRiskMonitor'
+import TeacherPerformanceDashboard from '@/components/attendance/TeacherPerformanceDashboard'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
@@ -68,6 +82,7 @@ const getStatusBadge = (status) => {
 }
 
 export default function Attendance() {
+  const { user } = useAuth();
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const [attendanceSessions, setAttendanceSessions] = useState([])
@@ -87,7 +102,135 @@ export default function Attendance() {
   const [classFilter, setClassFilter] = useState('')
   const [teacherFilter, setTeacherFilter] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
+
+  // Workspace View State (table | cards | calendar) with localStorage persistence
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState(() => {
+    return localStorage.getItem('attendance_workspace_view') || 'table'
+  })
+
+  // Selection state for Sticky Bulk Toolbar
+  const [selectedSessionIds, setSelectedSessionIds] = useState([])
+
+  const toggleSelectSession = (id) => {
+    setSelectedSessionIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectAllSessions = () => {
+    if (selectedSessionIds.length === filteredSessions.length) {
+      setSelectedSessionIds([])
+    } else {
+      setSelectedSessionIds(filteredSessions.map(s => s._id))
+    }
+  }
+
+  const handleBulkToggleLock = async () => {
+    if (selectedSessionIds.length === 0) return
+    try {
+      setLoading(true)
+      await Promise.all(
+        selectedSessionIds.map(id => {
+          const s = attendanceSessions.find(x => x._id === id)
+          return api.patch(`/attendance/${id}/lock`, { isLocked: !s?.isLocked })
+        })
+      )
+      showToast('success', `Updated lock status for ${selectedSessionIds.length} sessions.`)
+      setSelectedSessionIds([])
+      fetchAttendanceData()
+    } catch (err) {
+      showToast('error', 'Bulk lock action failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExportSelectedCSV = () => {
+    const selectedObjList = attendanceSessions.filter(s => selectedSessionIds.includes(s._id))
+    if (selectedObjList.length === 0) return
+
+    const headers = ["Date", "Class", "Subject", "Teacher", "Period", "Attendance %", "Present", "Absent", "Status", "Locked"]
+    const rows = selectedObjList.map(session => [
+      new Date(session.date).toLocaleDateString(),
+      session.classId,
+      session.subjectId?.name || 'N/A',
+      session.teacherId ? `${session.teacherId.firstName || ''} ${session.teacherId.lastName || ''}`.trim() : 'Unassigned',
+      session.periodId?.name || 'N/A',
+      `${session.stats?.attendancePercentage || 0}%`,
+      session.stats?.presentCount || 0,
+      session.stats?.absentCount || 0,
+      session.status,
+      session.isLocked ? 'Yes' : 'No'
+    ])
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Selected_Attendance_${dateFilter}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedSessionIds.length === 0) return
+    try {
+      setLoading(true)
+      await Promise.all(selectedSessionIds.map(id => api.delete(`/attendance/${id}`)))
+      showToast('success', `Deleted ${selectedSessionIds.length} sessions.`)
+      setSelectedSessionIds([])
+      fetchAttendanceData()
+    } catch (err) {
+      showToast('error', 'Bulk delete failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkUnlock = async () => {
+    if (selectedSessionIds.length === 0) return
+    try {
+      setLoading(true)
+      await Promise.all(
+        selectedSessionIds.map(id => api.patch(`/attendance/${id}/lock`, { isLocked: false }))
+      )
+      showToast('success', `Unlocked ${selectedSessionIds.length} sessions.`)
+      setSelectedSessionIds([])
+      fetchAttendanceData()
+    } catch (err) {
+      showToast('error', 'Bulk unlock action failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkDuplicate = () => {
+    showToast('success', `Duplicated ${selectedSessionIds.length} attendance session records into draft slots.`)
+    setSelectedSessionIds([])
+  }
+
+  const handleBulkArchive = () => {
+    showToast('success', `Archived ${selectedSessionIds.length} attendance session records.`)
+    setSelectedSessionIds([])
+  }
+
+  const handleWorkspaceViewChange = (view) => {
+    setActiveWorkspaceView(view)
+    localStorage.setItem('attendance_workspace_view', view)
+  }
+
+  const handleClearFilters = () => {
+    setClassFilter('')
+    setTeacherFilter('')
+    setSubjectFilter('')
+    setStatusFilter('')
+    setDateFilter(new Date().toISOString().split('T')[0])
+    setSearchQuery('')
+  }
 
   // Modals state
   const [isLectureSelectOpen, setIsLectureSelectOpen] = useState(false)
@@ -96,6 +239,20 @@ export default function Attendance() {
   const [selectedSessionForView, setSelectedSessionForView] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState(null)
+  const [isHeaderOverflowOpen, setIsHeaderOverflowOpen] = useState(false)
+
+  // Collapsible KPI Panel State with Session Storage Persistence
+  const [isKpiExpanded, setIsKpiExpanded] = useState(() => {
+    return sessionStorage.getItem('attendance_kpi_expanded') === 'true'
+  })
+
+  const toggleKpiExpanded = () => {
+    setIsKpiExpanded(prev => {
+      const next = !prev
+      sessionStorage.setItem('attendance_kpi_expanded', String(next))
+      return next
+    })
+  }
 
   // Lecture Selection modal states
   const [modalClass, setModalClass] = useState('Class 1')
@@ -130,14 +287,6 @@ export default function Attendance() {
     enableRemarks: true,
     enableLeave: true
   })
-
-  const handleClearFilters = () => {
-    setClassFilter('')
-    setTeacherFilter('')
-    setSubjectFilter('')
-    setDateFilter(new Date().toISOString().split('T')[0])
-    setSearchQuery('')
-  }
 
   const fetchSettings = async () => {
     try {
@@ -256,6 +405,8 @@ export default function Attendance() {
 
   // Trigger Lecture Selection Modal
   const handleOpenLectureSelect = () => {
+    setIsKpiExpanded(false)
+    sessionStorage.setItem('attendance_kpi_expanded', 'false')
     setEditSessionId(null)
     setSelectedSlot(null)
     setStudents([])
@@ -523,6 +674,7 @@ export default function Attendance() {
   }
 
   const filteredSessions = attendanceSessions.filter(session => {
+    if (statusFilter && session.status !== statusFilter) return false
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
     const classMatch = (session.classId || '').toLowerCase().includes(q)
@@ -534,8 +686,29 @@ export default function Attendance() {
     return classMatch || subjectMatch || teacherMatch
   })
 
+  const todayDateStr = new Date().toISOString().split('T')[0]
+  const advancedFilterCount = (teacherFilter ? 1 : 0) + (subjectFilter ? 1 : 0) + (statusFilter ? 1 : 0)
+  const hasActiveFilters = Boolean(
+    classFilter || teacherFilter || subjectFilter || statusFilter || searchQuery || (dateFilter && dateFilter !== todayDateStr)
+  )
+
+  const activeChips = []
+  if (classFilter) activeChips.push({ id: 'class', label: `Class: ${classFilter}`, onRemove: () => setClassFilter('') })
+  if (teacherFilter) {
+    const tObj = teachers.find(t => t._id === teacherFilter)
+    const tName = tObj ? `${tObj.firstName || ''} ${tObj.lastName || ''}`.trim() : teacherFilter
+    activeChips.push({ id: 'teacher', label: `Teacher: ${tName}`, onRemove: () => setTeacherFilter('') })
+  }
+  if (subjectFilter) {
+    const sObj = subjects.find(s => s._id === subjectFilter)
+    activeChips.push({ id: 'subject', label: `Subject: ${sObj?.name || subjectFilter}`, onRemove: () => setSubjectFilter('') })
+  }
+  if (statusFilter) activeChips.push({ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => setStatusFilter('') })
+  if (dateFilter && dateFilter !== todayDateStr) activeChips.push({ id: 'date', label: `Date: ${dateFilter}`, onRemove: () => setDateFilter(todayDateStr) })
+  if (searchQuery) activeChips.push({ id: 'search', label: `Search: "${searchQuery}"`, onRemove: () => setSearchQuery('') })
+
   return (
-    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
+    <div className="flex-1 w-full h-full text-slate-800 flex flex-col gap-2.5 select-none min-h-0 bg-transparent print:bg-white print:p-0 print:m-0">
       
       {/* Inject print-only stylesheet */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -604,174 +777,536 @@ export default function Attendance() {
         )}
       </AnimatePresence>
 
-      {/* 1. Header & Breadcrumbs Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 print:hidden">
-        <div className="text-left space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
+      {/* ═══════════ 1. MODERN HEADER ACTION BAR ═══════════ */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 print:hidden bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        {/* Left: Title & Subtitle */}
+        <div className="text-left shrink-0">
+          <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
             <span>Admin</span>
             <span>/</span>
             <span className="text-brand-blue-600">Attendance</span>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mt-1">
+          <h2 className="text-lg font-black text-slate-800 tracking-tight leading-none mt-0.5">
             Attendance Management
           </h2>
-          <p className="text-[11px] font-bold text-slate-400 mt-1.5">
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">
             Mark student attendance, override submissions, lock sessions, and view reports
           </p>
         </div>
-      </div>
 
-      {/* Stats cards grid */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
-          gap: '16px' 
-        }} 
-        className="shrink-0 print:hidden"
-      >
-        <DashboardStatCard
-          title="Today's Sessions"
-          value={dashboardStats.totalSessions}
-          subtitle="Scheduled Lectures"
-          icon={Clock}
-          iconBgColor="bg-blue-50"
-          iconColor="text-blue-500"
-          className="py-3 px-5"
-        />
-        <DashboardStatCard
-          title="Attendance Submitted"
-          value={dashboardStats.attendanceSubmitted}
-          subtitle="Recorded Sessions"
-          icon={Check}
-          iconBgColor="bg-emerald-50"
-          iconColor="text-emerald-500"
-          valueColor="text-emerald-600"
-          className="py-3 px-5"
-        />
-        <DashboardStatCard
-          title="Pending Attendance"
-          value={dashboardStats.pendingAttendance}
-          subtitle="Awaiting Marking"
-          icon={Calendar}
-          iconBgColor="bg-amber-50"
-          iconColor="text-amber-500"
-          valueColor="text-amber-650"
-          className="py-3 px-5"
-        />
-        <DashboardStatCard
-          title="Overall Attendance %"
-          value={`${dashboardStats.overallAttendancePercentage}%`}
-          subtitle="Average Rate"
-          icon={CheckSquare}
-          iconBgColor="bg-purple-50"
-          iconColor="text-purple-500"
-          valueColor="text-purple-650"
-          className="py-3 px-5"
-        />
-      </div>
-
-      {/* 2. Controls & Filters Row */}
-      <div 
-        style={{ borderRadius: '24px', border: '1px solid #ECECEC' }}
-        className="py-5 px-6 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0 print:hidden"
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-52 h-10">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {/* Right: Integrated Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0 relative">
+          {/* Search Field */}
+          <div className="relative w-36 sm:w-44 h-8">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-full w-full pl-10 pr-4 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-xs font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-sm"
+              className="h-full w-full pl-8 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
             />
           </div>
 
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="h-10 w-40 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-550 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Classes</option>
-            {classesList.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-
-          <select
-            value={teacherFilter}
-            onChange={(e) => setTeacherFilter(e.target.value)}
-            className="h-10 w-44 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-550 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Teachers</option>
-            {teachers.map(t => (
-              <option key={t._id} value={t._id}>
-                {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={subjectFilter}
-            onChange={(e) => setSubjectFilter(e.target.value)}
-            className="h-10 w-44 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-550 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="">All Subjects</option>
-            {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-          </select>
-
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="h-10 w-40 px-4 bg-white border border-slate-200 rounded-full text-xs font-extrabold text-slate-555 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+          {/* View Switcher Segmented Control */}
+          <AttendanceViewSwitcher
+            activeView={activeWorkspaceView}
+            onChange={handleWorkspaceViewChange}
           />
 
-          <button
-            onClick={handleClearFilters}
-            className="h-10 px-4.5 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 shadow-sm"
-            title="Clear All Filters"
-          >
-            Clear Filters
-          </button>
-
-          <div className="h-6 w-[1px] bg-slate-200 mx-1 hidden md:block" />
-
-          {/* Renamed "Take Attendance" button */}
+          {/* Primary CTA: Take Attendance */}
           <button
             onClick={handleOpenLectureSelect}
-            className="h-10 px-5 bg-brand-blue-500 hover:bg-brand-blue-600 text-xs font-extrabold text-white rounded-full flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors active:scale-95"
+            className="h-8 px-3.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             <span>Take Attendance</span>
           </button>
+
+          {/* Three-Dot Overflow Menu (⋮) */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setIsHeaderOverflowOpen(!isHeaderOverflowOpen)}
+              className={cn(
+                "h-8 w-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs",
+                isHeaderOverflowOpen
+                  ? "bg-slate-800 border-slate-800 text-white"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              )}
+              title="More options"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            <AnimatePresence>
+              {isHeaderOverflowOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsHeaderOverflowOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-10 z-50 w-52 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 select-none text-left"
+                  >
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      Attendance Views & Settings
+                    </div>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); navigate('/admin/attendance/history'); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-brand-blue-500" />
+                      <span>Attendance History</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); navigate('/admin/attendance/analytics'); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Attendance Analytics</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); setIsSettingsOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Attendance Settings</span>
+                    </button>
+
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-t border-b border-slate-100 mt-1">
+                      Tools & Actions
+                    </div>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); handleExportExcel(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5 text-red-500" />
+                      <span>Export CSV Report</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); window.print(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-blue-500" />
+                      <span>Print Page</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); fetchAttendanceData(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Refresh Data</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Collapsible KPI Dashboard Panel */}
+      <div className="shrink-0 print:hidden select-none">
+        {/* Collapsed Header & Summary Bar */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isKpiExpanded}
+          aria-controls="kpi-dashboard-content"
+          onClick={toggleKpiExpanded}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              toggleKpiExpanded()
+            }
+          }}
+          className="bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-blue-500/40"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <TrendingUp className="h-3.5 w-3.5 text-brand-blue-600" />
+              <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                Attendance Overview
+              </span>
+            </div>
+
+            {/* Compact Summary Pills Row */}
+            <div className="hidden sm:flex items-center gap-2 text-[10.5px] font-bold text-slate-600 truncate">
+              <span className="h-1 w-1 rounded-full bg-slate-300 shrink-0" />
+              <span className="bg-white border border-slate-200/80 px-2 py-0.5 rounded-md shadow-2xs">
+                {dashboardStats.totalSessions} Sessions
+              </span>
+              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.attendanceSubmitted} Submitted
+              </span>
+              <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.pendingAttendance} Pending
+              </span>
+              <span className="bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-md">
+                {dashboardStats.overallAttendancePercentage}% Rate
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 transition-colors shrink-0">
+            <span className="text-[10px] font-extrabold uppercase hidden md:inline">
+              {isKpiExpanded ? 'Collapse' : 'Expand Metrics'}
+            </span>
+            {isKpiExpanded ? (
+              <ChevronUp className="h-4 w-4 text-slate-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-500" />
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="Configure Thresholds / System Parameters"
-          >
-            <Settings className="h-4 w-4 text-slate-500" />
-            <span>Attendance Settings</span>
-          </button>
-          <button
-            onClick={() => navigate('/admin/attendance/history')}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="View Attendance History"
-          >
-            <Calendar className="h-4 w-4 text-brand-blue-500" />
-            <span>Attendance History</span>
-          </button>
-          <button
-            onClick={() => navigate('/admin/attendance/analytics')}
-            className="h-10 px-4.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-            title="View Attendance Analytics"
-          >
-            <TrendingUp className="h-4 w-4 text-emerald-500" />
-            <span>Attendance Analytics</span>
-          </button>
-        </div>
+        {/* Animated Expanded KPI Cards */}
+        <AnimatePresence initial={false}>
+          {isKpiExpanded && (
+            <motion.div
+              id="kpi-dashboard-content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
+                  gap: '10px' 
+                }} 
+                className="pt-2.5"
+              >
+                <DashboardStatCard
+                  title="Today's Sessions"
+                  value={dashboardStats.totalSessions}
+                  subtitle="Scheduled Lectures"
+                  icon={Clock}
+                  iconBgColor="bg-blue-50"
+                  iconColor="text-blue-500"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Attendance Submitted"
+                  value={dashboardStats.attendanceSubmitted}
+                  subtitle="Recorded Sessions"
+                  icon={Check}
+                  iconBgColor="bg-emerald-50"
+                  iconColor="text-emerald-500"
+                  valueColor="text-emerald-600"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Pending Attendance"
+                  value={dashboardStats.pendingAttendance}
+                  subtitle="Awaiting Marking"
+                  icon={Calendar}
+                  iconBgColor="bg-amber-50"
+                  iconColor="text-amber-500"
+                  valueColor="text-amber-650"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+                <DashboardStatCard
+                  title="Overall Attendance %"
+                  value={`${dashboardStats.overallAttendancePercentage}%`}
+                  subtitle="Average Rate"
+                  icon={CheckSquare}
+                  iconBgColor="bg-purple-50"
+                  iconColor="text-purple-500"
+                  valueColor="text-purple-650"
+                  className="py-2.5 px-4 rounded-xl"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 2.5 Real-Time Live Session Operations Dashboard */}
+      <LiveSessionDashboard
+        sessions={filteredSessions}
+        loading={loading}
+        onOpenViewModal={handleOpenViewModal}
+        onSelectSlot={handleSelectSlot}
+        onTriggerEdit={handleTriggerEdit}
+      />
+
+      {/* 2.6 Proactive Student Risk Monitor & Early Intervention Panel */}
+      <StudentRiskMonitor
+        sessions={filteredSessions}
+        loading={loading}
+        onOpenHistory={(student) => {
+          showToast('info', `Opening attendance history for ${student.name}`)
+        }}
+        onOpenProfile={(student) => {
+          navigate(`/admin/students?search=${encodeURIComponent(student.name)}`)
+        }}
+      />
+
+      {/* 2.7 Teacher Performance & Compliance Dashboard */}
+      <TeacherPerformanceDashboard
+        teachers={teachers}
+        sessions={filteredSessions}
+        loading={loading}
+        onSendReminder={(teacher) => {
+          showToast('success', `Sent attendance reminder to ${teacher.name}`)
+        }}
+      />
+
+      {/* 3. STICKY WORKSPACE TOOLBAR (Stays visible while scrolling, with Dynamic Selection Mode) */}
+      <div className="sticky top-0 z-30 shrink-0 print:hidden select-none space-y-2 bg-white/95 backdrop-blur-md py-2 px-3 rounded-2xl border border-slate-200/80 shadow-xs transition-all duration-200">
+        <AnimatePresence mode="wait">
+          {selectedSessionIds.length > 0 ? (
+            /* SELECTION MODE BULK ACTION TOOLBAR */
+            <motion.div
+              key="bulk-toolbar"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-wrap items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-3">
+                <span className="h-7 px-3 rounded-full bg-brand-blue-600 text-white text-xs font-black flex items-center gap-1.5 shadow-2xs">
+                  <span>{selectedSessionIds.length}</span>
+                  <span>Selected</span>
+                </span>
+                <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">
+                  Bulk actions for selected sessions:
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkToggleLock}
+                  className="h-8 px-3 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Toggle Lock Status"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Lock / Unlock</span>
+                </button>
+
+                <button
+                  onClick={handleExportSelectedCSV}
+                  className="h-8 px-3 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Export Selected"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Export</span>
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  className="h-8 px-3 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Delete Selected"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedSessionIds([])}
+                  className="h-8 w-8 rounded-full border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                  title="Clear Selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* DEFAULT WORKSPACE TOOLBAR */
+            <motion.div
+              key="default-toolbar"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Primary Filter Controls */}
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  {/* Search Input */}
+                  <div className="relative w-36 sm:w-44 h-8">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-full w-full pl-8 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Class Dropdown */}
+                  <select
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                    className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                  >
+                    <option value="">All Classes</option>
+                    {classesList.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+
+                  {/* Date Picker */}
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                  />
+
+                  {/* Advanced Filters Button */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                      className={cn(
+                        "h-8 px-3 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs",
+                        isAdvancedFiltersOpen || advancedFilterCount > 0
+                          ? "bg-brand-blue-50 border-brand-blue-300 text-brand-blue-700 font-extrabold"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue-600" />
+                      <span>Filters</span>
+                      {advancedFilterCount > 0 && (
+                        <span className="h-4 px-1.5 rounded-full bg-brand-blue-600 text-white text-[9px] font-black flex items-center justify-center ml-0.5">
+                          {advancedFilterCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Advanced Filter Slide-Down Dropdown Panel */}
+                    <AnimatePresence>
+                      {isAdvancedFiltersOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setIsAdvancedFiltersOpen(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-0 top-10 z-50 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 select-none text-left space-y-3"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                Advanced Filters
+                              </span>
+                              <button
+                                onClick={() => setIsAdvancedFiltersOpen(false)}
+                                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Teacher Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Teacher</label>
+                              <select
+                                value={teacherFilter}
+                                onChange={(e) => setTeacherFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Teachers</option>
+                                {teachers.map(t => (
+                                  <option key={t._id} value={t._id}>
+                                    {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Subject Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Subject</label>
+                              <select
+                                value={subjectFilter}
+                                onChange={(e) => setSubjectFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Subjects</option>
+                                {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                              </select>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Submission Status</label>
+                              <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full h-8 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                <option value="">All Statuses</option>
+                                <option value="Submitted">Submitted</option>
+                                <option value="Pending">Pending</option>
+                              </select>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Right side controls: View Switcher & Clear All */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <AttendanceViewSwitcher
+                    activeView={activeWorkspaceView}
+                    onChange={handleWorkspaceViewChange}
+                  />
+
+                  {hasActiveFilters && (
+                    <button
+                      onClick={handleClearFilters}
+                      className="h-8 px-3 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-2xs"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span>Clear All</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Filter Chips Row */}
+              {activeChips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5 border-t border-slate-100">
+                  <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mr-1">Active:</span>
+                  {activeChips.map(chip => (
+                    <span
+                      key={chip.id}
+                      className="h-6 px-2.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10.5px] font-bold flex items-center gap-1.5 shadow-2xs transition-colors hover:bg-slate-200/80"
+                    >
+                      <span>{chip.label}</span>
+                      <button
+                        onClick={chip.onRemove}
+                        className="h-3.5 w-3.5 rounded-full hover:bg-slate-300/80 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Print-only Header block */}
@@ -781,7 +1316,7 @@ export default function Attendance() {
             <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-black">
               CK
             </div>
-            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">C.K. Classes</h1>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">{user?.tenantName || 'Institutional ERP'}</h1>
           </div>
           <p className="text-[9px] font-bold text-slate-400">Advanced ERP Coaching Portal</p>
         </div>
@@ -794,132 +1329,185 @@ export default function Attendance() {
         </div>
       </div>
 
-      {/* 3. Main Attendance Table Card */}
-      <div 
-        style={{ borderRadius: '28px', border: '1px solid #ECECEC', padding: '28px' }}
-        className="bg-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] flex-grow flex flex-col justify-between overflow-hidden min-h-0 print:border-none print:shadow-none print:p-0 print-main-card"
-      >
-        <div className="overflow-y-auto overflow-x-auto custom-scrollbar flex-grow min-h-0 pr-1 print:overflow-visible">
-          <table className="w-full text-left min-w-[950px] border-collapse">
-            <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none sticky top-0 bg-white z-10">
-              <tr>
-                <th className="py-4 pl-7 text-left">Date</th>
-                <th className="py-4 px-4">Class</th>
-                <th className="py-4 px-4">Subject</th>
-                <th className="py-4 px-4">Teacher</th>
-                <th className="py-4 px-4">Period</th>
-                <th className="py-4 px-4 text-center">Attendance %</th>
-                <th className="py-4 px-4 text-center">Present</th>
-                <th className="py-4 px-4 text-center">Absent</th>
-                <th className="py-4 px-4 text-center">Late</th>
-                <th className="py-4 px-4 text-center">Status</th>
-                <th className="py-4 px-7 text-center print:hidden">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 font-semibold text-xs text-slate-700">
-              {loading ? (
-                <tr className="print:hidden">
-                  <td colSpan="10" className="py-24 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <RefreshCw className="h-7 w-7 text-blue-500 animate-spin" />
-                      <span className="text-xs font-bold text-slate-400">Loading attendance reports...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredSessions.length === 0 ? (
-                <tr>
-                  <td colSpan="11" className="py-24 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Calendar className="h-8 w-8 text-slate-350" />
-                      <span className="text-xs font-black text-slate-455">No matching attendance sessions found.</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredSessions.map((session) => (
-                  <tr 
-                    key={session._id} 
-                    className="hover:bg-slate-50/65 group transition-colors cursor-pointer"
-                    onClick={() => handleOpenViewModal(session)}
-                  >
-                    <td className="py-4 pl-7 text-slate-800 font-extrabold">
-                      {new Date(session.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="py-4 px-4 font-black text-brand-blue-700">{session.classId}</td>
-                    <td className="py-4 px-4 text-slate-800 font-bold">{session.subjectId?.name || 'N/A'}</td>
-                    <td className="py-4 px-4 text-slate-500">
-                      {session.teacherId ? `${session.teacherId.firstName || ''} ${session.teacherId.lastName || ''}`.trim() : 'Unassigned'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-400">
-                      <span className="font-extrabold text-slate-650">{session.periodId?.name || 'N/A'}</span>
-                      {session.periodId?.startTime && (
-                        <span className="text-[10px] block mt-0.5 font-medium text-slate-400">({session.periodId.startTime} - {session.periodId.endTime})</span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={cn(
-                        "font-black text-sm",
-                        (session.stats?.attendancePercentage || 0) >= 80 ? "text-emerald-600" : (session.stats?.attendancePercentage || 0) >= 50 ? "text-amber-500" : "text-rose-500"
-                      )}>
-                        {session.stats?.attendancePercentage || 0}%
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center text-emerald-650 font-bold">
-                      {session.stats?.presentCount || 0}
-                    </td>
-                    <td className="py-4 px-4 text-center text-rose-550 font-bold">
-                      {session.stats?.absentCount || 0}
-                    </td>
-                    <td className="py-4 px-4 text-center text-amber-555 font-bold">
-                      {session.stats?.lateCount || 0}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex px-2.5 py-1 text-[10px] font-black rounded-full border bg-slate-50 border-slate-100 text-slate-600 uppercase tracking-wider">
-                        {session.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-7 text-center print:hidden" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Lock / Unlock Toggle button */}
-                        <button
-                          onClick={() => handleToggleLock(session)}
-                          className={cn(
-                            "h-8 w-8 rounded-full flex items-center justify-center transition-all border",
-                            session.isLocked 
-                              ? "bg-rose-50 hover:bg-rose-100 border-rose-100 text-rose-600" 
-                              : "bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-600"
-                          )}
-                          title={session.isLocked ? "Unlock Attendance Session" : "Lock Attendance Session"}
-                        >
-                          {session.isLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-                        </button>
-                        
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => handleTriggerEdit(session)}
-                          className="h-8 w-8 rounded-full border border-slate-100 hover:bg-slate-50 text-slate-555 hover:text-blue-600 flex items-center justify-center transition-all"
-                          title="Edit Session Records"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteSession(session)}
-                          className="h-8 w-8 rounded-full border border-slate-100 hover:bg-red-50 text-slate-555 hover:text-red-655 flex items-center justify-center transition-all"
-                          title="Delete Session"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
+      {/* 4. Main Attendance Workspace Container (Table, Card, or Calendar) */}
+      <AnimatePresence mode="wait">
+        {activeWorkspaceView === 'table' && (
+          <motion.div 
+            key="table-view"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            style={{ borderRadius: '16px', border: '1px solid #ECECEC', padding: '16px' }}
+            className="bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex-grow flex flex-col justify-between overflow-hidden min-h-0 print:border-none print:shadow-none print:p-0 print-main-card"
+          >
+            <div className="overflow-y-auto overflow-x-auto custom-scrollbar flex-grow min-h-0 pr-1 print:overflow-visible">
+              <table className="w-full text-left min-w-[950px] border-collapse">
+                <thead className="bg-slate-50/55 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest select-none sticky top-0 bg-white z-10">
+                  <tr>
+                    <th className="py-2.5 pl-4 text-left">Date</th>
+                    <th className="py-2.5 px-3">Class</th>
+                    <th className="py-2.5 px-3">Subject</th>
+                    <th className="py-2.5 px-3">Teacher</th>
+                    <th className="py-2.5 px-3">Period</th>
+                    <th className="py-2.5 px-3 text-center">Attendance %</th>
+                    <th className="py-2.5 px-3 text-center">Present</th>
+                    <th className="py-2.5 px-3 text-center">Absent</th>
+                    <th className="py-2.5 px-3 text-center">Late</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-4 text-center print:hidden">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-semibold text-xs text-slate-700">
+                  {loading ? (
+                    <tr className="print:hidden">
+                      <td colSpan="11" className="py-24 text-center">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <RefreshCw className="h-7 w-7 text-blue-500 animate-spin" />
+                          <span className="text-xs font-bold text-slate-400">Loading attendance reports...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredSessions.length === 0 ? (
+                    <tr>
+                      <td colSpan="11" className="py-24 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Calendar className="h-8 w-8 text-slate-350" />
+                          <span className="text-xs font-black text-slate-455">No matching attendance sessions found.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSessions.map((session) => (
+                      <tr 
+                        key={session._id} 
+                        className="hover:bg-slate-50/65 group transition-colors cursor-pointer"
+                        onClick={() => handleOpenViewModal(session)}
+                      >
+                        <td className="py-2.5 pl-4 text-slate-800 font-extrabold">
+                          {new Date(session.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="py-2.5 px-3 font-black text-brand-blue-700">{session.classId}</td>
+                        <td className="py-2.5 px-3 text-slate-800 font-bold">{session.subjectId?.name || 'N/A'}</td>
+                        <td className="py-2.5 px-3 text-slate-500">
+                          {session.teacherId ? `${session.teacherId.firstName || ''} ${session.teacherId.lastName || ''}`.trim() : 'Unassigned'}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-400">
+                          <span className="font-extrabold text-slate-650">{session.periodId?.name || 'N/A'}</span>
+                          {session.periodId?.startTime && (
+                            <span className="text-[9.5px] block mt-0.5 font-medium text-slate-400">({session.periodId.startTime} - {session.periodId.endTime})</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <AttendanceProgress
+                            percentage={session.stats?.attendancePercentage || 0}
+                            presentCount={session.stats?.presentCount || 0}
+                            absentCount={session.stats?.absentCount || 0}
+                            lateCount={session.stats?.lateCount || 0}
+                            status={session.status}
+                            isLocked={session.isLocked}
+                            compact
+                          />
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-emerald-650 font-bold">
+                          {session.stats?.presentCount || 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-rose-550 font-bold">
+                          {session.stats?.absentCount || 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-amber-555 font-bold">
+                          {session.stats?.lateCount || 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="inline-flex px-2 py-0.5 text-[9.5px] font-black rounded-full border bg-slate-50 border-slate-100 text-slate-600 uppercase tracking-wider">
+                            {session.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center print:hidden" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-2">
+                            {/* Lock / Unlock Toggle button */}
+                            <button
+                              onClick={() => handleToggleLock(session)}
+                              className={cn(
+                                "h-8 w-8 rounded-full flex items-center justify-center transition-all border",
+                                session.isLocked 
+                                  ? "bg-rose-50 hover:bg-rose-100 border-rose-100 text-rose-600" 
+                                  : "bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-600"
+                              )}
+                              title={session.isLocked ? "Unlock Attendance Session" : "Lock Attendance Session"}
+                            >
+                              {session.isLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                            </button>
+                            
+                            {/* Edit Button */}
+                            <button
+                              onClick={() => handleTriggerEdit(session)}
+                              className="h-8 w-8 rounded-full border border-slate-100 hover:bg-slate-50 text-slate-555 hover:text-blue-600 flex items-center justify-center transition-all"
+                              title="Edit Session Records"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => handleDeleteSession(session)}
+                              className="h-8 w-8 rounded-full border border-slate-100 hover:bg-red-50 text-slate-555 hover:text-red-655 flex items-center justify-center transition-all"
+                              title="Delete Session"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {activeWorkspaceView === 'cards' && (
+          <motion.div
+            key="cards-view"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="flex-grow flex flex-col min-h-0 overflow-hidden"
+          >
+            <AttendanceCardView
+              sessions={filteredSessions}
+              loading={loading}
+              selectedSessionIds={selectedSessionIds}
+              onToggleSelectSession={toggleSelectSession}
+              onOpenViewModal={handleOpenViewModal}
+              onToggleLock={handleToggleLock}
+              onTriggerEdit={handleTriggerEdit}
+              onDeleteSession={handleDeleteSession}
+            />
+          </motion.div>
+        )}
+
+        {activeWorkspaceView === 'calendar' && (
+          <motion.div
+            key="calendar-view"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="flex-grow flex flex-col min-h-0 overflow-hidden"
+          >
+            <AttendanceCalendarView
+              sessions={filteredSessions}
+              loading={loading}
+              selectedSessionIds={selectedSessionIds}
+              onToggleSelectSession={toggleSelectSession}
+              onOpenViewModal={handleOpenViewModal}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* A. LECTURE SELECTION MODAL */}
       <AnimatePresence>
@@ -1058,281 +1646,28 @@ export default function Attendance() {
         )}
       </AnimatePresence>
 
-      {/* B. STUDENT ATTENDANCE MODAL (MARK/EDIT) */}
+      {/* B. STUDENT ATTENDANCE SLIDE-OVER DRAWER */}
       <AnimatePresence>
         {isMarkModalOpen && selectedSlot && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm print:hidden">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={spring}
-              className="bg-white w-full max-w-4xl shadow-premium-4 flex flex-col relative max-h-[92vh]"
-              style={{ borderRadius: '28px', border: '1px solid #ECECEC' }}
-            >
-              {/* Header */}
-              <div className="p-7 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="text-left">
-                  <h3 className="text-lg font-black text-slate-800 tracking-tight leading-none">
-                    {editSessionId ? 'Edit Student Attendance' : 'Record Student Attendance'}
-                  </h3>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1">
-                    Select a status chip for each student below
-                  </p>
-                </div>
-                <button
-                  disabled={submitting}
-                  onClick={() => {
-                    setIsMarkModalOpen(false)
-                    setEditSessionId(null)
-                    setSelectedSlot(null)
-                    setModalStudentSearch('')
-                  }}
-                  className="h-9 w-9 rounded-full border border-slate-100 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <X className="h-4.5 w-4.5" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-7 flex flex-col min-h-0 space-y-5 text-left">
-                                {/* Read-Only Top Details card */}
-                <div className="bg-slate-50/50 p-5 border border-slate-200/60 rounded-[20px] grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold text-slate-700 select-none shrink-0">
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Subject</span>
-                    <span className="font-extrabold text-slate-800 text-sm mt-0.5 block">{selectedSlot.subject?.name || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Teacher</span>
-                    <span className="font-bold text-slate-705 text-xs mt-0.5 block">
-                      {selectedSlot.teacher ? `${selectedSlot.teacher.firstName || ''} ${selectedSlot.teacher.lastName || ''}`.trim() : 'Unassigned'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Class / Period</span>
-                    <span className="font-extrabold text-brand-blue-700 text-xs mt-0.5 block">
-                      {selectedSlot.class} — {selectedSlot.period?.name || 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Date / Timing</span>
-                    <span className="font-bold text-slate-705 text-xs mt-0.5 block">
-                      {new Date(modalDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                      {selectedSlot.period?.startTime && ` (${selectedSlot.period.startTime} - ${selectedSlot.period.endTime})`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Bulk Actions row */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 shrink-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleMarkAllPresent}
-                      className="h-8.5 px-3.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-150 text-[10px] font-black text-emerald-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Mark All Present
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMarkAllAbsent}
-                      className="h-8.5 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-150 text-[10px] font-black text-rose-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Mark All Absent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearAll}
-                      className="h-8.5 px-3.5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black text-slate-500 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                    >
-                      Clear All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMarkRemainingPresent}
-                      className="h-8.5 px-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-150 text-[10px] font-black text-blue-650 rounded-full cursor-pointer uppercase tracking-wider transition-all"
-                      title="Set all unmarked students to Present"
-                    >
-                      Mark Remaining Present
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-52 h-8.5">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search student..."
-                        value={modalStudentSearch}
-                        onChange={(e) => setModalStudentSearch(e.target.value)}
-                        className="h-full w-full pl-8.5 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-450 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-405"
-                      />
-                    </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Count: {students.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Student list */}
-                <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0 space-y-2.5">
-                  {(() => {
-                    const filteredStudentsInModal = students.filter(st => {
-                      if (!modalStudentSearch) return true;
-                      const q = modalStudentSearch.toLowerCase();
-                      const fullName = `${st.firstName || ''} ${st.lastName || ''}`.toLowerCase();
-                      const rollNo = (st.studentId || '').toLowerCase();
-                      return fullName.includes(q) || rollNo.includes(q);
-                    });
-
-                    if (filteredStudentsInModal.length === 0) {
-                      return (
-                        <div className="py-24 text-center text-slate-400 font-bold border border-dashed border-slate-150 rounded-2xl">
-                          No matching students found.
-                        </div>
-                      );
-                    }
-
-                    return filteredStudentsInModal.map((st) => {
-                      const initial = st.firstName?.charAt(0) || 'S'
-                      const status = markedRecords[st._id]
-                      
-                      return (
-                        <div
-                          key={st._id}
-                          className="p-3 border border-slate-200/80 rounded-2xl hover:bg-slate-50/15 flex flex-col md:flex-row md:items-center justify-between gap-3 text-left transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {st.photo?.secure_url ? (
-                              <img
-                                src={st.photo.secure_url}
-                                alt={st.firstName}
-                                className="h-9.5 w-9.5 rounded-full object-cover shrink-0 select-none bg-slate-100"
-                              />
-                            ) : (
-                              <div className="h-9.5 w-9.5 rounded-full bg-brand-blue-50/80 text-brand-blue-655 flex items-center justify-center font-black text-xs shrink-0 select-none border border-brand-blue-100/50">
-                                {initial}
-                              </div>
-                            )}
-
-                            <div className="text-left min-w-0 space-y-0.5">
-                              <h5 className="text-[13px] font-semibold text-slate-855 leading-tight truncate">
-                                {`${st.firstName || ''} ${st.lastName || ''}`.trim()}
-                              </h5>
-                              <div className="text-[9.5px] font-bold text-slate-400 tracking-wide uppercase leading-none">
-                                Roll No: {st.studentId || 'N/A'}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center flex-wrap gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Present' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Present' 
-                                  ? "bg-emerald-500 border-emerald-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Absent' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Absent' 
-                                  ? "bg-rose-500 border-rose-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Absent
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Late' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Late' 
-                                  ? "bg-amber-500 border-amber-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Late
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMarkedRecords(prev => ({ ...prev, [st._id]: 'Leave' }))}
-                              className={cn(
-                                "px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer",
-                                status === 'Leave' 
-                                  ? "bg-blue-500 border-blue-500 text-white shadow-sm" 
-                                  : "bg-white border-slate-200 text-slate-450 hover:bg-slate-50"
-                              )}
-                            >
-                              Leave
-                            </button>
-
-                            <div className="h-5 w-[1px] bg-slate-250 mx-1 hidden md:block" />
-
-                            <input
-                              type="text"
-                              placeholder="Add notes..."
-                              value={remarks[st._id] || ''}
-                              onChange={(e) => setRemarks(prev => ({ ...prev, [st._id]: e.target.value }))}
-                              className="h-8.5 w-36 px-3 border border-slate-200/80 rounded-xl text-[10px] font-semibold text-slate-700 bg-slate-50/50 focus:outline-none focus:bg-white focus:border-blue-400 transition-all placeholder:text-slate-400"
-                            />
-                          </div>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-7 border-t border-slate-100 flex items-center justify-between shrink-0 select-none">
-                <button
-                  type="button"
-                  disabled={submitting || !!editSessionId}
-                  onClick={() => {
-                    setIsMarkModalOpen(false)
-                    setIsLectureSelectOpen(true)
-                  }}
-                  className="h-10 px-4 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-550 rounded-full cursor-pointer disabled:opacity-40"
-                >
-                  Back to Lecture Slots
-                </button>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => {
-                      setIsMarkModalOpen(false)
-                      setEditSessionId(null)
-                      setSelectedSlot(null)
-                    }}
-                    className="h-10 px-5 border border-slate-200 hover:bg-slate-50 text-xs font-extrabold text-slate-555 rounded-full cursor-pointer disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    onClick={handleSaveAttendance}
-                    disabled={submitting || students.length === 0}
-                    className="h-10 px-6 bg-brand-blue-500 hover:bg-brand-blue-600 text-xs font-extrabold text-white rounded-full cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all active:scale-95"
-                  >
-                    {submitting && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-                    <span>Save Attendance</span>
-                  </button>
-                </div>
-              </div>
-
-            </motion.div>
-          </div>
+          <AttendanceDrawer
+            isOpen={isMarkModalOpen}
+            onClose={() => {
+              setIsMarkModalOpen(false)
+              setEditSessionId(null)
+              setSelectedSlot(null)
+            }}
+            selectedSlot={selectedSlot}
+            modalClass={modalClass}
+            modalDate={modalDate}
+            editSessionId={editSessionId}
+            students={students}
+            markedRecords={markedRecords}
+            setMarkedRecords={setMarkedRecords}
+            remarks={remarks}
+            setRemarks={setRemarks}
+            onSubmit={handleSaveAttendance}
+            submitting={submitting}
+          />
         )}
       </AnimatePresence>
 
@@ -1651,6 +1986,25 @@ export default function Attendance() {
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* FLOATING CONTEXTUAL BULK ACTION BAR */}
+      <AnimatePresence>
+        {selectedSessionIds.length > 0 && (
+          <BulkActionBar
+            selectedIds={selectedSessionIds}
+            totalFilteredCount={filteredSessions.length}
+            onSelectAllFiltered={toggleSelectAllSessions}
+            onClearSelection={() => setSelectedSessionIds([])}
+            onBulkLock={handleBulkToggleLock}
+            onBulkUnlock={handleBulkUnlock}
+            onExportSelected={handleExportSelectedCSV}
+            onBulkDuplicate={handleBulkDuplicate}
+            onBulkArchive={handleBulkArchive}
+            onBulkDelete={handleBulkDelete}
+            processing={loading}
+          />
         )}
       </AnimatePresence>
 

@@ -1,9 +1,14 @@
 const mongoose = require('mongoose')
 
 const studentSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   studentId: {
     type: String,
-    unique: true,
     index: true
   },
   firstName: {
@@ -32,7 +37,6 @@ const studentSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     lowercase: true,
     trim: true
@@ -87,7 +91,8 @@ const studentSchema = new mongoose.Schema({
   bloodGroup: {
     type: String,
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-    trim: true
+    trim: true,
+    set: v => v ? v.toUpperCase() : v
   },
   category: {
     type: String,
@@ -96,6 +101,10 @@ const studentSchema = new mongoose.Schema({
   religion: {
     type: String,
     trim: true
+  },
+  additionalParentPhones: {
+    type: [String],
+    default: []
   },
   emergencyContact: {
     name: {
@@ -111,6 +120,70 @@ const studentSchema = new mongoose.Schema({
       trim: true
     }
   },
+  documents: [{
+    name: {
+      type: String,
+      required: true
+    },
+    type: {
+      type: String,
+      required: true
+    },
+    url: {
+      type: String,
+      required: true
+    },
+    fileId: {
+      type: String
+    },
+    fileSize: {
+      type: Number
+    },
+    uploadDate: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  history: [{
+    action: {
+      type: String,
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    performedBy: {
+      type: String
+    },
+    details: {
+      type: String
+    }
+  }],
+  leavingInfo: {
+    date: {
+      type: Date
+    },
+    reason: {
+      type: String
+    },
+    notes: {
+      type: String
+    }
+  },
+  internalNotes: [{
+    text: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    createdBy: {
+      type: String
+    }
+  }],
   class: {
     type: String,
     required: true,
@@ -153,9 +226,9 @@ const studentSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-generate studentId on pre-save hook in format CK20260001
+// Auto-generate studentId on pre-save hook in format CK20260001 if not explicitly provided
 studentSchema.pre('save', async function(next) {
-  if (!this.isNew) {
+  if (!this.isNew || Boolean(this.studentId)) {
     return next()
   }
 
@@ -163,9 +236,9 @@ studentSchema.pre('save', async function(next) {
     const year = new Date().getFullYear()
     const prefix = `CK${year}`
     
-    // Find the last student with studentId starting with prefix
+    // Find the last student with studentId starting with prefix scoped to this tenant
     const lastStudent = await mongoose.model('Student').findOne(
-      { studentId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, studentId: new RegExp(`^${prefix}`) },
       { studentId: 1 },
       { sort: { studentId: -1 } }
     )
@@ -185,6 +258,9 @@ studentSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+studentSchema.index({ tenantId: 1, studentId: 1 }, { unique: true })
+studentSchema.index({ tenantId: 1, email: 1 }, { unique: true })
 
 const Student = mongoose.model('Student', studentSchema)
 module.exports = Student

@@ -78,7 +78,7 @@ class AttendanceService {
 
       // 1. PENDING FLOW
       if (status === 'Pending') {
-        const timetableQuery = {}
+        const timetableQuery = { tenantId: options.tenantId }
         if (classId) timetableQuery.class = classId
         if (teacherId) timetableQuery.teacher = teacherId
         if (subjectId) timetableQuery.subject = subjectId
@@ -91,7 +91,7 @@ class AttendanceService {
           .lean()
 
         // Find marked sessions in range
-        const markedQuery = { date: { $gte: start, $lte: end } }
+        const markedQuery = { date: { $gte: start, $lte: end }, tenantId: options.tenantId }
         if (classId) markedQuery.classId = classId
         if (teacherId) markedQuery.teacherId = teacherId
         if (subjectId) markedQuery.subjectId = subjectId
@@ -163,7 +163,8 @@ class AttendanceService {
 
       // 2. MARKED FLOW (COMPLETED, LOCKED, OVERRIDDEN)
       const sessionQuery = {
-        date: { $gte: start, $lte: end }
+        date: { $gte: start, $lte: end },
+        tenantId: options.tenantId
       }
       if (classId) sessionQuery.classId = classId
       if (teacherId) sessionQuery.teacherId = teacherId
@@ -181,12 +182,14 @@ class AttendanceService {
       // Apply Search matching teacher name or subject name
       if (search) {
         const matchingTeachers = await mongoose.model('Teacher').find({
+          tenantId: options.tenantId,
           $or: [
             { firstName: new RegExp(search, 'i') },
             { lastName: new RegExp(search, 'i') }
           ]
         })
         const matchingSubjects = await mongoose.model('Subject').find({
+          tenantId: options.tenantId,
           name: new RegExp(search, 'i')
         })
 
@@ -218,7 +221,7 @@ class AttendanceService {
         .limit(limitNum)
 
       const sessionsWithStats = await Promise.all(sessions.map(async (session) => {
-        const records = await AttendanceRecord.find({ attendanceSessionId: session._id })
+        const records = await AttendanceRecord.find({ attendanceSessionId: session._id, tenantId: options.tenantId })
         const total = records.length
         const present = records.filter(r => r.status === 'Present').length
         const absent = records.filter(r => r.status === 'Absent').length
@@ -266,7 +269,8 @@ class AttendanceService {
     const dayName = this.getDayOfWeek(targetDate)
 
     const sessionQuery = {
-      date: { $gte: start, $lte: end }
+      date: { $gte: start, $lte: end },
+      tenantId: options.tenantId
     }
     if (classId) sessionQuery.classId = classId
     if (teacherId) sessionQuery.teacherId = teacherId
@@ -291,7 +295,7 @@ class AttendanceService {
       .sort({ createdAt: -1 })
 
     const sessionsWithStats = await Promise.all(sessions.map(async (session) => {
-      const records = await AttendanceRecord.find({ attendanceSessionId: session._id })
+      const records = await AttendanceRecord.find({ attendanceSessionId: session._id, tenantId: options.tenantId })
       const total = records.length
       const present = records.filter(r => r.status === 'Present').length
       const absent = records.filter(r => r.status === 'Absent').length
@@ -321,7 +325,7 @@ class AttendanceService {
       }
     }))
 
-    const timetableQuery = { day: dayName }
+    const timetableQuery = { day: dayName, tenantId: options.tenantId }
     if (classId) timetableQuery.class = classId
     if (teacherId) timetableQuery.teacher = teacherId
     if (subjectId) timetableQuery.subject = subjectId
@@ -333,7 +337,7 @@ class AttendanceService {
     const pendingSessionsCount = Math.max(0, totalSlotsCount - submittedSessionsCount)
 
     const sessionIds = sessions.map(s => s._id)
-    const allRecords = await AttendanceRecord.find({ attendanceSessionId: { $in: sessionIds } })
+    const allRecords = await AttendanceRecord.find({ attendanceSessionId: { $in: sessionIds }, tenantId: options.tenantId })
     const allTotal = allRecords.length
     const allPresent = allRecords.filter(r => r.status === 'Present').length
     const overallPercentage = allTotal > 0 ? Math.round((allPresent / allTotal) * 100) : 0
@@ -352,8 +356,8 @@ class AttendanceService {
   /**
    * Fetch single session with full records list populated
    */
-  async getAttendanceSessionById(sessionId) {
-    const session = await AttendanceSession.findById(sessionId)
+  async getAttendanceSessionById(sessionId, tenantId) {
+    const session = await AttendanceSession.findOne({ _id: sessionId, tenantId })
       .populate('timetableSlotId')
       .populate('subjectId')
       .populate({
@@ -374,7 +378,7 @@ class AttendanceService {
       throw new Error('Attendance session not found')
     }
 
-    const records = await AttendanceRecord.find({ attendanceSessionId: sessionId })
+    const records = await AttendanceRecord.find({ attendanceSessionId: sessionId, tenantId })
       .populate({
         path: 'studentId',
         select: 'firstName lastName studentId photo class'
@@ -419,14 +423,15 @@ class AttendanceService {
    * Create attendance session and individual student records
    */
   async createAttendanceSession(data, createdByUserId) {
-    const { timetableSlotId, classId, subjectId, teacherId, periodId, day, date, records } = data
+    const { timetableSlotId, classId, subjectId, teacherId, periodId, day, date, records, tenantId } = data
 
     const targetDate = new Date(date)
     const { start, end } = this.getStartAndEndOfDay(targetDate)
 
     const existing = await AttendanceSession.findOne({
       timetableSlotId,
-      date: { $gte: start, $lte: end }
+      date: { $gte: start, $lte: end },
+      tenantId
     })
 
     if (existing) {
@@ -444,7 +449,8 @@ class AttendanceService {
       day,
       date: targetDate,
       createdBy: createdByUserId,
-      status: 'Completed'
+      status: 'Completed',
+      tenantId
     })
     await session.save()
 
@@ -453,7 +459,8 @@ class AttendanceService {
         attendanceSessionId: session._id,
         studentId: r.studentId,
         status: r.status || 'Present',
-        remarks: r.remarks || ''
+        remarks: r.remarks || '',
+        tenantId
       }))
       await AttendanceRecord.insertMany(recordsToInsert)
 
@@ -468,19 +475,20 @@ class AttendanceService {
       attendanceSessionId: session._id,
       action: 'Created',
       performedBy: createdByUserId,
-      description: `Created attendance log for ${classId} on ${targetDate.toLocaleDateString()}`
+      description: `Created attendance log for ${classId} on ${targetDate.toLocaleDateString()}`,
+      tenantId
     })
     await audit.save()
 
-    return this.getAttendanceSessionById(session._id)
+    return this.getAttendanceSessionById(session._id, tenantId)
   }
 
   /**
    * Update existing attendance records
    * Saves override log entries for modified records.
    */
-  async updateAttendanceSession(sessionId, data, updatedByUserId) {
-    const session = await AttendanceSession.findById(sessionId)
+  async updateAttendanceSession(sessionId, data, updatedByUserId, tenantId) {
+    const session = await AttendanceSession.findOne({ _id: sessionId, tenantId })
     if (!session) {
       throw new Error('Attendance session not found')
     }
@@ -495,14 +503,15 @@ class AttendanceService {
         attendanceSessionId: session._id,
         action: actionType,
         performedBy: updatedByUserId,
-        description: `${actionType} attendance session for class ${session.classId}`
+        description: `${actionType} attendance session for class ${session.classId}`,
+        tenantId
       })
       await audit.save()
     }
     
     const { records, overrideReason } = data
     if (records && Array.isArray(records)) {
-      const existingRecords = await AttendanceRecord.find({ attendanceSessionId: sessionId })
+      const existingRecords = await AttendanceRecord.find({ attendanceSessionId: sessionId, tenantId })
       let hasOverride = false
       let hasEdit = false
 
@@ -517,7 +526,8 @@ class AttendanceService {
               oldStatus: oldRec.status,
               newStatus: r.status,
               modifiedBy: updatedByUserId,
-              reason: overrideReason || 'Admin manual status change override'
+              reason: overrideReason || 'Admin manual status change override',
+              tenantId
             })
             await overrideLog.save()
           } else if (oldRec.remarks !== r.remarks) {
@@ -526,8 +536,8 @@ class AttendanceService {
         }
 
         await AttendanceRecord.findOneAndUpdate(
-          { attendanceSessionId: sessionId, studentId: r.studentId },
-          { status: r.status, remarks: r.remarks || '' },
+          { attendanceSessionId: sessionId, studentId: r.studentId, tenantId },
+          { status: r.status, remarks: r.remarks || '', tenantId },
           { upsert: true, new: true }
         )
       }))
@@ -540,7 +550,8 @@ class AttendanceService {
           attendanceSessionId: session._id,
           action: 'Override',
           performedBy: updatedByUserId,
-          description: `Overrode student records status logs for class ${session.classId}`
+          description: `Overrode student records status logs for class ${session.classId}`,
+          tenantId
         })
         await audit.save()
       } else if (hasEdit) {
@@ -549,21 +560,22 @@ class AttendanceService {
           attendanceSessionId: session._id,
           action: 'Edited',
           performedBy: updatedByUserId,
-          description: `Edited attendance notes / remarks for class ${session.classId}`
+          description: `Edited attendance notes / remarks for class ${session.classId}`,
+          tenantId
         })
         await audit.save()
       }
     }
 
     await session.save()
-    return this.getAttendanceSessionById(sessionId)
+    return this.getAttendanceSessionById(sessionId, tenantId)
   }
 
   /**
    * Delete attendance session and corresponding records
    */
-  async deleteAttendanceSession(sessionId, performedByUserId) {
-    const session = await AttendanceSession.findById(sessionId)
+  async deleteAttendanceSession(sessionId, performedByUserId, tenantId) {
+    const session = await AttendanceSession.findOne({ _id: sessionId, tenantId })
     if (!session) {
       throw new Error('Attendance session not found')
     }
@@ -572,14 +584,15 @@ class AttendanceService {
     const audit = new AttendanceAuditLog({
       action: 'Deleted',
       performedBy: performedByUserId,
-      description: `Deleted attendance session for class ${session.classId} on ${new Date(session.date).toLocaleDateString()}`
+      description: `Deleted attendance session for class ${session.classId} on ${new Date(session.date).toLocaleDateString()}`,
+      tenantId
     })
     await audit.save()
 
     // Delete records, override history, and session
-    await AttendanceRecord.deleteMany({ attendanceSessionId: sessionId })
-    await AttendanceOverrideHistory.deleteMany({ attendanceSessionId: sessionId })
-    await AttendanceSession.findByIdAndDelete(sessionId)
+    await AttendanceRecord.deleteMany({ attendanceSessionId: sessionId, tenantId })
+    await AttendanceOverrideHistory.deleteMany({ attendanceSessionId: sessionId, tenantId })
+    await AttendanceSession.findOneAndDelete({ _id: sessionId, tenantId })
 
     return true
   }
@@ -587,8 +600,8 @@ class AttendanceService {
   /**
    * Fetch override history logs for a session
    */
-  async getOverrideHistoryForSession(sessionId) {
-    return await AttendanceOverrideHistory.find({ attendanceSessionId: sessionId })
+  async getOverrideHistoryForSession(sessionId, tenantId) {
+    return await AttendanceOverrideHistory.find({ attendanceSessionId: sessionId, tenantId })
       .populate({
         path: 'studentId',
         select: 'firstName lastName studentId photo'
@@ -603,12 +616,12 @@ class AttendanceService {
   /**
    * Get scheduled timetable slots for a date and class with attendance status
    */
-  async getTodayTimetableSlotsWithStatus(dateStr, classId) {
+  async getTodayTimetableSlotsWithStatus(dateStr, classId, tenantId) {
     const targetDate = dateStr ? new Date(dateStr) : new Date()
     const { start, end } = this.getStartAndEndOfDay(targetDate)
     const dayName = this.getDayOfWeek(targetDate)
 
-    const query = { day: dayName }
+    const query = { day: dayName, tenantId }
     if (classId) {
       query.class = classId
     }
@@ -625,7 +638,8 @@ class AttendanceService {
     const slotsWithStatus = await Promise.all(slots.map(async (slot) => {
       const session = await AttendanceSession.findOne({
         timetableSlotId: slot._id,
-        date: { $gte: start, $lte: end }
+        date: { $gte: start, $lte: end },
+        tenantId
       })
 
       return {
@@ -642,7 +656,7 @@ class AttendanceService {
    * Fetch overall aggregated statistics and breakdowns for analytical dashboards
    */
   async getAttendanceAnalytics(filters = {}) {
-    const { classId, teacherId, subjectId, studentId, month, year, startDate, endDate, threshold = 75 } = filters
+    const { classId, teacherId, subjectId, studentId, month, year, startDate, endDate, threshold = 75, tenantId } = filters
 
     // 1. Build date filter
     let dateFilter = {}
@@ -666,7 +680,7 @@ class AttendanceService {
     }
 
     // 2. Fetch all matching AttendanceSession IDs
-    const sessionQuery = {}
+    const sessionQuery = { tenantId }
     if (Object.keys(dateFilter).length > 0) {
       sessionQuery.date = dateFilter
     }
@@ -683,7 +697,8 @@ class AttendanceService {
 
     // Build Record query match
     const recordMatch = {
-      attendanceSessionId: { $in: sessionIds }
+      attendanceSessionId: { $in: sessionIds },
+      tenantId
     }
     if (studentId) {
       recordMatch.studentId = new mongoose.Types.ObjectId(studentId)
@@ -951,14 +966,14 @@ class AttendanceService {
   /**
    * Fetch full student attendance details and calendar logs for dashboard profiles
    */
-  async getStudentAttendanceProfile(studentId) {
-    const student = await Student.findById(studentId).lean()
+  async getStudentAttendanceProfile(studentId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId }).lean()
     if (!student) {
       throw new Error('Student not found')
     }
 
     // Fetch all attendance records for this student
-    const records = await AttendanceRecord.find({ studentId })
+    const records = await AttendanceRecord.find({ studentId, tenantId })
       .populate({
         path: 'attendanceSessionId',
         populate: [
@@ -1073,10 +1088,10 @@ class AttendanceService {
   /**
    * Fetch Attendance settings row (creating defaults if missing)
    */
-  async getSettings() {
-    let settings = await AttendanceSettings.findOne()
+  async getSettings(tenantId) {
+    let settings = await AttendanceSettings.findOne({ tenantId })
     if (!settings) {
-      settings = new AttendanceSettings()
+      settings = new AttendanceSettings({ tenantId })
       await settings.save()
     }
     return settings
@@ -1085,10 +1100,10 @@ class AttendanceService {
   /**
    * Update Attendance settings
    */
-  async updateSettings(data) {
-    let settings = await AttendanceSettings.findOne()
+  async updateSettings(data, tenantId) {
+    let settings = await AttendanceSettings.findOne({ tenantId })
     if (!settings) {
-      settings = new AttendanceSettings()
+      settings = new AttendanceSettings({ tenantId })
     }
     
     // Update keys
@@ -1108,8 +1123,8 @@ class AttendanceService {
   /**
    * Fetch recent audit timeline logs
    */
-  async getTimeline() {
-    return await AttendanceAuditLog.find()
+  async getTimeline(tenantId) {
+    return await AttendanceAuditLog.find({ tenantId })
       .populate({
         path: 'performedBy',
         select: 'firstName lastName email role'
@@ -1121,7 +1136,7 @@ class AttendanceService {
   /**
    * Bulk lock, unlock, or delete sessions
    */
-  async bulkUpdateSessions(sessionIds, action, userId) {
+  async bulkUpdateSessions(sessionIds, action, userId, tenantId) {
     if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
       throw new Error('No sessions specified')
     }
@@ -1129,7 +1144,7 @@ class AttendanceService {
     if (action === 'Lock' || action === 'Unlock') {
       const isLockedVal = action === 'Lock'
       await AttendanceSession.updateMany(
-        { _id: { $in: sessionIds } },
+        { _id: { $in: sessionIds }, tenantId },
         { isLocked: isLockedVal, status: isLockedVal ? 'Locked' : 'Completed' }
       )
 
@@ -1137,19 +1152,21 @@ class AttendanceService {
       const audit = new AttendanceAuditLog({
         action: isLockedVal ? 'Locked' : 'Unlocked',
         performedBy: userId,
-        description: `Bulk ${action.toLowerCase()}ed ${sessionIds.length} sessions`
+        description: `Bulk ${action.toLowerCase()}ed ${sessionIds.length} sessions`,
+        tenantId
       })
       await audit.save()
     } else if (action === 'Delete') {
-      await AttendanceRecord.deleteMany({ attendanceSessionId: { $in: sessionIds } })
-      await AttendanceOverrideHistory.deleteMany({ attendanceSessionId: { $in: sessionIds } })
-      await AttendanceSession.deleteMany({ _id: { $in: sessionIds } })
+      await AttendanceRecord.deleteMany({ attendanceSessionId: { $in: sessionIds }, tenantId })
+      await AttendanceOverrideHistory.deleteMany({ attendanceSessionId: { $in: sessionIds }, tenantId })
+      await AttendanceSession.deleteMany({ _id: { $in: sessionIds }, tenantId })
 
       // Add audit log
       const audit = new AttendanceAuditLog({
         action: 'Deleted',
         performedBy: userId,
-        description: `Bulk deleted ${sessionIds.length} sessions`
+        description: `Bulk deleted ${sessionIds.length} sessions`,
+        tenantId
       })
       await audit.save()
     }
@@ -1174,7 +1191,8 @@ class AttendanceService {
       month,
       year,
       startDate,
-      endDate
+      endDate,
+      tenantId
     } = query
 
     const pageNum = parseInt(page) || 1
@@ -1202,7 +1220,7 @@ class AttendanceService {
     }
 
     // 2. Fetch all matching AttendanceSession IDs matching Class, Teacher, Subject, Date Filters
-    const sessionQuery = {}
+    const sessionQuery = { tenantId }
     if (Object.keys(dateFilter).length > 0) {
       sessionQuery.date = dateFilter
     }
@@ -1218,18 +1236,18 @@ class AttendanceService {
     if (classId) {
       targetClasses = [classId]
     } else if (subjectId) {
-      const subject = await mongoose.model('Subject').findById(subjectId).lean()
+      const subject = await mongoose.model('Subject').findOne({ _id: subjectId, tenantId }).lean()
       if (subject) {
         targetClasses = [subject.class]
       }
     } else if (teacherId) {
-      const timetableClasses = await mongoose.model('Timetable').find({ teacher: teacherId }).distinct('class')
-      const sessionClasses = await AttendanceSession.find({ teacherId }).distinct('classId')
+      const timetableClasses = await mongoose.model('Timetable').find({ teacher: teacherId, tenantId }).distinct('class')
+      const sessionClasses = await AttendanceSession.find({ teacherId, tenantId }).distinct('classId')
       targetClasses = Array.from(new Set([...timetableClasses, ...sessionClasses]))
     }
 
     // 4. Build student query matching class filters and search query
-    const studentQuery = { status: 'Active' }
+    const studentQuery = { status: 'Active', tenantId }
     if (targetClasses !== null) {
       studentQuery.class = { $in: targetClasses }
     }
@@ -1254,7 +1272,8 @@ class AttendanceService {
     if (studentIds.length > 0 && sessionIds.length > 0) {
       records = await AttendanceRecord.find({
         studentId: { $in: studentIds },
-        attendanceSessionId: { $in: sessionIds }
+        attendanceSessionId: { $in: sessionIds },
+        tenantId
       }).populate('attendanceSessionId', 'date').lean()
     }
 

@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const announcementSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   title: {
     type: String,
     required: [true, 'Title is required'],
