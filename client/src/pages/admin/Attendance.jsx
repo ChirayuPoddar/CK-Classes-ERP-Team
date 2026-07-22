@@ -19,7 +19,8 @@ import {
   CheckSquare,
   TrendingUp,
   Search,
-  Settings
+  Settings,
+  MoreVertical
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -96,6 +97,7 @@ export default function Attendance() {
   const [selectedSessionForView, setSelectedSessionForView] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState(null)
+  const [isHeaderOverflowOpen, setIsHeaderOverflowOpen] = useState(false)
 
   // Lecture Selection modal states
   const [modalClass, setModalClass] = useState('Class 1')
@@ -604,20 +606,135 @@ export default function Attendance() {
         )}
       </AnimatePresence>
 
-      {/* 1. Compact Header & Breadcrumbs Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0 print:hidden">
-        <div className="text-left space-y-0.5">
+      {/* ═══════════ 1. MODERN HEADER ACTION BAR ═══════════ */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 print:hidden bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        {/* Left: Title & Subtitle */}
+        <div className="text-left shrink-0">
           <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-slate-400 tracking-wider uppercase select-none">
             <span>Admin</span>
             <span>/</span>
             <span className="text-brand-blue-600">Attendance</span>
           </div>
-          <h2 className="text-xl font-black text-slate-800 tracking-tight leading-none mt-0.5">
+          <h2 className="text-lg font-black text-slate-800 tracking-tight leading-none mt-0.5">
             Attendance Management
           </h2>
-          <p className="text-[10.5px] font-bold text-slate-400 mt-0.5">
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">
             Mark student attendance, override submissions, lock sessions, and view reports
           </p>
+        </div>
+
+        {/* Right: Integrated Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0 relative">
+          {/* Search Field */}
+          <div className="relative w-36 sm:w-44 h-8">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-full w-full pl-8 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
+            />
+          </div>
+
+          {/* Primary CTA: Take Attendance */}
+          <button
+            onClick={handleOpenLectureSelect}
+            className="h-8 px-3.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Take Attendance</span>
+          </button>
+
+          {/* Secondary Actions (Outlined) */}
+          <button
+            onClick={() => navigate('/admin/attendance/history')}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+            title="View Attendance History"
+          >
+            <Calendar className="h-3.5 w-3.5 text-brand-blue-500" />
+            <span className="hidden sm:inline">History</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/attendance/analytics')}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+            title="View Attendance Analytics"
+          >
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+            <span className="hidden sm:inline">Analytics</span>
+          </button>
+
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+            title="Attendance Settings"
+          >
+            <Settings className="h-3.5 w-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+
+          {/* Three-Dot Overflow Menu (⋮) */}
+          <div className="relative">
+            <button
+              onClick={() => setIsHeaderOverflowOpen(!isHeaderOverflowOpen)}
+              className={cn(
+                "h-8 w-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs",
+                isHeaderOverflowOpen
+                  ? "bg-slate-800 border-slate-800 text-white"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              )}
+              title="More options"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            <AnimatePresence>
+              {isHeaderOverflowOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsHeaderOverflowOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-10 z-50 w-48 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 select-none text-left"
+                  >
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      Attendance Tools
+                    </div>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); handleExportExcel(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5 text-red-500" />
+                      <span>Export CSV Report</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); window.print(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-blue-500" />
+                      <span>Print Page</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); fetchAttendanceData(); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Refresh Data</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -671,107 +788,58 @@ export default function Attendance() {
         />
       </div>
 
-      {/* 3. Compact Controls & Filters Toolbar */}
+      {/* 3. Compact Filter Bar Only (Actions moved to Header) */}
       <div 
         style={{ borderRadius: '16px', border: '1px solid #ECECEC' }}
-        className="py-2 px-3 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col xl:flex-row xl:items-center justify-between gap-2 shrink-0 print:hidden"
+        className="py-2 px-3 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-wrap items-center gap-2 shrink-0 print:hidden"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-44 h-8">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-full w-full pl-8 pr-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white text-[11px] font-semibold rounded-full focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
-            />
-          </div>
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Filters:</span>
 
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="h-8 px-3 bg-white border border-slate-200 rounded-full text-[11px] font-bold text-slate-650 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-          >
-            <option value="">All Classes</option>
-            {classesList.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+        <select
+          value={classFilter}
+          onChange={(e) => setClassFilter(e.target.value)}
+          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+        >
+          <option value="">All Classes</option>
+          {classesList.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
 
-          <select
-            value={teacherFilter}
-            onChange={(e) => setTeacherFilter(e.target.value)}
-            className="h-8 px-3 bg-white border border-slate-200 rounded-full text-[11px] font-bold text-slate-650 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-          >
-            <option value="">All Teachers</option>
-            {teachers.map(t => (
-              <option key={t._id} value={t._id}>
-                {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
-              </option>
-            ))}
-          </select>
+        <select
+          value={teacherFilter}
+          onChange={(e) => setTeacherFilter(e.target.value)}
+          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+        >
+          <option value="">All Teachers</option>
+          {teachers.map(t => (
+            <option key={t._id} value={t._id}>
+              {`${t.firstName || ''} ${t.lastName || ''}`.trim()}
+            </option>
+          ))}
+        </select>
 
-          <select
-            value={subjectFilter}
-            onChange={(e) => setSubjectFilter(e.target.value)}
-            className="h-8 px-3 bg-white border border-slate-200 rounded-full text-[11px] font-bold text-slate-650 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-          >
-            <option value="">All Subjects</option>
-            {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-          </select>
+        <select
+          value={subjectFilter}
+          onChange={(e) => setSubjectFilter(e.target.value)}
+          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+        >
+          <option value="">All Subjects</option>
+          {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+        </select>
 
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="h-8 px-3 bg-white border border-slate-200 rounded-full text-[11px] font-bold text-slate-650 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
-          />
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="h-8 px-3 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+        />
 
-          <button
-            onClick={handleClearFilters}
-            className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 shadow-2xs"
-            title="Clear All Filters"
-          >
-            Clear Filters
-          </button>
-
-          <div className="h-5 w-[1px] bg-slate-200 mx-0.5 hidden xl:block" />
-
-          {/* Take Attendance Primary Action */}
-          <button
-            onClick={handleOpenLectureSelect}
-            className="h-8 px-3.5 bg-brand-blue-500 hover:bg-brand-blue-600 text-[11px] font-extrabold text-white rounded-full flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors active:scale-95"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Take Attendance</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-650 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="Configure Thresholds / System Parameters"
-          >
-            <Settings className="h-3.5 w-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Attendance Settings</span>
-          </button>
-          <button
-            onClick={() => navigate('/admin/attendance/history')}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-650 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="View Attendance History"
-          >
-            <Calendar className="h-3.5 w-3.5 text-brand-blue-500" />
-            <span className="hidden sm:inline">Attendance History</span>
-          </button>
-          <button
-            onClick={() => navigate('/admin/attendance/analytics')}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-650 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="View Attendance Analytics"
-          >
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="hidden sm:inline">Attendance Analytics</span>
-          </button>
-        </div>
+        <button
+          onClick={handleClearFilters}
+          className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 shadow-2xs"
+          title="Clear All Filters"
+        >
+          Clear Filters
+        </button>
       </div>
 
       {/* Print-only Header block */}
