@@ -1,15 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { SettingsHeader } from './components/SettingsHeader';
 import { SettingsSidebar } from './components/SettingsSidebar';
-import { OrganizationSettings } from './categories/OrganizationSettings';
+import { OrganizationSettings } from './categories/organization';
+import { UsersRolesSettings } from './categories/users-roles';
+import { AttendanceSettings } from './categories/attendance';
+import { TimetableSettings } from './categories/timetable';
+import { NotificationSettings } from './categories/notifications';
+import { AppearanceSettings } from './categories/appearance';
+import { SecuritySettings } from './categories/security';
+import { BackupSettings } from './categories/backup';
+import { ImportExportSettings } from './categories/importExport';
+import { AuditLogsSettings } from './categories/auditLogs';
 import { PlaceholderSettings } from './categories/PlaceholderSettings';
 import { 
   Building2, Users, CheckSquare, Calendar, 
-  Bell, Palette, Shield, DatabaseBackup, 
-  ArrowLeftRight, FileText 
+  CreditCard, BookOpen, GraduationCap, Link, Shield,
+  Bell, FileText, Smartphone, Globe, HardDrive, Share2,
+  Palette, DatabaseBackup, ArrowLeftRight
 } from 'lucide-react';
 
-const SETTINGS_CATEGORIES = [
+export const SETTINGS_CATEGORIES = [
   {
     id: 'organization',
     title: 'Organization',
@@ -22,63 +32,63 @@ const SETTINGS_CATEGORIES = [
     title: 'Users & Roles',
     description: 'Configure role-based access control and user management policies',
     icon: Users,
-    component: PlaceholderSettings
+    component: UsersRolesSettings
   },
   {
     id: 'attendance',
     title: 'Attendance',
     description: 'Set up attendance rules, leave policies, and tracking preferences',
     icon: CheckSquare,
-    component: PlaceholderSettings
+    component: AttendanceSettings
   },
   {
     id: 'timetable',
     title: 'Timetable',
-    description: 'Configure scheduling parameters, break times, and working days',
+    description: 'Configure scheduling rules, constraints, appearance, and auto-generation',
     icon: Calendar,
-    component: PlaceholderSettings
+    component: TimetableSettings
   },
   {
     id: 'notifications',
     title: 'Notifications',
     description: 'Manage email, SMS, and in-app notification templates and triggers',
     icon: Bell,
-    component: PlaceholderSettings
+    component: NotificationSettings
   },
   {
     id: 'appearance',
-    title: 'Appearance',
-    description: 'Customize branding, logos, colors, and user interface themes',
+    title: 'Appearance & Personalization',
+    description: 'Customize themes, branding, dashboard layouts, and accessibility',
     icon: Palette,
-    component: PlaceholderSettings
+    component: AppearanceSettings
   },
   {
     id: 'security',
-    title: 'Security',
-    description: 'Manage password policies, 2FA, session timeouts, and IP whitelisting',
+    title: 'Security & Identity',
+    description: 'Configure password policies, 2FA, session timeouts, and access controls',
     icon: Shield,
-    component: PlaceholderSettings
+    component: SecuritySettings
   },
   {
     id: 'backup-restore',
-    title: 'Backup & Restore',
-    description: 'Schedule automated database backups and manage system restoration points',
+    title: 'Backup & Disaster Recovery',
+    description: 'Configure automated backups, manual snapshots, and system restoration',
     icon: DatabaseBackup,
-    component: PlaceholderSettings
+    component: BackupSettings
   },
   {
     id: 'import-export',
-    title: 'Import & Export',
-    description: 'Configure data migration tools, bulk uploads, and export formats',
+    title: 'Data Import & Export',
+    description: 'Bulk import records, configure field mappings, and export system data',
     icon: ArrowLeftRight,
-    component: PlaceholderSettings
+    component: ImportExportSettings
   },
   {
     id: 'audit-logs',
-    title: 'Audit Logs',
-    description: 'View system-wide activity logs, audit trails, and compliance reports',
+    title: 'Audit Logs & Activity',
+    description: 'Monitor system activity, security events, and manage retention policies',
     icon: FileText,
-    component: PlaceholderSettings
+    component: AuditLogsSettings
   }
 ];
 
