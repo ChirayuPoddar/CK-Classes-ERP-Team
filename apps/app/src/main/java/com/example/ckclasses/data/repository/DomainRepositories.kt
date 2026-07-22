@@ -34,6 +34,32 @@ class StudentRepository(private val apiService: ApiService) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
         }
     }
+
+    suspend fun updateStudent(id: String, req: CreateStudentRequest): NetworkResult<Student> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateStudent(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Student updated successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update student")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteStudent(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteStudent(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Student deleted successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete student")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
 }
 
 class TeacherRepository(private val apiService: ApiService) {
@@ -64,6 +90,32 @@ class TeacherRepository(private val apiService: ApiService) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
         }
     }
+
+    suspend fun updateTeacher(id: String, req: CreateTeacherRequest): NetworkResult<Teacher> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateTeacher(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Teacher updated successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update teacher")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteTeacher(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteTeacher(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Teacher deleted successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete teacher")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
 }
 
 class SubjectRepository(private val apiService: ApiService) {
@@ -89,6 +141,32 @@ class SubjectRepository(private val apiService: ApiService) {
                 NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Subject created successfully")
             } else {
                 NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to create subject")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun updateSubject(id: String, req: CreateSubjectRequest): NetworkResult<Subject> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateSubject(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Subject updated successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update subject")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteSubject(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteSubject(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Subject deleted successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete subject")
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -142,13 +220,52 @@ class FeeRepository(private val apiService: ApiService) {
         }
     }
 
-    suspend fun collectFee(req: CollectFeeRequest): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+    suspend fun createFee(req: CreateFeeRequest): NetworkResult<FeeRecord> = withContext(Dispatchers.IO) {
         try {
-            val res = apiService.collectFee(req)
+            val res = apiService.createFee(req)
             if (res.isSuccessful && res.body()?.success == true) {
-                NetworkResult.Success(Unit, res.body()?.message ?: "Fee collection recorded")
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Fee created")
             } else {
-                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Fee collection failed")
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to create fee")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun updateFee(id: String, req: CreateFeeRequest): NetworkResult<FeeRecord> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateFee(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Fee updated")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update fee")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun addPayment(id: String, req: AddPaymentRequest): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.addPayment(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Payment added")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to add payment")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteFee(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteFee(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Fee deleted")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete fee")
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -184,6 +301,32 @@ class HomeworkRepository(private val apiService: ApiService) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
         }
     }
+
+    suspend fun updateHomework(id: String, req: CreateHomeworkRequest): NetworkResult<Homework> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateHomework(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Homework updated")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update homework")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteHomework(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteHomework(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Homework deleted")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete homework")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
 }
 
 class ExamRepository(private val apiService: ApiService) {
@@ -209,6 +352,32 @@ class ExamRepository(private val apiService: ApiService) {
                 NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Exam created")
             } else {
                 NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to create exam")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun updateExam(id: String, req: CreateExamRequest): NetworkResult<Exam> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateExam(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Exam updated")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update exam")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteExam(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteExam(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Exam deleted")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete exam")
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
@@ -244,6 +413,32 @@ class AnnouncementRepository(private val apiService: ApiService) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
         }
     }
+
+    suspend fun updateAnnouncement(id: String, req: CreateAnnouncementRequest): NetworkResult<Announcement> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateAnnouncement(id, req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Announcement updated")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update announcement")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun deleteAnnouncement(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteAnnouncement(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Announcement deleted")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete announcement")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
 }
 
 class ResourceRepository(private val apiService: ApiService) {
@@ -274,6 +469,19 @@ class ResourceRepository(private val apiService: ApiService) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")
         }
     }
+
+    suspend fun deleteResource(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.deleteResource(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(Unit, res.body()?.message ?: "Resource deleted")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to delete resource")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
 }
 
 class UserRepository(private val apiService: ApiService) {
@@ -286,6 +494,33 @@ class UserRepository(private val apiService: ApiService) {
             } else {
                 val err = res.body()?.getErrorMessage() ?: "HTTP ${res.code()}: Failed to fetch users"
                 NetworkResult.Error(err)
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun updateUserRole(id: String, role: String): NetworkResult<User> = withContext(Dispatchers.IO) {
+        try {
+            val res = apiService.updateUserRole(id, mapOf("role" to role))
+            if (res.isSuccessful && res.body()?.success == true) {
+                NetworkResult.Success(res.body()?.data, res.body()?.message ?: "Role updated")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to update role")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Network error")
+        }
+    }
+
+    suspend fun toggleBlockStatus(id: String, isBlocked: Boolean): NetworkResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = if (isBlocked) apiService.unblockUser(id) else apiService.blockUser(id)
+            if (res.isSuccessful && res.body()?.success == true) {
+                val action = if (isBlocked) "unblocked" else "blocked"
+                NetworkResult.Success(Unit, res.body()?.message ?: "User $action successfully")
+            } else {
+                NetworkResult.Error(res.body()?.getErrorMessage() ?: "Failed to change block status")
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Network error")

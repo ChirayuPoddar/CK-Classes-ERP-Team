@@ -6,19 +6,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.ckclasses.data.api.RetrofitClient
-import com.example.ckclasses.data.repository.ExamRepository
 import com.example.ckclasses.databinding.FragmentExamsBinding
 import com.example.ckclasses.utils.NetworkResult
-import kotlinx.coroutines.launch
 
 class ExamsFragment : Fragment() {
 
     private var _binding: FragmentExamsBinding? = null
     private val binding get() = _binding!!
-    private val repository = ExamRepository(RetrofitClient.apiService)
+    private val viewModel: ExamViewModel by viewModels()
     private lateinit var adapter: ExamAdapter
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -29,27 +26,48 @@ class ExamsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = ExamAdapter()
+        adapter = ExamAdapter { exam ->
+            ExamBottomSheetFragment.newInstance(exam)
+                .show(childFragmentManager, ExamBottomSheetFragment.TAG)
+        }
         binding.rvExams.layoutManager = LinearLayoutManager(requireContext())
         binding.rvExams.adapter = adapter
 
-        binding.swipeRefresh.setOnRefreshListener { loadExams() }
-        loadExams()
+        binding.swipeRefresh.setOnRefreshListener { viewModel.loadExams() }
+
+        binding.fabAddExam.setOnClickListener {
+            ExamBottomSheetFragment.newInstance()
+                .show(childFragmentManager, ExamBottomSheetFragment.TAG)
+        }
+
+        observeViewModel()
+        viewModel.loadExams()
     }
 
-    private fun loadExams() {
-        binding.swipeRefresh.isRefreshing = true
-        lifecycleScope.launch {
-            when (val res = repository.getExams()) {
+    private fun observeViewModel() {
+        viewModel.examsState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> binding.swipeRefresh.isRefreshing = true
                 is NetworkResult.Success -> {
                     binding.swipeRefresh.isRefreshing = false
-                    adapter.submitList(res.data ?: emptyList())
+                    adapter.submitList(result.data ?: emptyList())
                 }
                 is NetworkResult.Error -> {
                     binding.swipeRefresh.isRefreshing = false
-                    Toast.makeText(requireContext(), res.message ?: "Failed to load exams", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), result.message ?: "Failed to load exams", Toast.LENGTH_SHORT).show()
                 }
-                else -> binding.swipeRefresh.isRefreshing = false
+            }
+        }
+
+        viewModel.actionState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> { }
+                is NetworkResult.Success -> {
+                    Toast.makeText(requireContext(), result.data, Toast.LENGTH_SHORT).show()
+                }
+                is NetworkResult.Error -> {
+                    Toast.makeText(requireContext(), result.message ?: "Action failed", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

@@ -31,6 +31,7 @@ import Exams from '@/pages/admin/Exams'
 import Announcements from '@/pages/admin/Announcements'
 import Resources from '@/pages/admin/Resources'
 import Users from '@/pages/admin/Users'
+import Settings from '@/pages/admin/Settings'
 
 export const AppRoutes = () => {
   return (
@@ -81,7 +82,7 @@ export const AppRoutes = () => {
         <Route path="users" element={<Users />} />
         <Route path="fees" element={<FeeManagement />} />
         <Route path="reports" element={<AdminDashboard />} />
-        <Route path="settings" element={<AdminDashboard />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
  
       {/* Teacher Panel */}

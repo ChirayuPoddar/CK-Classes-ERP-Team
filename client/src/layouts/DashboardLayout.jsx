@@ -29,7 +29,7 @@ export const DashboardLayout = () => {
     '/teacher/homework', '/student/homework', '/admin/exams', '/teacher/exams', '/student/exams',
     '/admin/announcements', '/teacher/announcements', '/student/announcements',
     '/admin/resources', '/teacher/resources', '/student/resources', '/resources',
-    '/admin/users'
+    '/admin/users', '/admin/settings'
   ].includes(location.pathname)
 
   return (

@@ -31,7 +31,8 @@ class StudentsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = StudentAdapter { student ->
-            Toast.makeText(requireContext(), "Edit student: ${student.fullName}", Toast.LENGTH_SHORT).show()
+            StudentBottomSheetFragment.newInstance(student)
+                .show(childFragmentManager, StudentBottomSheetFragment.TAG)
         }
 
         binding.rvStudents.layoutManager = LinearLayoutManager(requireContext())
@@ -48,6 +49,11 @@ class StudentsFragment : Fragment() {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        binding.fabAddStudent.setOnClickListener {
+            StudentBottomSheetFragment.newInstance()
+                .show(childFragmentManager, StudentBottomSheetFragment.TAG)
+        }
 
         observeViewModel()
         viewModel.loadStudents()
@@ -66,6 +72,20 @@ class StudentsFragment : Fragment() {
                 is NetworkResult.Error -> {
                     binding.swipeRefreshStudents.isRefreshing = false
                     Toast.makeText(requireContext(), result.message ?: "Failed to load students", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        viewModel.actionState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    // Could show a progress dialog here if needed
+                }
+                is NetworkResult.Success -> {
+                    Toast.makeText(requireContext(), result.data, Toast.LENGTH_SHORT).show()
+                }
+                is NetworkResult.Error -> {
+                    Toast.makeText(requireContext(), result.message ?: "Action failed", Toast.LENGTH_SHORT).show()
                 }
             }
         }

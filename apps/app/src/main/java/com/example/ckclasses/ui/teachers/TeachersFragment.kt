@@ -31,7 +31,8 @@ class TeachersFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = TeacherAdapter { teacher ->
-            Toast.makeText(requireContext(), "Edit faculty: ${teacher.fullName}", Toast.LENGTH_SHORT).show()
+            TeacherBottomSheetFragment.newInstance(teacher)
+                .show(childFragmentManager, TeacherBottomSheetFragment.TAG)
         }
 
         binding.rvTeachers.layoutManager = LinearLayoutManager(requireContext())
@@ -48,6 +49,11 @@ class TeachersFragment : Fragment() {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        binding.fabAddTeacher.setOnClickListener {
+            TeacherBottomSheetFragment.newInstance()
+                .show(childFragmentManager, TeacherBottomSheetFragment.TAG)
+        }
 
         observeViewModel()
         viewModel.loadTeachers()
@@ -66,6 +72,20 @@ class TeachersFragment : Fragment() {
                 is NetworkResult.Error -> {
                     binding.swipeRefreshTeachers.isRefreshing = false
                     Toast.makeText(requireContext(), result.message ?: "Failed to load teachers", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        viewModel.actionState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    // Could show a progress dialog here if needed
+                }
+                is NetworkResult.Success -> {
+                    Toast.makeText(requireContext(), result.data, Toast.LENGTH_SHORT).show()
+                }
+                is NetworkResult.Error -> {
+                    Toast.makeText(requireContext(), result.message ?: "Action failed", Toast.LENGTH_SHORT).show()
                 }
             }
         }
