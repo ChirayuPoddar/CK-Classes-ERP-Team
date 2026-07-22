@@ -31,6 +31,12 @@ const paymentSchema = new mongoose.Schema({
 })
 
 const studentFeeSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',

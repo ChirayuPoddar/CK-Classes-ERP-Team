@@ -7,7 +7,7 @@ class PeriodController {
    */
   async getAllPeriods(req, res, next) {
     try {
-      const periods = await PeriodService.getAllPeriods(req.query)
+      const periods = await PeriodService.getAllPeriods(req.query, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Periods configuration retrieved successfully',
@@ -109,7 +109,7 @@ class PeriodController {
    */
   async bulkReplacePeriods(req, res, next) {
     try {
-      const periods = await PeriodService.bulkReplacePeriods(req.body.periods)
+      const periods = await PeriodService.bulkReplacePeriods(req.body.periods, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Periods configuration updated successfully',

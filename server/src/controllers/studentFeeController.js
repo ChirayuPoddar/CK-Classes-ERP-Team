@@ -6,7 +6,7 @@ class StudentFeeController {
    */
   async createStudentFee(req, res, next) {
     try {
-      const studentFee = await StudentFeeService.createStudentFee(req.body)
+      const studentFee = await StudentFeeService.createStudentFee({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Fee assigned to student successfully',
@@ -22,7 +22,7 @@ class StudentFeeController {
    */
   async getStudentFeeById(req, res, next) {
     try {
-      const studentFee = await StudentFeeService.getStudentFeeById(req.params.id)
+      const studentFee = await StudentFeeService.getStudentFeeById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         data: studentFee
@@ -37,7 +37,7 @@ class StudentFeeController {
    */
   async getAllStudentFees(req, res, next) {
     try {
-      const result = await StudentFeeService.getAllStudentFees(req.query)
+      const result = await StudentFeeService.getAllStudentFees({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -52,7 +52,7 @@ class StudentFeeController {
    */
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await StudentFeeService.getDashboardStats()
+      const stats = await StudentFeeService.getDashboardStats(req.tenantId)
       res.status(200).json({
         success: true,
         data: stats
@@ -67,7 +67,7 @@ class StudentFeeController {
    */
   async getReceipts(req, res, next) {
     try {
-      const result = await StudentFeeService.getReceipts(req.query)
+      const result = await StudentFeeService.getReceipts({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         data: result
@@ -82,7 +82,7 @@ class StudentFeeController {
    */
   async updateStudentFee(req, res, next) {
     try {
-      const studentFee = await StudentFeeService.updateStudentFee(req.params.id, req.body)
+      const studentFee = await StudentFeeService.updateStudentFee(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student fee updated successfully',
@@ -98,7 +98,7 @@ class StudentFeeController {
    */
   async addPayment(req, res, next) {
     try {
-      const studentFee = await StudentFeeService.addPayment(req.params.id, req.body)
+      const studentFee = await StudentFeeService.addPayment(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Payment recorded successfully',
@@ -114,7 +114,7 @@ class StudentFeeController {
    */
   async deleteStudentFee(req, res, next) {
     try {
-      await StudentFeeService.deleteStudentFee(req.params.id)
+      await StudentFeeService.deleteStudentFee(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Student fee assignment deleted successfully'
@@ -137,7 +137,7 @@ class StudentFeeController {
       const deletedList = []
       for (const id of ids) {
         try {
-          const item = await StudentFeeService.deleteStudentFee(id)
+          const item = await StudentFeeService.deleteStudentFee(id, req.tenantId)
           deletedList.push(item)
         } catch (e) {
           console.warn(`Failed to delete student fee with ID ${id} in bulk:`, e)

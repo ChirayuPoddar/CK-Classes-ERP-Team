@@ -106,7 +106,8 @@ class ExamService {
     const subject = await Subject.findOne({
       _id: data.subjectId,
       class: data.class,
-      status: 'Active'
+      status: 'Active',
+      tenantId: data.tenantId
     }).lean()
     
     if (!subject) {
@@ -119,7 +120,8 @@ class ExamService {
       academicYear: data.academicYear.trim(),
       class: data.class.trim(),
       subjectId: data.subjectId,
-      isDeleted: { $ne: true }
+      isDeleted: { $ne: true },
+      tenantId: data.tenantId
     }).lean()
     
     if (existing) {
@@ -132,17 +134,18 @@ class ExamService {
     const exam = new Exam({
       ...data,
       status: calculatedStatus,
-      createdBy: userId
+      createdBy: userId,
+      tenantId: data.tenantId
     })
     await exam.save()
-    return this.getExamById(exam._id)
+    return this.getExamById(exam._id, data.tenantId)
   }
 
   /**
    * Fetch single exam details
    */
-  async getExamById(id) {
-    let exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true } })
+  async getExamById(id, tenantId) {
+    let exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
       .populate('subjectId')
       .populate('createdBy', 'firstName lastName email')
       .populate('updatedBy', 'firstName lastName email')
@@ -163,7 +166,7 @@ class ExamService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = { isDeleted: { $ne: true } }
+    const filter = { isDeleted: { $ne: true }, tenantId: queryParams.tenantId }
 
     if (queryParams.class) {
       filter.class = queryParams.class
@@ -187,7 +190,7 @@ class ExamService {
 
     if (queryParams.search) {
       const regex = new RegExp(queryParams.search.trim(), 'i')
-      const matchSubjects = await Subject.find({ name: regex, status: 'Active' }).select('_id').lean()
+      const matchSubjects = await Subject.find({ name: regex, status: 'Active', tenantId: queryParams.tenantId }).select('_id').lean()
       const subjectIds = matchSubjects.map(s => s._id)
       
       filter.$or = [
@@ -288,8 +291,8 @@ class ExamService {
   /**
    * Update existing Exam configurations
    */
-  async updateExam(id, updateData, userId) {
-    const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true } })
+  async updateExam(id, updateData, userId, tenantId) {
+    const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!exam) {
       throw new Error('Exam not found')
     }
@@ -300,7 +303,8 @@ class ExamService {
       const subject = await Subject.findOne({
         _id: updateData.subjectId,
         class: targetClass,
-        status: 'Active'
+        status: 'Active',
+        tenantId
       }).lean()
       
       if (!subject) {
@@ -321,7 +325,8 @@ class ExamService {
         class: checkClass,
         subjectId: checkSub,
         _id: { $ne: id },
-        isDeleted: { $ne: true }
+        isDeleted: { $ne: true },
+        tenantId
       }).lean()
       if (existing) {
         throw new Error('An exam with this name and subject already exists for this class and academic year')
@@ -348,14 +353,14 @@ class ExamService {
     }
 
     await exam.save()
-    return this.getExamById(exam._id)
+    return this.getExamById(exam._id, tenantId)
   }
 
   /**
    * Soft delete Exam configurations and cascade soft-delete marks
    */
-  async deleteExam(id) {
-    const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true } })
+  async deleteExam(id, tenantId) {
+    const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true }, tenantId })
     if (!exam) {
       throw new Error('Exam not found')
     }
@@ -364,7 +369,7 @@ class ExamService {
     await exam.save()
 
     // Soft delete associated marks
-    await ExamMark.updateMany({ examId: id }, { isDeleted: true })
+    await ExamMark.updateMany({ examId: id, tenantId }, { isDeleted: true })
 
     return exam.toObject()
   }
@@ -372,8 +377,8 @@ class ExamService {
   /**
    * Fetch Exam Dashboard KPI metrics
    */
-  async getDashboardStats() {
-    const activeFilter = { isDeleted: { $ne: true } }
+  async getDashboardStats(tenantId) {
+    const activeFilter = { isDeleted: { $ne: true }, tenantId }
 
     const totalExams = await Exam.countDocuments(activeFilter)
     
@@ -397,13 +402,13 @@ class ExamService {
   /**
    * Fetch list of students for marks entry
    */
-  async getStudentsForMarksEntry(examId) {
-    const exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true } }).lean()
+  async getStudentsForMarksEntry(examId, tenantId) {
+    const exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true }, tenantId }).lean()
     if (!exam) {
       throw new Error('Exam not found')
     }
 
-    const students = await Student.find({ class: exam.class, status: 'Active' })
+    const students = await Student.find({ class: exam.class, status: 'Active', tenantId })
       .sort({ rollNumber: 1, firstName: 1 })
       .lean()
 
@@ -411,7 +416,8 @@ class ExamService {
     const existingMarksList = await ExamMark.find({
       examId,
       studentId: { $in: studentIds },
-      isDeleted: { $ne: true }
+      isDeleted: { $ne: true },
+      tenantId
     }).lean()
 
     const marksMap = {}
@@ -446,8 +452,8 @@ class ExamService {
   /**
    * Save / overwrite bulk marks for an exam
    */
-  async saveMarks(examId, marksDataList, userId) {
-    const exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true } })
+  async saveMarks(examId, marksDataList, userId, tenantId) {
+    const exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true }, tenantId })
     if (!exam) {
       throw new Error('Exam not found')
     }
@@ -456,7 +462,8 @@ class ExamService {
     const enrolledStudentsCount = await Student.countDocuments({
       _id: { $in: uniqueStudentIds },
       class: exam.class,
-      status: 'Active'
+      status: 'Active',
+      tenantId
     })
     
     if (enrolledStudentsCount !== uniqueStudentIds.length) {
@@ -478,7 +485,7 @@ class ExamService {
 
       return {
         updateOne: {
-          filter: { examId, studentId },
+          filter: { examId, studentId, tenantId },
           update: {
             marksObtained: marksVal,
             maxMarks,
@@ -488,7 +495,8 @@ class ExamService {
             remarks: remarks.trim(),
             subjectId: exam.subjectId,
             enteredBy: userId,
-            isDeleted: false
+            isDeleted: false,
+            tenantId
           },
           upsert: true
         }
@@ -506,13 +514,13 @@ class ExamService {
   /**
    * Fetch results for a student dynamically
    */
-  async getStudentResults(studentId) {
-    const student = await Student.findOne({ _id: studentId }).select('firstName lastName rollNumber studentId class photo').lean()
+  async getStudentResults(studentId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId }).select('firstName lastName rollNumber studentId class photo').lean()
     if (!student) {
       throw new Error('Student not found')
     }
 
-    const marks = await ExamMark.find({ studentId, isDeleted: { $ne: true } })
+    const marks = await ExamMark.find({ studentId, isDeleted: { $ne: true }, tenantId })
       .populate({
         path: 'examId',
         match: { isDeleted: { $ne: true }, status: 'Published' }
@@ -580,12 +588,12 @@ class ExamService {
   /**
    * Fetch results by student email context
    */
-  async getStudentResultsByEmail(email) {
-    const student = await Student.findOne({ email }).lean()
+  async getStudentResultsByEmail(email, tenantId) {
+    const student = await Student.findOne({ email, tenantId }).lean()
     if (!student) {
       throw new Error('Student profile not found for this account')
     }
-    return this.getStudentResults(student._id)
+    return this.getStudentResults(student._id, tenantId)
   }
 
   /**
@@ -596,9 +604,9 @@ class ExamService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const match = { isDeleted: { $ne: true } }
+    const match = { isDeleted: { $ne: true }, tenantId: queryParams.tenantId }
 
-    let examFilter = { isDeleted: { $ne: true } }
+    let examFilter = { isDeleted: { $ne: true }, tenantId: queryParams.tenantId }
     let hasExamFilter = false
     
     if (queryParams.class) {
@@ -624,7 +632,7 @@ class ExamService {
       match.examId = { $in: examIds }
     }
 
-    let studentFilter = {}
+    let studentFilter = { tenantId: queryParams.tenantId }
     let hasStudentFilter = false
     
     if (queryParams.class) {
@@ -759,7 +767,7 @@ class ExamService {
     const allSubjectIds = [...new Set(formatted.flatMap(f => f.subjects.map(s => s.subjectId)))]
     const subjectsMap = {}
     if (allSubjectIds.length > 0) {
-      const subjectsList = await Subject.find({ _id: { $in: allSubjectIds } }).select('name code').lean()
+      const subjectsList = await Subject.find({ _id: { $in: allSubjectIds }, tenantId: queryParams.tenantId }).select('name code').lean()
       subjectsList.forEach(s => {
         subjectsMap[s._id.toString()] = s
       })

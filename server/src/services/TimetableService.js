@@ -48,7 +48,8 @@ class TimetableService {
     const query = {
       day: data.day,
       period: periodId,
-      academicYear: data.academicYear || '2026-2027'
+      academicYear: data.academicYear || '2026-2027',
+      tenantId: data.tenantId
     }
 
     if (excludeObjId) {
@@ -106,7 +107,7 @@ class TimetableService {
 
     await this.recordVersion(slot._id, 'create', userId, 'Created new lecture slot')
 
-    const populated = await Timetable.findById(slot._id)
+    const populated = await Timetable.findOne({ _id: slot._id, tenantId: data.tenantId })
       .populate('subject')
       .populate('teacher')
       .populate('period')
@@ -120,10 +121,11 @@ class TimetableService {
    * @param {String} id 
    * @param {Object} data 
    * @param {String} userId
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async updateTimetableSlot(id, data, userId = null) {
-    const slot = await Timetable.findById(id)
+  async updateTimetableSlot(id, data, userId = null, tenantId = null) {
+    const slot = await Timetable.findOne({ _id: id, tenantId: tenantId || data.tenantId })
     if (!slot) {
       throw new Error('Timetable slot not found')
     }
@@ -135,7 +137,8 @@ class TimetableService {
       academicYear: data.academicYear !== undefined ? data.academicYear : slot.academicYear,
       teacher: data.teacher !== undefined ? data.teacher : slot.teacher,
       subject: data.subject !== undefined ? data.subject : slot.subject,
-      room: data.room !== undefined ? data.room : slot.room
+      room: data.room !== undefined ? data.room : slot.room,
+      tenantId: tenantId || data.tenantId || slot.tenantId
     }
 
     await this.checkConflicts(checkData, id)
@@ -151,7 +154,7 @@ class TimetableService {
 
     await this.recordVersion(slot._id, 'update', userId, 'Updated lecture slot')
 
-    const populated = await Timetable.findById(id)
+    const populated = await Timetable.findOne({ _id: id, tenantId: tenantId || data.tenantId || slot.tenantId })
       .populate('subject')
       .populate('teacher')
       .populate('period')
@@ -164,15 +167,16 @@ class TimetableService {
    * Delete a timetable slot
    * @param {String} id 
    * @param {String} userId
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteTimetableSlot(id, userId = null) {
-    const slot = await Timetable.findById(id)
+  async deleteTimetableSlot(id, userId = null, tenantId = null) {
+    const slot = await Timetable.findOne({ _id: id, tenantId })
     if (!slot) {
       throw new Error('Timetable slot not found')
     }
     await this.recordVersion(id, 'delete', userId, 'Deleted lecture slot')
-    await Timetable.findByIdAndDelete(id)
+    await Timetable.findOneAndDelete({ _id: id, tenantId })
     return slot.toObject()
   }
 
@@ -417,7 +421,7 @@ class TimetableService {
    * @returns {Promise<Object>}
    */
   async getTimetableForClass(options = {}) {
-    const query = {}
+    const query = { tenantId: options.tenantId }
     if (options.class) {
       query.class = options.class
     }
@@ -448,13 +452,17 @@ class TimetableService {
 
     const activeSlots = slots.filter(s => s.period)
 
-    const totalPeriodsCount = await Period.countDocuments({ type: 'period' })
+    // Calculate statistics
+    const totalPeriodsCount = await Period.countDocuments({ type: 'period', tenantId: options.tenantId })
     const maxWeeklySlots = totalPeriodsCount * 7
 
     const totalLectures = activeSlots.length
     const freeSlots = Math.max(0, maxWeeklySlots - totalLectures)
 
     const teacherConflictsGroup = await Timetable.aggregate([
+      {
+        $match: { tenantId: options.tenantId }
+      },
       {
         $group: {
           _id: {
@@ -475,6 +483,9 @@ class TimetableService {
     const teacherConflictsCount = teacherConflictsGroup.length;
 
     const classConflictsGroup = await Timetable.aggregate([
+      {
+        $match: { tenantId: options.tenantId }
+      },
       {
         $group: {
           _id: {
@@ -508,10 +519,11 @@ class TimetableService {
   /**
    * Get a single slot details
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async getTimetableById(id) {
-    const slot = await Timetable.findById(id)
+  async getTimetableById(id, tenantId) {
+    const slot = await Timetable.findOne({ _id: id, tenantId })
       .populate('subject')
       .populate('teacher')
       .populate('period')

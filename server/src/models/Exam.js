@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const examSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   examName: {
     type: String,
     required: [true, 'Exam name is required'],
@@ -84,7 +90,7 @@ const examSchema = new mongoose.Schema({
 })
 
 // Database performance search indexes
-examSchema.index({ examName: 1, academicYear: 1, class: 1, subjectId: 1, isDeleted: 1 }, { unique: true })
+examSchema.index({ tenantId: 1, examName: 1, academicYear: 1, class: 1, subjectId: 1, isDeleted: 1 }, { unique: true })
 examSchema.index({ class: 1 })
 examSchema.index({ subjectId: 1 })
 examSchema.index({ status: 1 })

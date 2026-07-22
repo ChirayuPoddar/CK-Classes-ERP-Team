@@ -47,20 +47,20 @@ class UserService {
   /**
    * Helper: Check if target user is the last active admin
    */
-  async isLastActiveAdmin(userId) {
-    const user = await User.findById(userId)
+  async isLastActiveAdmin(userId, tenantId) {
+    const user = await User.findOne({ _id: userId, tenantId })
     if (!user || user.role !== 'admin' || !user.isActive) {
       return false
     }
-    const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true })
+    const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true, tenantId })
     return activeAdminCount <= 1
   }
 
   /**
    * Get paginated users with search & filters
    */
-  async getUsers({ page = 1, limit = 10, search = '', role = '', status = '' }) {
-    const query = {}
+  async getUsers({ page = 1, limit = 10, search = '', role = '', status = '', tenantId }) {
+    const query = { tenantId }
 
     // Status filter
     if (status === 'Active') {
@@ -122,13 +122,13 @@ class UserService {
   /**
    * Get dashboard user statistics
    */
-  async getUserStats() {
+  async getUserStats(tenantId) {
     const now = new Date()
     const [totalUsers, activeUsers, blockedUsers, usersWithSessions] = await Promise.all([
-      User.countDocuments(),
-      User.countDocuments({ isActive: true }),
-      User.countDocuments({ isActive: false }),
-      User.find({ 'sessions.expiresAt': { $gt: now } }).select('sessions')
+      User.countDocuments({ tenantId }),
+      User.countDocuments({ isActive: true, tenantId }),
+      User.countDocuments({ isActive: false, tenantId }),
+      User.find({ 'sessions.expiresAt': { $gt: now }, tenantId }).select('sessions')
     ])
 
     let activeSessionsCount = 0
@@ -147,25 +147,25 @@ class UserService {
   /**
    * Fetch unlinked profiles (Teachers & Students) available for account creation
    */
-  async getUnlinkedProfiles() {
+  async getUnlinkedProfiles(tenantId) {
     // Get existing linked Teacher IDs
-    const linkedTeacherUsers = await User.find({ linkedTeacher: { $ne: null } }).select('linkedTeacher')
+    const linkedTeacherUsers = await User.find({ linkedTeacher: { $ne: null }, tenantId }).select('linkedTeacher')
     const linkedTeacherIds = linkedTeacherUsers.map(u => u.linkedTeacher).filter(Boolean)
 
     // Get existing linked Student IDs
-    const linkedStudentUsers = await User.find({ linkedStudent: { $ne: null } }).select('linkedStudent')
+    const linkedStudentUsers = await User.find({ linkedStudent: { $ne: null }, tenantId }).select('linkedStudent')
     const linkedStudentIds = linkedStudentUsers.map(u => u.linkedStudent).filter(Boolean)
 
     const [unlinkedTeachers, unlinkedStudents, allStudents] = await Promise.all([
-      Teacher.find({ _id: { $nin: linkedTeacherIds }, status: 'Active' })
+      Teacher.find({ _id: { $nin: linkedTeacherIds }, status: 'Active', tenantId })
         .select('firstName lastName email phone teacherId subjects')
         .sort({ firstName: 1 })
         .lean(),
-      Student.find({ _id: { $nin: linkedStudentIds }, status: 'Active' })
+      Student.find({ _id: { $nin: linkedStudentIds }, status: 'Active', tenantId })
         .select('firstName lastName email phone studentId class')
         .sort({ firstName: 1 })
         .lean(),
-      Student.find({ status: 'Active' })
+      Student.find({ status: 'Active', tenantId })
         .select('firstName lastName studentId class email phone parent')
         .sort({ firstName: 1 })
         .lean()
@@ -181,12 +181,12 @@ class UserService {
   /**
    * Fetch single user details with populated linked profiles
    */
-  async getUserById(id) {
+  async getUserById(id, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
       .select('-passwordHash')
       .populate('linkedTeacher', 'firstName lastName email phone qualification subjects photo')
       .populate('linkedStudent', 'firstName lastName studentId class email phone fatherName motherName photo')
@@ -207,7 +207,7 @@ class UserService {
    * Create new user account
    */
   async createUser(data) {
-    const { email, password, role, firstName, lastName, phone, linkedTeacher, linkedStudent, linkedChildren } = data
+    const { email, password, role, firstName, lastName, phone, linkedTeacher, linkedStudent, linkedChildren, tenantId } = data
 
     // 1. Email validation
     if (!email || !this.validateEmail(email)) {
@@ -216,7 +216,7 @@ class UserService {
     const cleanEmail = email.toLowerCase().trim()
 
     // Duplicate email check
-    const existingEmail = await User.findOne({ email: cleanEmail })
+    const existingEmail = await User.findOne({ email: cleanEmail, tenantId })
     if (existingEmail) {
       throw new ApiError('An account with this email address already exists.', 409, 'EMAIL_ALREADY_EXISTS')
     }
@@ -244,7 +244,7 @@ class UserService {
       throw new ApiError('Please enter a valid 10-digit Indian mobile number.', 400, 'INVALID_PHONE')
     }
     if (normalizedPhone) {
-      const existingPhone = await User.findOne({ phone: normalizedPhone })
+      const existingPhone = await User.findOne({ phone: normalizedPhone, tenantId })
       if (existingPhone) {
         throw new ApiError('An account with this phone number already exists.', 409, 'PHONE_ALREADY_EXISTS')
       }
@@ -266,7 +266,8 @@ class UserService {
       lastName: lastName.trim(),
       phone: normalizedPhone,
       maxSessions,
-      isActive: true
+      isActive: true,
+      tenantId
     }
 
     // 6. Profile link verification & duplication checks
@@ -274,11 +275,11 @@ class UserService {
       if (!mongoose.Types.ObjectId.isValid(linkedTeacher)) {
         throw new ApiError('Invalid teacher profile reference.', 400, 'INVALID_PROFILE_LINK')
       }
-      const teacherObj = await Teacher.findById(linkedTeacher)
+      const teacherObj = await Teacher.findOne({ _id: linkedTeacher, tenantId })
       if (!teacherObj) {
         throw new ApiError('Selected teacher profile does not exist.', 400, 'INVALID_PROFILE_LINK')
       }
-      const alreadyLinked = await User.findOne({ linkedTeacher })
+      const alreadyLinked = await User.findOne({ linkedTeacher, tenantId })
       if (alreadyLinked) {
         throw new ApiError('This teacher profile is already linked to another account.', 409, 'PROFILE_ALREADY_LINKED')
       }
@@ -287,11 +288,11 @@ class UserService {
       if (!mongoose.Types.ObjectId.isValid(linkedStudent)) {
         throw new ApiError('Invalid student profile reference.', 400, 'INVALID_PROFILE_LINK')
       }
-      const studentObj = await Student.findById(linkedStudent)
+      const studentObj = await Student.findOne({ _id: linkedStudent, tenantId })
       if (!studentObj) {
         throw new ApiError('Selected student profile does not exist.', 400, 'INVALID_PROFILE_LINK')
       }
-      const alreadyLinked = await User.findOne({ linkedStudent })
+      const alreadyLinked = await User.findOne({ linkedStudent, tenantId })
       if (alreadyLinked) {
         throw new ApiError('This student profile is already linked to another account.', 409, 'PROFILE_ALREADY_LINKED')
       }
@@ -304,18 +305,18 @@ class UserService {
 
     const newUser = new User(userData)
     await newUser.save()
-    return this.getUserById(newUser._id)
+    return this.getUserById(newUser._id, tenantId)
   }
 
   /**
    * Update existing user account
    */
-  async updateUser(id, data, currentUserId) {
+  async updateUser(id, data, currentUserId, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
     if (!user) {
       throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
     }
@@ -324,7 +325,7 @@ class UserService {
 
     // Admin self-protection: Role downgrade
     if (user.role === 'admin' && role && role.toLowerCase().trim() !== 'admin') {
-      const isLastAdmin = await this.isLastActiveAdmin(id)
+      const isLastAdmin = await this.isLastActiveAdmin(id, tenantId)
       if (isLastAdmin) {
         throw new ApiError('At least one active administrator is required. Create or activate another administrator before changing this account.', 400, 'LAST_ADMIN_PROTECTION')
       }
@@ -336,7 +337,7 @@ class UserService {
         throw new ApiError('Please enter a valid email address.', 400, 'INVALID_EMAIL')
       }
       const cleanEmail = email.toLowerCase().trim()
-      const existingEmail = await User.findOne({ email: cleanEmail, _id: { $ne: id } })
+      const existingEmail = await User.findOne({ email: cleanEmail, _id: { $ne: id }, tenantId })
       if (existingEmail) {
         throw new ApiError('An account with this email address already exists.', 409, 'EMAIL_ALREADY_EXISTS')
       }
@@ -350,7 +351,7 @@ class UserService {
         throw new ApiError('Please enter a valid 10-digit Indian mobile number.', 400, 'INVALID_PHONE')
       }
       if (normalizedPhone && normalizedPhone !== user.phone) {
-        const existingPhone = await User.findOne({ phone: normalizedPhone, _id: { $ne: id } })
+        const existingPhone = await User.findOne({ phone: normalizedPhone, _id: { $ne: id }, tenantId })
         if (existingPhone) {
           throw new ApiError('An account with this phone number already exists.', 409, 'PHONE_ALREADY_EXISTS')
         }
@@ -372,7 +373,7 @@ class UserService {
         if (!mongoose.Types.ObjectId.isValid(linkedTeacher)) {
           throw new ApiError('Invalid teacher profile reference.', 400, 'INVALID_PROFILE_LINK')
         }
-        const alreadyLinked = await User.findOne({ linkedTeacher, _id: { $ne: id } })
+        const alreadyLinked = await User.findOne({ linkedTeacher, _id: { $ne: id }, tenantId })
         if (alreadyLinked) {
           throw new ApiError('This teacher profile is already linked to another account.', 409, 'PROFILE_ALREADY_LINKED')
         }
@@ -387,7 +388,7 @@ class UserService {
         if (!mongoose.Types.ObjectId.isValid(linkedStudent)) {
           throw new ApiError('Invalid student profile reference.', 400, 'INVALID_PROFILE_LINK')
         }
-        const alreadyLinked = await User.findOne({ linkedStudent, _id: { $ne: id } })
+        const alreadyLinked = await User.findOne({ linkedStudent, _id: { $ne: id }, tenantId })
         if (alreadyLinked) {
           throw new ApiError('This student profile is already linked to another account.', 409, 'PROFILE_ALREADY_LINKED')
         }
@@ -409,25 +410,25 @@ class UserService {
     }
 
     await user.save()
-    return this.getUserById(user._id)
+    return this.getUserById(user._id, tenantId)
   }
 
   /**
    * Block user account & invalidate active sessions
    */
-  async blockUser(id, currentUserId) {
+  async blockUser(id, currentUserId, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
     if (!user) {
       throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
     }
 
     // Admin self-protection rule
     if (user.role === 'admin') {
-      const isLastAdmin = await this.isLastActiveAdmin(id)
+      const isLastAdmin = await this.isLastActiveAdmin(id, tenantId)
       if (isLastAdmin) {
         throw new ApiError('At least one active administrator is required. Create or activate another administrator before changing this account.', 400, 'LAST_ADMIN_PROTECTION')
       }
@@ -437,36 +438,36 @@ class UserService {
     user.sessions = []
     await user.save()
 
-    return this.getUserById(user._id)
+    return this.getUserById(user._id, tenantId)
   }
 
   /**
    * Unblock user account
    */
-  async unblockUser(id) {
+  async unblockUser(id, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
     if (!user) {
       throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
     }
 
     user.isActive = true
     await user.save()
-    return this.getUserById(user._id)
+    return this.getUserById(user._id, tenantId)
   }
 
   /**
    * Reset user password & invalidate active sessions
    */
-  async resetPassword(id, newPassword) {
+  async resetPassword(id, newPassword, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
     if (!user) {
       throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
     }
@@ -488,39 +489,39 @@ class UserService {
   /**
    * Revoke single active session
    */
-  async revokeSession(userId, sessionId) {
+  async revokeSession(userId, sessionId, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(userId)
+    const user = await User.findOne({ _id: userId, tenantId })
     if (!user) throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
 
     user.sessions = (user.sessions || []).filter(s => s.sessionId !== sessionId)
     await user.save()
-    return this.getUserById(userId)
+    return this.getUserById(userId, tenantId)
   }
 
   /**
    * Revoke all active sessions for a user
    */
-  async revokeAllSessions(userId) {
+  async revokeAllSessions(userId, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
 
-    const user = await User.findById(userId)
+    const user = await User.findOne({ _id: userId, tenantId })
     if (!user) throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
 
     user.sessions = []
     await user.save()
-    return this.getUserById(userId)
+    return this.getUserById(userId, tenantId)
   }
 
   /**
    * Delete user account (Removes login account ONLY; preserves Student/Teacher institutional profile)
    */
-  async deleteUser(id, currentUserId) {
+  async deleteUser(id, currentUserId, tenantId) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError('Invalid user ID format.', 400, 'INVALID_ID')
     }
@@ -529,20 +530,20 @@ class UserService {
       throw new ApiError('You cannot remove your own currently logged-in account from the Users dashboard.', 400, 'CANNOT_MODIFY_PROTECTED_ADMIN')
     }
 
-    const user = await User.findById(id)
+    const user = await User.findOne({ _id: id, tenantId })
     if (!user) {
       throw new ApiError('User account not found.', 404, 'USER_NOT_FOUND')
     }
 
     // Admin self-protection rule
     if (user.role === 'admin') {
-      const isLastAdmin = await this.isLastActiveAdmin(id)
+      const isLastAdmin = await this.isLastActiveAdmin(id, tenantId)
       if (isLastAdmin) {
         throw new ApiError('At least one active administrator is required. Create or activate another administrator before changing this account.', 400, 'LAST_ADMIN_PROTECTION')
       }
     }
 
-    await User.findByIdAndDelete(id)
+    await User.findOneAndDelete({ _id: id, tenantId })
     return true
   }
 }

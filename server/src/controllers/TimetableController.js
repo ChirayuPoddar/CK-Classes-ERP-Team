@@ -7,7 +7,7 @@ class TimetableController {
    */
   async getTimetableForClass(req, res, next) {
     try {
-      const result = await TimetableService.getTimetableForClass(req.query)
+      const result = await TimetableService.getTimetableForClass({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Timetable slots retrieved successfully',
@@ -24,7 +24,7 @@ class TimetableController {
    */
   async getTimetableById(req, res, next) {
     try {
-      const slot = await TimetableService.getTimetableById(req.params.id)
+      const slot = await TimetableService.getTimetableById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Timetable slot retrieved successfully',
@@ -41,8 +41,12 @@ class TimetableController {
    */
   async createTimetableSlot(req, res, next) {
     try {
+<<<<<<< Updated upstream
       const userId = req.user ? req.user.id : null
       const slot = await TimetableService.createTimetableSlot(req.body, userId)
+=======
+      const slot = await TimetableService.createTimetableSlot({ ...req.body, tenantId: req.tenantId })
+>>>>>>> Stashed changes
       res.status(201).json({
         success: true,
         message: 'Timetable slot created successfully',
@@ -65,8 +69,12 @@ class TimetableController {
    */
   async updateTimetableSlot(req, res, next) {
     try {
+<<<<<<< Updated upstream
       const userId = req.user ? req.user.id : null
       const slot = await TimetableService.updateTimetableSlot(req.params.id, req.body, userId)
+=======
+      const slot = await TimetableService.updateTimetableSlot(req.params.id, req.body, req.tenantId)
+>>>>>>> Stashed changes
       res.status(200).json({
         success: true,
         message: 'Timetable slot updated successfully',
@@ -89,8 +97,12 @@ class TimetableController {
    */
   async deleteTimetableSlot(req, res, next) {
     try {
+<<<<<<< Updated upstream
       const userId = req.user ? req.user.id : null
       const slot = await TimetableService.deleteTimetableSlot(req.params.id, userId)
+=======
+      const slot = await TimetableService.deleteTimetableSlot(req.params.id, req.tenantId)
+>>>>>>> Stashed changes
       res.status(200).json({
         success: true,
         message: 'Timetable slot deleted successfully',
@@ -211,8 +223,13 @@ class TimetableController {
         day,
         period,
         teacher,
+<<<<<<< Updated upstream
         room,
         academicYear: academicYear || '2026-2027'
+=======
+        academicYear: academicYear || '2026-2027',
+        tenantId: req.tenantId
+>>>>>>> Stashed changes
       }, excludeId)
 
       res.status(200).json({

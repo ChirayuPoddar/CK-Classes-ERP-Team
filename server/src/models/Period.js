@@ -1,6 +1,12 @@
 const mongoose = require('mongoose')
 
 const periodSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   name: {
     type: String,
     required: [true, 'Period / Break name is required'],

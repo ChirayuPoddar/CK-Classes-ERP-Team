@@ -25,21 +25,21 @@ class TeacherService {
    */
   async createTeacher(teacherData) {
     if (teacherData.email) {
-      const emailExists = await Teacher.findOne({ email: teacherData.email })
+      const emailExists = await Teacher.findOne({ email: teacherData.email, tenantId: teacherData.tenantId })
       if (emailExists) {
         throw new Error('Email is already registered')
       }
     }
 
     if (teacherData.phone) {
-      const phoneExists = await Teacher.findOne({ phone: teacherData.phone })
+      const phoneExists = await Teacher.findOne({ phone: teacherData.phone, tenantId: teacherData.tenantId })
       if (phoneExists) {
         throw new Error('Phone number is already registered')
       }
     }
 
     if (teacherData.teacherId) {
-      const idExists = await Teacher.findOne({ teacherId: teacherData.teacherId })
+      const idExists = await Teacher.findOne({ teacherId: teacherData.teacherId, tenantId: teacherData.tenantId })
       if (idExists) {
         throw new Error('Teacher ID already exists')
       }
@@ -53,10 +53,11 @@ class TeacherService {
   /**
    * Fetch a single teacher by ID
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async getTeacherById(id) {
-    const teacher = await Teacher.findById(id)
+  async getTeacherById(id, tenantId) {
+    const teacher = await Teacher.findOne({ _id: id, tenantId })
     if (!teacher) {
       throw new Error('Teacher not found')
     }
@@ -73,7 +74,7 @@ class TeacherService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
 
     // Search by name, email, phone
     if (queryParams.search) {
@@ -117,7 +118,7 @@ class TeacherService {
 
     const total = await Teacher.countDocuments(filter)
 
-    const allTeachers = await Teacher.find({});
+    const allTeachers = await Teacher.find({ tenantId: queryParams.tenantId });
     const totalT = allTeachers.length;
     const activeT = allTeachers.filter(t => t.status === 'Active').length;
     const inactiveT = allTeachers.filter(t => t.status === 'Inactive').length;
@@ -147,15 +148,15 @@ class TeacherService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateTeacher(id, updateData) {
-    const teacher = await Teacher.findById(id)
+  async updateTeacher(id, updateData, tenantId) {
+    const teacher = await Teacher.findOne({ _id: id, tenantId })
     if (!teacher) {
       throw new Error('Teacher not found')
     }
 
     // Duplicate email check
     if (updateData.email && updateData.email !== teacher.email) {
-      const emailExists = await Teacher.findOne({ email: updateData.email })
+      const emailExists = await Teacher.findOne({ email: updateData.email, tenantId, _id: { $ne: id } })
       if (emailExists) {
         throw new Error('Email is already registered by another teacher')
       }
@@ -163,7 +164,7 @@ class TeacherService {
 
     // Duplicate phone check
     if (updateData.phone && updateData.phone !== teacher.phone) {
-      const phoneExists = await Teacher.findOne({ phone: updateData.phone })
+      const phoneExists = await Teacher.findOne({ phone: updateData.phone, tenantId, _id: { $ne: id } })
       if (phoneExists) {
         throw new Error('Phone number is already registered by another teacher')
       }
@@ -182,10 +183,11 @@ class TeacherService {
   /**
    * Delete teacher profile from database and clean up photo
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteTeacher(id) {
-    const teacher = await Teacher.findById(id)
+  async deleteTeacher(id, tenantId) {
+    const teacher = await Teacher.findOne({ _id: id, tenantId })
     if (!teacher) {
       throw new Error('Teacher not found')
     }
@@ -199,9 +201,9 @@ class TeacherService {
     }
 
     const Subject = require('../models/Subject')
-    await Subject.updateMany({ assignedTeacher: id }, { $set: { assignedTeacher: null } })
+    await Subject.updateMany({ assignedTeacher: id, tenantId }, { $set: { assignedTeacher: null } })
 
-    await Teacher.findByIdAndDelete(id)
+    await Teacher.findOneAndDelete({ _id: id, tenantId })
     return teacher.toObject()
   }
 
@@ -209,14 +211,15 @@ class TeacherService {
    * Upload / Replace profile image
    * @param {String} teacherId 
    * @param {Object} file 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async uploadTeacherPhoto(teacherId, file) {
+  async uploadTeacherPhoto(teacherId, file, tenantId) {
     if (!file) {
       throw new Error('No image file provided')
     }
 
-    const teacher = await Teacher.findById(teacherId)
+    const teacher = await Teacher.findOne({ _id: teacherId, tenantId })
     if (!teacher) {
       throw new Error('Teacher not found')
     }
@@ -243,10 +246,11 @@ class TeacherService {
   /**
    * Delete profile photo
    * @param {String} teacherId 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteTeacherPhoto(teacherId) {
-    const teacher = await Teacher.findById(teacherId)
+  async deleteTeacherPhoto(teacherId, tenantId) {
+    const teacher = await Teacher.findOne({ _id: teacherId, tenantId })
     if (!teacher) {
       throw new Error('Teacher not found')
     }

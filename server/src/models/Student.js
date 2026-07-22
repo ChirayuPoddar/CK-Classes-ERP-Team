@@ -1,9 +1,14 @@
 const mongoose = require('mongoose')
 
 const studentSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   studentId: {
     type: String,
-    unique: true,
     index: true
   },
   firstName: {
@@ -32,7 +37,6 @@ const studentSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     lowercase: true,
     trim: true
@@ -254,6 +258,9 @@ studentSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+studentSchema.index({ tenantId: 1, studentId: 1 }, { unique: true })
+studentSchema.index({ tenantId: 1, email: 1 }, { unique: true })
 
 const Student = mongoose.model('Student', studentSchema)
 module.exports = Student

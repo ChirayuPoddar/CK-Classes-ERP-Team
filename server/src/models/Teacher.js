@@ -1,9 +1,14 @@
 const mongoose = require('mongoose')
 
 const teacherSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   teacherId: {
     type: String,
-    unique: true,
     index: true
   },
   firstName: {
@@ -28,14 +33,12 @@ const teacherSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     trim: true
   },
   email: {
     type: String,
     required: true,
-    unique: true,
     index: true,
     lowercase: true,
     trim: true
@@ -143,6 +146,10 @@ teacherSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+teacherSchema.index({ tenantId: 1, teacherId: 1 }, { unique: true })
+teacherSchema.index({ tenantId: 1, phone: 1 }, { unique: true })
+teacherSchema.index({ tenantId: 1, email: 1 }, { unique: true })
 
 const Teacher = mongoose.model('Teacher', teacherSchema)
 module.exports = Teacher

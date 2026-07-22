@@ -10,7 +10,7 @@ class SubjectService {
   async createSubject(subjectData) {
     // 1. Validate duplicate code
     if (subjectData.code) {
-      const codeExists = await Subject.findOne({ code: subjectData.code.trim().toUpperCase() })
+      const codeExists = await Subject.findOne({ code: subjectData.code.trim().toUpperCase(), tenantId: subjectData.tenantId })
       if (codeExists) {
         throw new Error('Subject code is already registered')
       }
@@ -20,7 +20,8 @@ class SubjectService {
     if (subjectData.name && subjectData.class) {
       const nameExists = await Subject.findOne({
         name: { $regex: new RegExp(`^${subjectData.name.trim()}$`, 'i') },
-        class: subjectData.class.trim()
+        class: subjectData.class.trim(),
+        tenantId: subjectData.tenantId
       })
       if (nameExists) {
         throw new Error(`A subject with the name "${subjectData.name}" already exists for class ${subjectData.class}`)
@@ -31,17 +32,18 @@ class SubjectService {
     await subject.save()
     
     // Populate teacher info before returning
-    const populated = await Subject.findById(subject._id).populate('assignedTeacher')
+    const populated = await Subject.findOne({ _id: subject._id, tenantId: subjectData.tenantId }).populate('assignedTeacher')
     return populated.toObject()
   }
 
   /**
    * Fetch a single subject by ID
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async getSubjectById(id) {
-    const subject = await Subject.findById(id).populate('assignedTeacher')
+  async getSubjectById(id, tenantId) {
+    const subject = await Subject.findOne({ _id: id, tenantId }).populate('assignedTeacher')
     if (!subject) {
       throw new Error('Subject not found')
     }
@@ -58,7 +60,7 @@ class SubjectService {
     const limit = parseInt(queryParams.limit, 10) || 10
     const skip = (page - 1) * limit
 
-    const filter = {}
+    const filter = { tenantId: queryParams.tenantId }
 
     // Search by name, code, class, or assigned teacher name
     if (queryParams.search) {
@@ -66,6 +68,7 @@ class SubjectService {
       
       // Find teachers matching search query
       const matchingTeachers = await Teacher.find({
+        tenantId: queryParams.tenantId,
         $or: [
           { firstName: searchRegex },
           { lastName: searchRegex }
@@ -87,11 +90,11 @@ class SubjectService {
     }
     if (queryParams.assignedTeacher) {
       if (queryParams.assignedTeacher === 'assigned') {
-        const activeTeachers = await Teacher.find({}).select('_id')
+        const activeTeachers = await Teacher.find({ tenantId: queryParams.tenantId }).select('_id')
         const activeTeacherIds = activeTeachers.map(t => t._id)
         filter.assignedTeacher = { $in: activeTeacherIds }
       } else if (queryParams.assignedTeacher === 'unassigned') {
-        const activeTeachers = await Teacher.find({}).select('_id')
+        const activeTeachers = await Teacher.find({ tenantId: queryParams.tenantId }).select('_id')
         const activeTeacherIds = activeTeachers.map(t => t._id)
         filter.$or = [
           { assignedTeacher: null },
@@ -133,10 +136,11 @@ class SubjectService {
 
     const total = await Subject.countDocuments(filter)
 
-    const totalSubjects = await Subject.countDocuments();
-    const activeTeachers = await Teacher.find({}).select('_id')
+    const totalSubjects = await Subject.countDocuments({ tenantId: queryParams.tenantId });
+    const activeTeachers = await Teacher.find({ tenantId: queryParams.tenantId }).select('_id')
     const activeTeacherIds = activeTeachers.map(t => t._id)
     const unassignedSubjects = await Subject.countDocuments({
+      tenantId: queryParams.tenantId,
       $or: [
         { assignedTeacher: null },
         { assignedTeacher: { $exists: false } },
@@ -165,15 +169,15 @@ class SubjectService {
    * @param {Object} updateData 
    * @returns {Promise<Object>}
    */
-  async updateSubject(id, updateData) {
-    const subject = await Subject.findById(id)
+  async updateSubject(id, updateData, tenantId) {
+    const subject = await Subject.findOne({ _id: id, tenantId })
     if (!subject) {
       throw new Error('Subject not found')
     }
 
     // Duplicate code check
     if (updateData.code && updateData.code.trim().toUpperCase() !== subject.code) {
-      const codeExists = await Subject.findOne({ code: updateData.code.trim().toUpperCase() })
+      const codeExists = await Subject.findOne({ code: updateData.code.trim().toUpperCase(), tenantId })
       if (codeExists) {
         throw new Error('Subject code is already registered by another subject')
       }
@@ -186,7 +190,8 @@ class SubjectService {
       const nameExists = await Subject.findOne({
         _id: { $ne: id },
         name: { $regex: new RegExp(`^${checkName}$`, 'i') },
-        class: checkClass
+        class: checkClass,
+        tenantId
       })
       if (nameExists) {
         throw new Error(`A subject with the name "${checkName}" already exists for class ${checkClass}`)
@@ -200,21 +205,22 @@ class SubjectService {
     })
 
     await subject.save()
-    const populated = await Subject.findById(id).populate('assignedTeacher')
+    const populated = await Subject.findOne({ _id: id, tenantId }).populate('assignedTeacher')
     return populated.toObject()
   }
 
   /**
    * Delete subject from database
    * @param {String} id 
+   * @param {String} tenantId
    * @returns {Promise<Object>}
    */
-  async deleteSubject(id) {
-    const subject = await Subject.findById(id)
+  async deleteSubject(id, tenantId) {
+    const subject = await Subject.findOne({ _id: id, tenantId })
     if (!subject) {
       throw new Error('Subject not found')
     }
-    await Subject.findByIdAndDelete(id)
+    await Subject.findOneAndDelete({ _id: id, tenantId })
     return subject.toObject()
   }
 }

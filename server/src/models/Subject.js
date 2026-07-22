@@ -1,9 +1,15 @@
 const mongoose = require('mongoose')
 
 const subjectSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true
+  },
   subjectId: {
     type: String,
-    unique: true
+    index: true
   },
   name: {
     type: String,
@@ -13,7 +19,7 @@ const subjectSchema = new mongoose.Schema({
   code: {
     type: String,
     required: [true, 'Subject code is required'],
-    unique: true,
+    index: true,
     trim: true,
     uppercase: true
   },
@@ -123,5 +129,8 @@ subjectSchema.pre('save', async function(next) {
     next(err)
   }
 })
+
+subjectSchema.index({ tenantId: 1, subjectId: 1 }, { unique: true })
+subjectSchema.index({ tenantId: 1, code: 1 }, { unique: true })
 
 module.exports = mongoose.model('Subject', subjectSchema)
