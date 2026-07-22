@@ -28,7 +28,8 @@ import {
   Printer,
   KeyRound,
   MoreVertical,
-  MoreHorizontal
+  MoreHorizontal,
+  SlidersHorizontal
 } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
@@ -96,6 +97,9 @@ export default function Students() {
   const [search, setSearch] = useState('')
   const [classFilter, setClassFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
   const [sortField, setSortField] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState('desc')
 
@@ -218,6 +222,8 @@ export default function Students() {
           search,
           class: classFilter,
           status: statusFilter,
+          gender: genderFilter,
+          category: categoryFilter,
           sort: sortQuery
         }
       })
@@ -240,7 +246,7 @@ export default function Students() {
   // Refetch when filters, search, or sorting change
   useEffect(() => {
     fetchStudents()
-  }, [page, classFilter, statusFilter, sortField, sortOrder, search])
+  }, [page, classFilter, statusFilter, genderFilter, categoryFilter, sortField, sortOrder, search])
 
   // Trigger search on form submit
   const handleSearchSubmit = (e) => {
@@ -292,8 +298,28 @@ export default function Students() {
     setSearch('')
     setClassFilter('')
     setStatusFilter('')
+    setGenderFilter('')
+    setCategoryFilter('')
+    setSortField('createdAt')
+    setSortOrder('desc')
     setPage(1)
   }
+
+  const advancedFilterCount = (genderFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (sortField !== 'createdAt' || sortOrder !== 'desc' ? 1 : 0)
+  const hasActiveFilters = Boolean(search || classFilter || statusFilter || genderFilter || categoryFilter || (sortField !== 'createdAt' || sortOrder !== 'desc'))
+
+  const activeChips = [
+    ...(search ? [{ id: 'search', label: `Search: "${search}"`, onRemove: () => setSearch('') }] : []),
+    ...(classFilter ? [{ id: 'class', label: `Class: ${classFilter}`, onRemove: () => setClassFilter('') }] : []),
+    ...(statusFilter ? [{ id: 'status', label: `Status: ${statusFilter}`, onRemove: () => setStatusFilter('') }] : []),
+    ...(genderFilter ? [{ id: 'gender', label: `Gender: ${genderFilter}`, onRemove: () => setGenderFilter('') }] : []),
+    ...(categoryFilter ? [{ id: 'category', label: `Category: ${categoryFilter}`, onRemove: () => setCategoryFilter('') }] : []),
+    ...((sortField !== 'createdAt' || sortOrder !== 'desc') ? [{
+      id: 'sort',
+      label: `Sort: ${sortField === 'firstName' ? 'Name (A-Z)' : sortField === 'studentId' ? 'ID' : 'Oldest First'}`,
+      onRemove: () => { setSortField('createdAt'); setSortOrder('desc'); }
+    }] : [])
+  ]
 
   const formatDateToDDMMYYYY = (dateVal) => {
     if (!dateVal) return ''

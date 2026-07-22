@@ -37,7 +37,6 @@ class PeriodService {
     }
     return await Period.find(query).sort({ order: 1 })
   }
-  }
 
   /**
    * Get distinct template names

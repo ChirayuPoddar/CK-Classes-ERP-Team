@@ -106,6 +106,12 @@ class StudentService {
     if (options.status) {
       query.status = options.status
     }
+    if (options.gender) {
+      query.gender = options.gender
+    }
+    if (options.category) {
+      query.category = options.category
+    }
 
     // Keyword search support
     if (options.search) {
