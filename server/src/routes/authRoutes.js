@@ -26,6 +26,7 @@ const generateTokens = (user, sessionId) => {
       role: user.role,
       email: user.email,
       sessionId,
+      tenantId: user.tenantId ? user.tenantId.toString() : null,
       type: 'access'
     },
     accessSecret,
@@ -36,6 +37,7 @@ const generateTokens = (user, sessionId) => {
     {
       id: user._id,
       sessionId,
+      tenantId: user.tenantId ? user.tenantId.toString() : null,
       type: 'refresh'
     },
     refreshSecret,
@@ -208,7 +210,8 @@ router.post('/login', async (req, res, next) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
-        sessionId: newSession.sessionId
+        sessionId: newSession.sessionId,
+        tenantId: user.tenantId ? user.tenantId.toString() : null
       }
     })
   } catch (error) {
