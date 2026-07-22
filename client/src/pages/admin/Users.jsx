@@ -35,6 +35,7 @@ const roles = ['All', 'Admin', 'Teacher', 'Student', 'Parent', 'Receptionist', '
 const statuses = ['All', 'Active', 'Blocked']
 
 export default function Users() {
+  const { user } = useAuth();
   const { user: currentUser } = useAuth()
 
   // State management

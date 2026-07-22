@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect, useCallback } from 'react'
 import { 
   LayoutDashboard, 
@@ -82,6 +83,7 @@ const academicYears = [
 ]
 
 export default function FeeManagement() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard')
   const currentTabInfo = tabsList.find(tab => tab.id === activeTab) || tabsList[0]
 

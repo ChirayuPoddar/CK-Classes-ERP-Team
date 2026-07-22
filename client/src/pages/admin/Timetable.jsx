@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react'
 import { 
   Plus, 
@@ -155,6 +156,7 @@ function TimetableCell({ slot, isFilteredOut, onClick, showTeacherView = false }
 }
 
 export default function Timetable() {
+  const { user } = useAuth();
   const [timetableSlots, setTimetableSlots] = useState([])
   const [subjects, setSubjects] = useState([])
   const [teachers, setTeachers] = useState([])

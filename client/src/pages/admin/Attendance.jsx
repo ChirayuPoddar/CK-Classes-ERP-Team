@@ -82,6 +82,7 @@ const getStatusBadge = (status) => {
 }
 
 export default function Attendance() {
+  const { user } = useAuth();
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const [attendanceSessions, setAttendanceSessions] = useState([])

@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
@@ -98,6 +99,7 @@ const FloatingParticles = () => {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const videoTrackRef = useRef(null)
   const videoRef = useRef(null)
   const [videoDuration, setVideoDuration] = useState(0)

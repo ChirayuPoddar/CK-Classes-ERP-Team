@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react'
 import { 
   Plus, 
@@ -51,6 +52,7 @@ const colorsList = [
 ];
 
 export default function Subjects() {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState([])
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)

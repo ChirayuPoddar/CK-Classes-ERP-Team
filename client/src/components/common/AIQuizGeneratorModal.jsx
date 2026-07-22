@@ -1,9 +1,11 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, Printer, Copy, Check, FileText, Key, Loader2, BookOpen } from 'lucide-react'
 import { generateQuiz } from '@/services/aiService'
 
 export const AIQuizGeneratorModal = ({ isOpen, onClose, initialResource = null }) => {
+  const { user } = useAuth();
   const [topic, setTopic] = useState(initialResource?.title || '')
   const [className, setClassName] = useState(initialResource?.class || 'Class 10')
   const [count, setCount] = useState(5)

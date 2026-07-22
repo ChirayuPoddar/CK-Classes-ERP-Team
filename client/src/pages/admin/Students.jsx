@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -81,6 +82,7 @@ const classes = sortClassesByHierarchy(rawClasses)
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
 export default function Students() {
+  const { user } = useAuth();
   // State variables
   const [students, setStudents] = useState([])
   const [total, setTotal] = useState(0)
