@@ -42,9 +42,9 @@ class OtpService {
   /**
    * Request a new OTP with 60-second cooldown, invalidation of previous OTPs, and delivery
    */
-  async requestOtp({ identifier, channel = 'email', purpose, userId = null }) {
-    if (!identifier || !purpose) {
-      throw new ApiError('Identifier and purpose are required to request an OTP.', 400, 'VALIDATION_ERROR')
+  async requestOtp({ tenantId, identifier, channel = 'email', purpose, userId = null }) {
+    if (!tenantId || !identifier || !purpose) {
+      throw new ApiError('Tenant ID, identifier, and purpose are required to request an OTP.', 400, 'VALIDATION_ERROR')
     }
 
     const cleanIdentifier = this.normalizeIdentifier(identifier)
@@ -71,6 +71,7 @@ class OtpService {
     const sixtySecsAgo = new Date(now.getTime() - 60000)
 
     const recentOtp = await Otp.findOne({
+      tenantId,
       identifier: cleanIdentifier,
       purpose,
       createdAt: { $gt: sixtySecsAgo }
@@ -80,8 +81,8 @@ class OtpService {
       throw new ApiError('Please wait 60 seconds before requesting a new verification code.', 429, 'OTP_RESEND_COOLDOWN')
     }
 
-    // 2. Invalidate previous active OTPs for the same identifier & purpose
-    await Otp.deleteMany({ identifier: cleanIdentifier, purpose })
+    // 2. Invalidate previous active OTPs for the same identifier & purpose within this tenant
+    await Otp.deleteMany({ tenantId, identifier: cleanIdentifier, purpose })
 
     // 3. Generate new 6-digit numeric OTP & SHA-256 hash
     const rawOtp = this.generateOtp()
@@ -90,6 +91,7 @@ class OtpService {
 
     // 4. Save hashed OTP record to database
     await Otp.create({
+      tenantId,
       identifier: cleanIdentifier,
       channel,
       purpose,
@@ -120,15 +122,16 @@ class OtpService {
   /**
    * Verifies an OTP without consuming it
    */
-  async verifyOtp({ identifier, purpose, otp }) {
-    if (!identifier || !purpose || !otp) {
-      throw new ApiError('Identifier, purpose, and verification code are required.', 400, 'VALIDATION_ERROR')
+  async verifyOtp({ tenantId, identifier, purpose, otp }) {
+    if (!tenantId || !identifier || !purpose || !otp) {
+      throw new ApiError('Tenant ID, identifier, purpose, and verification code are required.', 400, 'VALIDATION_ERROR')
     }
 
     const cleanIdentifier = this.normalizeIdentifier(identifier)
 
-    // Find latest active OTP record for identifier & purpose
+    // Find latest active OTP record for identifier & purpose within this tenant
     const otpRecord = await Otp.findOne({
+      tenantId,
       identifier: cleanIdentifier,
       purpose,
       usedAt: null
@@ -166,8 +169,8 @@ class OtpService {
   /**
    * Verifies and atomically consumes the OTP (single-use enforcement)
    */
-  async consumeOtp({ identifier, purpose, otp }) {
-    const { otpRecord } = await this.verifyOtp({ identifier, purpose, otp })
+  async consumeOtp({ tenantId, identifier, purpose, otp }) {
+    const { otpRecord } = await this.verifyOtp({ tenantId, identifier, purpose, otp })
 
     if (otpRecord.usedAt) {
       throw new ApiError('Verification code has already been used.', 400, 'OTP_ALREADY_USED')
@@ -187,9 +190,9 @@ class OtpService {
   /**
    * Manually invalidates any active OTPs for an identifier & purpose
    */
-  async invalidateOtp({ identifier, purpose }) {
+  async invalidateOtp({ tenantId, identifier, purpose }) {
     const cleanIdentifier = this.normalizeIdentifier(identifier)
-    await Otp.deleteMany({ identifier: cleanIdentifier, purpose })
+    await Otp.deleteMany({ tenantId, identifier: cleanIdentifier, purpose })
     return { success: true }
   }
 }

@@ -226,9 +226,9 @@ const studentSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-generate studentId on pre-save hook in format CK20260001
+// Auto-generate studentId on pre-save hook in format CK20260001 if not explicitly provided
 studentSchema.pre('save', async function(next) {
-  if (!this.isNew) {
+  if (!this.isNew || Boolean(this.studentId)) {
     return next()
   }
 
@@ -236,9 +236,9 @@ studentSchema.pre('save', async function(next) {
     const year = new Date().getFullYear()
     const prefix = `CK${year}`
     
-    // Find the last student with studentId starting with prefix
+    // Find the last student with studentId starting with prefix scoped to this tenant
     const lastStudent = await mongoose.model('Student').findOne(
-      { studentId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, studentId: new RegExp(`^${prefix}`) },
       { studentId: 1 },
       { sort: { studentId: -1 } }
     )

@@ -72,7 +72,7 @@ const verifyToken = async (req, res, next) => {
       linkedStudent: user.linkedStudent ? user.linkedStudent.toString() : null,
       linkedTeacher: user.linkedTeacher ? user.linkedTeacher.toString() : null,
       linkedChildren: (user.linkedChildren || []).map(c => c.toString()),
-      tenantId: user.tenantId ? user.tenantId.toString() : (decoded.tenantId || null)
+      tenantId: decoded.tenantId ? decoded.tenantId.toString() : (user.tenantId ? user.tenantId.toString() : null)
     }
 
     return attachTenantContext(req, res, next)
