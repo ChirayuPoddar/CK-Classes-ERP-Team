@@ -14,60 +14,35 @@ import {
   ShieldCheck
 } from 'lucide-react'
 
-// Scroll-triggered High-Speed Animated Counter component
-const AnimatedCounter = ({ value, duration = 2.4 }) => {
+// Self-contained Animated Counter component for metrics
+const AnimatedCounter = ({ value, duration = 1.5 }) => {
   const [count, setCount] = useState(0)
-  const ref = useRef(null)
-  const [hasAnimated, setHasAnimated] = useState(false)
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true)
-        }
-      },
-      { threshold: 0.15 }
-    )
-
-    if (ref.current) {
-      observer.observe(ref.current)
-    }
-
-    return () => observer.disconnect()
-  }, [hasAnimated])
-
-  useEffect(() => {
-    if (!hasAnimated) return
-
+    let start = 0
     const end = parseInt(value.replace(/[^0-9]/g, ''), 10)
     if (isNaN(end)) return
 
-    let startTime = null
+    const totalSteps = 60
+    const increment = end / totalSteps
+    const intervalTime = (duration * 1000) / totalSteps
 
-    const animateCount = (timestamp) => {
-      if (!startTime) startTime = timestamp
-      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1)
-
-      // Energetic fast-motion easeOutQuad curve
-      const easeProgress = 1 - Math.pow(1 - progress, 2)
-      const currentCount = Math.floor(easeProgress * end)
-
-      setCount(currentCount)
-
-      if (progress < 1) {
-        requestAnimationFrame(animateCount)
-      } else {
+    const timer = setInterval(() => {
+      start += increment
+      if (start >= end) {
         setCount(end)
+        clearInterval(timer)
+      } else {
+        setCount(Math.ceil(start))
       }
-    }
+    }, intervalTime)
 
-    requestAnimationFrame(animateCount)
-  }, [hasAnimated, value, duration])
+    return () => clearInterval(timer)
+  }, [value, duration])
 
   const suffix = value.replace(/[0-9,]/g, '')
   return (
-    <span ref={ref}>
+    <span>
       {count.toLocaleString()}{suffix}
     </span>
   )
@@ -137,8 +112,9 @@ export default function Home() {
   // Fade out pure video scroll indicator as user scrolls
   const initialScrollHintOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0])
 
-  // Video scales up cleanly into background with crystal-clear focus as user scrolls
-  const videoScale = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1.25, 1.4])
+  // 3D BACK-TO-FRONT ZOOM TRANSFORMS
+  // Video scales up & blurs slightly into background as user scrolls
+  const videoScale = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1.25, 1.5])
   const videoBlur = useTransform(scrollYProgress, [0.35, 0.85], ['blur(0px)', 'blur(1px)'])
   
   // Hero UI emerges FROM DEEP BACK (scale 0.6, opacity 0) TO FRONT (scale 1.0, opacity 1) and remains 100% visible till end
@@ -290,10 +266,10 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-[#FFD8C4]/30 group-hover:scale-105 transition-transform duration-200">
-              CK
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] flex items-center justify-center text-slate-950 font-black text-sm shadow-lg shadow-[#FFD8C4]/30 group-hover:scale-105 transition-transform duration-200">
+              ERP
             </div>
-            <span className="font-bold text-base tracking-tight text-white">C.K. Classes</span>
+            <span className="font-bold text-base tracking-tight text-white">ERP System</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-100">
@@ -315,7 +291,7 @@ export default function Home() {
               href="/login" 
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] hover:from-[#FFF5ED] hover:to-[#FFD8C4] text-slate-950 shadow-lg shadow-[#FFD8C4]/30 active:scale-95 transition-all text-xs font-black"
             >
-              Get Admission
+              Access Portal
             </a>
           </div>
         </div>
@@ -340,11 +316,11 @@ export default function Home() {
               scale: videoScale,
               filter: videoBlur
             }}
-            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-105 contrast-110"
+            className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-90 contrast-105"
           />
 
-          {/* Subtle Radial Contrast Vignette (Keeps video bright & crystal clear while preserving text readability) */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,7,18,0.45)_0%,rgba(3,7,18,0.25)_55%,transparent_100%)] z-10 pointer-events-none" />
+          {/* Radial Dark Contrast Vignette (Guarantees 100% razor-sharp text visibility over bright video book pages) */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,7,18,0.75)_0%,rgba(3,7,18,0.45)_55%,rgba(3,7,18,0.2)_100%)] z-10 pointer-events-none" />
 
           {/* DEEP BOTTOM FADE GRADIENT (Fades bottom 65% of video frame to solid 100% pure black #030712) */}
           <div className="absolute bottom-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-transparent via-[#030712]/80 to-[#030712] z-10 pointer-events-none" />
@@ -373,36 +349,36 @@ export default function Home() {
             {/* High-Contrast Peachy White Badge Pill */}
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#FFD8C4]/80 bg-slate-950/80 text-xs sm:text-sm font-bold text-[#FFE4D6] mb-6 shadow-2xl shadow-black/90 backdrop-blur-lg">
               <Sparkles className="h-4 w-4 text-[#FFE4D6] animate-pulse" />
-              <span className="font-sketch text-sm sm:text-base tracking-wide text-[#FFE4D6]">Surat's Premier Coaching Academy & Institutional ERP 2.0</span>
+              <span className="font-sketch text-sm sm:text-base tracking-wide text-[#FFE4D6]">Integrated Academic Administration & Institutional ERP 2.0</span>
             </div>
 
             {/* Razor-Sharp Title with Heavy Dark Shadow & Peachy White Glow */}
             <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
-              Building Bright Futures, <br />
+              Simplifying Management, <br />
               <span className="font-handwriting text-5xl sm:text-8xl tracking-wide bg-gradient-to-r from-[#FFF5ED] via-[#FFE4D6] to-[#FFC4A8] bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)] filter drop-shadow-[0_0_30px_rgba(255,228,214,0.8)] font-bold">
-                One Student at a Time.
+                One System at a Time.
               </span>
             </h1>
 
             {/* High-Contrast Solid Subtitle Card */}
             <p className="mt-6 text-base sm:text-xl text-white font-extrabold max-w-2xl leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] bg-slate-950/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-[#FFD8C4]/30 shadow-2xl shadow-black/80">
-              Empowering students from Class 1 to 12 in Science and Commerce through expert faculty, real-time AI analytics, and academic excellence.
+              Empowering educational academies and schools through real-time AI automation, student tracking, conflict-free scheduling, and financial reports.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="px-8 h-13 rounded-2xl bg-gradient-to-r from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] hover:from-[#FFF5ED] hover:to-[#FFD8C4] text-slate-950 font-black text-sm flex items-center justify-center gap-2.5 shadow-2xl shadow-[#FFD8C4]/40 transition-all duration-200 active:scale-95 cursor-pointer"
               >
-                Enroll Now
+                Access Portal
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
               <a
-                href="#courses"
+                href="#features"
                 className="px-6 h-13 rounded-2xl border border-[#FFD8C4]/80 bg-slate-950/90 text-[#FFE4D6] hover:bg-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-2xl shadow-black/90"
               >
                 <BookOpen className="h-4 w-4 text-[#FFE4D6]" />
-                Explore Courses
+                Explore ERP Modules
               </a>
             </div>
           </motion.div>
@@ -410,7 +386,7 @@ export default function Home() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. CONTINUOUS CINEMATIC WEBSITE CONTENT & MODULE CARDS (Negative Overlap) */}
+      {/* 2. CONTINUOUS CINEMATIC WEBSITE CONTENT & MODULE CARDS                   */}
       {/* ========================================================================= */}
       <div 
         id="home"
@@ -547,7 +523,7 @@ export default function Home() {
 
           {/* Footer */}
           <footer className="border-t border-slate-800/80 pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-300 font-medium gap-4">
-            <p>© {new Date().getFullYear()} C.K. Classes ERP Platform. Parvat Patiya, Surat, India. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} ERP Platform. Parvat Patiya, Surat, India. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <Link to="/login" className="hover:text-[#FFE4D6] transition">Portal Login</Link>
               <a href="#features" className="hover:text-[#FFE4D6] transition">ERP Features</a>
