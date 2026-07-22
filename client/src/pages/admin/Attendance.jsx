@@ -40,6 +40,7 @@ import LiveSessionDashboard from '@/components/attendance/LiveSessionDashboard'
 import AttendanceProgress from '@/components/attendance/AttendanceProgress'
 import BulkActionBar from '@/components/attendance/BulkActionBar'
 import StudentRiskMonitor from '@/components/attendance/StudentRiskMonitor'
+import TeacherPerformanceDashboard from '@/components/attendance/TeacherPerformanceDashboard'
 
 const spring = { type: 'spring', stiffness: 350, damping: 28 }
 
@@ -1050,6 +1051,16 @@ export default function Attendance() {
         }}
         onOpenProfile={(student) => {
           navigate(`/admin/students?search=${encodeURIComponent(student.name)}`)
+        }}
+      />
+
+      {/* 2.7 Teacher Performance & Compliance Dashboard */}
+      <TeacherPerformanceDashboard
+        teachers={teachers}
+        sessions={filteredSessions}
+        loading={loading}
+        onSendReminder={(teacher) => {
+          showToast('success', `Sent attendance reminder to ${teacher.name}`)
         }}
       />
 
