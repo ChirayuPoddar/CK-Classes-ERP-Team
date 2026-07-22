@@ -117,7 +117,7 @@ export default function Home() {
   // 3D BACK-TO-FRONT ZOOM TRANSFORMS
   // Video scales up & blurs slightly into background as user scrolls
   const videoScale = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1.25, 1.5])
-  const videoBlur = useTransform(scrollYProgress, [0.35, 0.85], ['blur(0px)', 'blur(6px)'])
+  const videoBlur = useTransform(scrollYProgress, [0.35, 0.85], ['blur(0px)', 'blur(1px)'])
   
   // Hero UI emerges FROM DEEP BACK (scale 0.6, opacity 0) TO FRONT (scale 1.0, opacity 1) and remains 100% visible till end
   const uiScale = useTransform(scrollYProgress, [0.15, 0.55], [0.6, 1])
@@ -207,12 +207,7 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const statItems = [
-    { value: '10,000+', label: 'Students Enrolled' },
-    { value: '98%', label: 'Exam Success Rate' },
-    { value: '15+', label: 'Years of Excellence' },
-    { value: '50+', label: 'Expert Faculty' }
-  ]
+
 
   const erpFeatures = [
     {
@@ -268,17 +263,15 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-[#FFD8C4]/30 group-hover:scale-105 transition-transform duration-200">
-              CK
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] flex items-center justify-center text-slate-950 font-black text-sm shadow-lg shadow-[#FFD8C4]/30 group-hover:scale-105 transition-transform duration-200">
+              ERP
             </div>
             <span className="font-bold text-base tracking-tight text-white">{user?.tenantName || 'Institutional ERP'}</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-100">
             <a href="#home" className="hover:text-[#FFE4D6] transition-colors">Home</a>
-            <a href="#courses" className="hover:text-[#FFE4D6] transition-colors">Courses</a>
             <a href="#features" className="hover:text-[#FFE4D6] transition-colors">ERP Features</a>
-            <a href="#portals" className="hover:text-[#FFE4D6] transition-colors">Portals</a>
             <a href="#contact" className="hover:text-[#FFE4D6] transition-colors">Contact</a>
           </nav>
 
@@ -293,7 +286,7 @@ export default function Home() {
               href="/login" 
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] hover:from-[#FFF5ED] hover:to-[#FFD8C4] text-slate-950 shadow-lg shadow-[#FFD8C4]/30 active:scale-95 transition-all text-xs font-black"
             >
-              Get Admission
+              Access Portal
             </a>
           </div>
         </div>
@@ -321,7 +314,7 @@ export default function Home() {
             className="absolute inset-0 h-full w-full object-cover object-center z-0 transform-gpu will-change-transform brightness-90 contrast-105"
           />
 
-          {/* Radial Dark Contrast Vignette */}
+          {/* Radial Dark Contrast Vignette (Guarantees 100% razor-sharp text visibility over bright video book pages) */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,7,18,0.75)_0%,rgba(3,7,18,0.45)_55%,rgba(3,7,18,0.2)_100%)] z-10 pointer-events-none" />
 
           {/* DEEP BOTTOM FADE GRADIENT (Fades bottom 65% of video frame to solid 100% pure black #030712) */}
@@ -351,36 +344,36 @@ export default function Home() {
             {/* High-Contrast Peachy White Badge Pill */}
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#FFD8C4]/80 bg-slate-950/80 text-xs sm:text-sm font-bold text-[#FFE4D6] mb-6 shadow-2xl shadow-black/90 backdrop-blur-lg">
               <Sparkles className="h-4 w-4 text-[#FFE4D6] animate-pulse" />
-              <span className="font-sketch text-sm sm:text-base tracking-wide text-[#FFE4D6]">Surat's Premier Coaching Academy & Institutional ERP 2.0</span>
+              <span className="font-sketch text-sm sm:text-base tracking-wide text-[#FFE4D6]">Integrated Academic Administration & Institutional ERP 2.0</span>
             </div>
 
             {/* Razor-Sharp Title with Heavy Dark Shadow & Peachy White Glow */}
             <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
-              Building Bright Futures, <br />
+              Simplifying Management, <br />
               <span className="font-handwriting text-5xl sm:text-8xl tracking-wide bg-gradient-to-r from-[#FFF5ED] via-[#FFE4D6] to-[#FFC4A8] bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)] filter drop-shadow-[0_0_30px_rgba(255,228,214,0.8)] font-bold">
-                One Student at a Time.
+                One System at a Time.
               </span>
             </h1>
 
             {/* High-Contrast Solid Subtitle Card */}
             <p className="mt-6 text-base sm:text-xl text-white font-extrabold max-w-2xl leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] bg-slate-950/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-[#FFD8C4]/30 shadow-2xl shadow-black/80">
-              Empowering students from Class 1 to 12 in Science and Commerce through expert faculty, real-time AI analytics, and academic excellence.
+              Empowering educational academies and schools through real-time AI automation, student tracking, conflict-free scheduling, and financial reports.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="px-8 h-13 rounded-2xl bg-gradient-to-r from-[#FFE4D6] via-[#FFD8C4] to-[#FFC4A8] hover:from-[#FFF5ED] hover:to-[#FFD8C4] text-slate-950 font-black text-sm flex items-center justify-center gap-2.5 shadow-2xl shadow-[#FFD8C4]/40 transition-all duration-200 active:scale-95 cursor-pointer"
               >
-                Enroll Now
+                Access Portal
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
               <a
-                href="#courses"
+                href="#features"
                 className="px-6 h-13 rounded-2xl border border-[#FFD8C4]/80 bg-slate-950/90 text-[#FFE4D6] hover:bg-slate-900 font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-2xl shadow-black/90"
               >
                 <BookOpen className="h-4 w-4 text-[#FFE4D6]" />
-                Explore Courses
+                Explore ERP Modules
               </a>
             </div>
           </motion.div>
@@ -388,7 +381,7 @@ export default function Home() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. CONTINUOUS CINEMATIC WEBSITE CONTENT & MODULE CARDS (Negative Overlap) */}
+      {/* 2. CONTINUOUS CINEMATIC WEBSITE CONTENT & MODULE CARDS                   */}
       {/* ========================================================================= */}
       <div 
         id="home"
@@ -405,25 +398,7 @@ export default function Home() {
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-24">
 
-          {/* Statistics Cards Grid with Peachy White Light Bars */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full pt-8">
-            {statItems.map((item, idx) => (
-              <motion.div
-                key={idx}
-                whileHover={{ y: -6, scale: 1.03 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="p-6 bg-gradient-to-b from-[#0F172A] via-[#0B132B] to-[#030712] border border-[#FFD8C4]/40 rounded-3xl shadow-2xl flex flex-col items-center text-center relative group overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#FFF5ED] via-[#FFD8C4] to-[#FFB394] opacity-90 group-hover:shadow-[0_0_20px_rgba(255,216,196,0.9)] transition-all duration-300 rounded-t-full" />
-                <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                  <AnimatedCounter value={item.value} />
-                </h3>
-                <p className="text-xs text-[#FFE4D6] font-extrabold uppercase tracking-widest mt-2">
-                  {item.label}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+
 
           {/* ERP Core Features Section */}
           <div id="features" className="space-y-10 pt-6">
