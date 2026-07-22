@@ -703,42 +703,14 @@ export default function Attendance() {
           {/* Primary CTA: Take Attendance */}
           <button
             onClick={handleOpenLectureSelect}
-            className="h-8 px-3.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+            className="h-8 px-3.5 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Take Attendance</span>
           </button>
 
-          {/* Secondary Actions (Outlined) */}
-          <button
-            onClick={() => navigate('/admin/attendance/history')}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="View Attendance History"
-          >
-            <Calendar className="h-3.5 w-3.5 text-brand-blue-500" />
-            <span className="hidden sm:inline">History</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/admin/attendance/analytics')}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="View Attendance Analytics"
-          >
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="hidden sm:inline">Analytics</span>
-          </button>
-
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="h-8 px-3 rounded-full border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-            title="Attendance Settings"
-          >
-            <Settings className="h-3.5 w-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
-
           {/* Three-Dot Overflow Menu (⋮) */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setIsHeaderOverflowOpen(!isHeaderOverflowOpen)}
               className={cn(
@@ -764,10 +736,38 @@ export default function Attendance() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 8 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-10 z-50 w-48 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 select-none text-left"
+                    className="absolute right-0 top-10 z-50 w-52 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 select-none text-left"
                   >
                     <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                      Attendance Tools
+                      Attendance Views & Settings
+                    </div>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); navigate('/admin/attendance/history'); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-brand-blue-500" />
+                      <span>Attendance History</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); navigate('/admin/attendance/analytics'); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Attendance Analytics</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsHeaderOverflowOpen(false); setIsSettingsOpen(true); }}
+                      className="w-full px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-blue-600 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Attendance Settings</span>
+                    </button>
+
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-t border-b border-slate-100 mt-1">
+                      Tools & Actions
                     </div>
 
                     <button
