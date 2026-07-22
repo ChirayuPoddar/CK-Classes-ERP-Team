@@ -114,9 +114,9 @@ const teacherSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-generate teacherId on pre-save hook in format TCH20260001
+// Auto-generate teacherId on pre-save hook in format TCH20260001 if not explicitly provided
 teacherSchema.pre('save', async function(next) {
-  if (!this.isNew) {
+  if (!this.isNew || Boolean(this.teacherId)) {
     return next()
   }
 
@@ -124,9 +124,9 @@ teacherSchema.pre('save', async function(next) {
     const year = new Date().getFullYear()
     const prefix = `TCH${year}`
     
-    // Find the last teacher with teacherId starting with prefix
+    // Find the last teacher with teacherId starting with prefix scoped to this tenant
     const lastTeacher = await mongoose.model('Teacher').findOne(
-      { teacherId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, teacherId: new RegExp(`^${prefix}`) },
       { teacherId: 1 },
       { sort: { teacherId: -1 } }
     )

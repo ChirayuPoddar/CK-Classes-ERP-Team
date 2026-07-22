@@ -1,10 +1,14 @@
 const mongoose = require('mongoose')
 
 const roomSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true
+  },
   name: {
     type: String,
     required: [true, 'Room name is required'],
-    unique: true,
     trim: true
   },
   capacity: {
@@ -51,7 +55,8 @@ const roomSchema = new mongoose.Schema({
   timestamps: true
 })
 
-roomSchema.index({ building: 1, floor: 1 })
-roomSchema.index({ status: 1 })
+roomSchema.index({ tenantId: 1, name: 1 }, { unique: true })
+roomSchema.index({ tenantId: 1, building: 1, floor: 1 })
+roomSchema.index({ tenantId: 1, status: 1 })
 
 module.exports = mongoose.model('Room', roomSchema)

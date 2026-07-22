@@ -11,11 +11,11 @@ class TimetableService {
   /**
    * Record snapshot for version history
    */
-  async recordVersion(slotId, action, userId = null, description = '') {
+  async recordVersion(slotId, action, userId = null, description = '', tenantId = null) {
     try {
-      const slot = await Timetable.findById(slotId).lean()
+      const slot = await Timetable.findOne({ _id: slotId, ...(tenantId ? { tenantId } : {}) }).lean()
       if (!slot) return
-      const lastVer = await TimetableVersion.findOne({ timetableSlotId: slotId }).sort({ version: -1 })
+      const lastVer = await TimetableVersion.findOne({ timetableSlotId: slotId, ...(slot.tenantId ? { tenantId: slot.tenantId } : {}) }).sort({ version: -1 })
       const nextVer = lastVer ? lastVer.version + 1 : 1
       await TimetableVersion.create({
         timetableSlotId: slotId,
@@ -25,7 +25,8 @@ class TimetableService {
         changedBy: userId,
         academicYear: slot.academicYear,
         class: slot.class,
-        description
+        description,
+        tenantId: slot.tenantId || tenantId
       })
     } catch (err) {
       console.error('Failed to record timetable version:', err)
@@ -105,7 +106,7 @@ class TimetableService {
     const slot = new Timetable(data)
     await slot.save()
 
-    await this.recordVersion(slot._id, 'create', userId, 'Created new lecture slot')
+    await this.recordVersion(slot._id, 'create', userId, 'Created new lecture slot', data.tenantId)
 
     const populated = await Timetable.findOne({ _id: slot._id, tenantId: data.tenantId })
       .populate('subject')
@@ -152,7 +153,7 @@ class TimetableService {
     slot.version = (slot.version || 1) + 1
     await slot.save()
 
-    await this.recordVersion(slot._id, 'update', userId, 'Updated lecture slot')
+    await this.recordVersion(slot._id, 'update', userId, 'Updated lecture slot', tenantId || data.tenantId || slot.tenantId)
 
     const populated = await Timetable.findOne({ _id: id, tenantId: tenantId || data.tenantId || slot.tenantId })
       .populate('subject')
@@ -175,7 +176,7 @@ class TimetableService {
     if (!slot) {
       throw new Error('Timetable slot not found')
     }
-    await this.recordVersion(id, 'delete', userId, 'Deleted lecture slot')
+    await this.recordVersion(id, 'delete', userId, 'Deleted lecture slot', tenantId)
     await Timetable.findOneAndDelete({ _id: id, tenantId })
     return slot.toObject()
   }
@@ -183,9 +184,9 @@ class TimetableService {
   /**
    * Swap two timetable slots atomically
    */
-  async swapSlots(slotId1, slotId2, userId = null) {
-    const s1 = await Timetable.findById(slotId1)
-    const s2 = await Timetable.findById(slotId2)
+  async swapSlots(slotId1, slotId2, userId = null, tenantId = null) {
+    const s1 = await Timetable.findOne({ _id: slotId1, tenantId })
+    const s2 = await Timetable.findOne({ _id: slotId2, tenantId })
     if (!s1 || !s2) throw new Error('One or both timetable slots not found')
 
     const temp = {
@@ -201,8 +202,8 @@ class TimetableService {
     await s1.save()
     await s2.save()
 
-    await this.recordVersion(s1._id, 'swap', userId, `Swapped with slot ${s2._id}`)
-    await this.recordVersion(s2._id, 'swap', userId, `Swapped with slot ${s1._id}`)
+    await this.recordVersion(s1._id, 'swap', userId, `Swapped with slot ${s2._id}`, tenantId)
+    await this.recordVersion(s2._id, 'swap', userId, `Swapped with slot ${s1._id}`, tenantId)
 
     return { slot1: s1.toObject(), slot2: s2.toObject() }
   }
@@ -218,35 +219,35 @@ class TimetableService {
 
     if (action === 'delete') {
       for (const id of slotIds) {
-        await this.recordVersion(id, 'bulk', userId, 'Bulk deleted slot')
+        await this.recordVersion(id, 'bulk', userId, 'Bulk deleted slot', payload.tenantId)
       }
-      await Timetable.deleteMany({ _id: { $in: slotIds } })
+      await Timetable.deleteMany({ _id: { $in: slotIds }, tenantId: payload.tenantId })
       return { modifiedCount: slotIds.length }
     }
 
     if (action === 'replace_teacher') {
       if (!data.teacher) throw new Error('Target teacher is required')
-      const res = await Timetable.updateMany({ _id: { $in: slotIds } }, { $set: { teacher: data.teacher } })
+      const res = await Timetable.updateMany({ _id: { $in: slotIds }, tenantId: payload.tenantId }, { $set: { teacher: data.teacher } })
       for (const id of slotIds) {
-        await this.recordVersion(id, 'bulk', userId, `Bulk replaced teacher to ${data.teacher}`)
+        await this.recordVersion(id, 'bulk', userId, `Bulk replaced teacher to ${data.teacher}`, payload.tenantId)
       }
       return res
     }
 
     if (action === 'replace_room') {
       if (!data.room) throw new Error('Target room is required')
-      const res = await Timetable.updateMany({ _id: { $in: slotIds } }, { $set: { room: data.room.trim() } })
+      const res = await Timetable.updateMany({ _id: { $in: slotIds }, tenantId: payload.tenantId }, { $set: { room: data.room.trim() } })
       for (const id of slotIds) {
-        await this.recordVersion(id, 'bulk', userId, `Bulk replaced room to ${data.room}`)
+        await this.recordVersion(id, 'bulk', userId, `Bulk replaced room to ${data.room}`, payload.tenantId)
       }
       return res
     }
 
     if (action === 'replace_subject') {
       if (!data.subject) throw new Error('Target subject is required')
-      const res = await Timetable.updateMany({ _id: { $in: slotIds } }, { $set: { subject: data.subject } })
+      const res = await Timetable.updateMany({ _id: { $in: slotIds }, tenantId: payload.tenantId }, { $set: { subject: data.subject } })
       for (const id of slotIds) {
-        await this.recordVersion(id, 'bulk', userId, `Bulk replaced subject to ${data.subject}`)
+        await this.recordVersion(id, 'bulk', userId, `Bulk replaced subject to ${data.subject}`, payload.tenantId)
       }
       return res
     }
@@ -258,9 +259,9 @@ class TimetableService {
    * Copy timetable entries from one scope to another (day, week, class)
    */
   async copyTimetable(payload, userId = null) {
-    const { sourceClass, targetClass, sourceDay, targetDay, academicYear = '2026-2027' } = payload
+    const { sourceClass, targetClass, sourceDay, targetDay, academicYear = '2026-2027', tenantId } = payload
 
-    const query = { academicYear }
+    const query = { academicYear, ...(tenantId ? { tenantId } : {}) }
     if (sourceClass) query.class = sourceClass
     if (sourceDay) query.day = sourceDay
 
@@ -276,12 +277,13 @@ class TimetableService {
 
       if (targetClass) slot.class = targetClass
       if (targetDay) slot.day = targetDay
+      if (tenantId) slot.tenantId = tenantId
 
       try {
         await this.checkConflicts(slot)
         const newSlot = new Timetable(slot)
         await newSlot.save()
-        await this.recordVersion(newSlot._id, 'create', userId, 'Copied from template/slot')
+        await this.recordVersion(newSlot._id, 'create', userId, 'Copied from template/slot', tenantId)
         created.push(newSlot.toObject())
       } catch (err) {
         // Skip conflicting slots gracefully during copy
@@ -295,8 +297,8 @@ class TimetableService {
   /**
    * Analytics summary for dashboard
    */
-  async getAnalytics(academicYear = '2026-2027') {
-    const slots = await Timetable.find({ academicYear })
+  async getAnalytics(academicYear = '2026-2027', tenantId) {
+    const slots = await Timetable.find({ academicYear, ...(tenantId ? { tenantId } : {}) })
       .populate('subject')
       .populate('teacher')
       .populate('period')
@@ -354,15 +356,15 @@ class TimetableService {
    * Auto timetable generator (constraint solver)
    */
   async autoGenerate(payload, userId = null) {
-    const { targetClass, academicYear = '2026-2027', overwrite = false } = payload
+    const { targetClass, academicYear = '2026-2027', overwrite = false, tenantId } = payload
     if (!targetClass) throw new Error('Target class is required')
 
     if (overwrite) {
-      await Timetable.deleteMany({ class: targetClass, academicYear })
+      await Timetable.deleteMany({ class: targetClass, academicYear, ...(tenantId ? { tenantId } : {}) })
     }
 
-    const periods = await Period.find({ type: 'period' }).sort({ order: 1 }).lean()
-    const subjects = await Subject.find({ class: targetClass, status: 'Active' }).populate('assignedTeacher').lean()
+    const periods = await Period.find({ type: 'period', ...(tenantId ? { tenantId } : {}) }).sort({ order: 1 }).lean()
+    const subjects = await Subject.find({ class: targetClass, status: 'Active', ...(tenantId ? { tenantId } : {}) }).populate('assignedTeacher').lean()
 
     if (periods.length === 0) throw new Error('No teaching periods configured')
     if (subjects.length === 0) throw new Error(`No active subjects found for ${targetClass}`)
@@ -396,14 +398,15 @@ class TimetableService {
           subject: sub._id,
           teacher: teacherId,
           room: `Room ${targetClass.replace(/\D/g, '') || '101'}`,
-          academicYear
+          academicYear,
+          ...(tenantId ? { tenantId } : {})
         }
 
         try {
           await this.checkConflicts(slotData)
           const newSlot = new Timetable(slotData)
           await newSlot.save()
-          await this.recordVersion(newSlot._id, 'auto_generate', userId, 'Auto generated')
+          await this.recordVersion(newSlot._id, 'auto_generate', userId, 'Auto generated', tenantId)
           generated.push(newSlot)
           poolIdx++
         } catch (err) {

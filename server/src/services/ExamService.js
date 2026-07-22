@@ -93,7 +93,7 @@ class ExamService {
     const calculated = this.deriveStatus(exam.examDate, exam.startTime, exam.endTime)
     if (exam.status !== calculated) {
       exam.status = calculated
-      await Exam.updateOne({ _id: exam._id }, { status: calculated })
+      await Exam.updateOne({ _id: exam._id, ...(exam.tenantId ? { tenantId: exam.tenantId } : {}) }, { status: calculated })
     }
     return exam
   }

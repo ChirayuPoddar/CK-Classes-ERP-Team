@@ -24,7 +24,7 @@ class PeriodController {
    */
   async createPeriod(req, res, next) {
     try {
-      const period = await PeriodService.createPeriod(req.body)
+      const period = await PeriodService.createPeriod({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Period created successfully',
@@ -41,7 +41,7 @@ class PeriodController {
    */
   async updatePeriod(req, res, next) {
     try {
-      const period = await PeriodService.updatePeriod(req.params.id, req.body)
+      const period = await PeriodService.updatePeriod(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Period updated successfully',
@@ -58,7 +58,7 @@ class PeriodController {
    */
   async deletePeriod(req, res, next) {
     try {
-      const period = await PeriodService.deletePeriod(req.params.id)
+      const period = await PeriodService.deletePeriod(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Period deleted successfully',
@@ -75,7 +75,7 @@ class PeriodController {
    */
   async reorderPeriods(req, res, next) {
     try {
-      const periods = await PeriodService.reorderPeriods(req.body.orderedIds)
+      const periods = await PeriodService.reorderPeriods(req.body.orderedIds, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Periods reordered successfully',
@@ -92,7 +92,7 @@ class PeriodController {
    */
   async getTemplates(req, res, next) {
     try {
-      const templates = await PeriodService.getTemplates()
+      const templates = await PeriodService.getTemplates(req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Period templates retrieved successfully',

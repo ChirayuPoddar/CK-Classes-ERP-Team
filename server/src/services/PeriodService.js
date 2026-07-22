@@ -13,9 +13,10 @@ class PeriodService {
    * @returns {Promise<Array>}
    */
   async getAllPeriods(options = {}, tenantId = null) {
+    const effectiveTenantId = tenantId || options.tenantId
     const query = {}
-    if (tenantId) {
-      query.tenantId = tenantId
+    if (effectiveTenantId) {
+      query.tenantId = effectiveTenantId
     }
     if (options.templateName) {
       query.templateName = options.templateName
@@ -38,12 +39,45 @@ class PeriodService {
     return await Period.find(query).sort({ order: 1 })
   }
 
+  async createPeriod(data) {
+    const period = new Period(data)
+    await period.save()
+    return period.toObject()
+  }
+
+  async updatePeriod(id, data, tenantId = null) {
+    const query = { _id: id, ...(tenantId ? { tenantId } : {}) }
+    const period = await Period.findOne(query)
+    if (!period) throw new Error('Period not found')
+    Object.assign(period, data)
+    await period.save()
+    return period.toObject()
+  }
+
+  async deletePeriod(id, tenantId = null) {
+    const query = { _id: id, ...(tenantId ? { tenantId } : {}) }
+    const period = await Period.findOne(query)
+    if (!period) throw new Error('Period not found')
+    await Period.findOneAndDelete(query)
+    return period.toObject()
+  }
+
+  async reorderPeriods(orderedIds = [], tenantId = null) {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const query = { _id: orderedIds[i], ...(tenantId ? { tenantId } : {}) }
+      await Period.findOneAndUpdate(query, { order: i + 1 })
+    }
+    const findQuery = tenantId ? { tenantId } : {}
+    return await Period.find(findQuery).sort({ order: 1 })
+  }
+
   /**
    * Get distinct template names
    * @returns {Promise<Array<String>>}
    */
-  async getTemplates() {
-    return await Period.distinct('templateName')
+  async getTemplates(tenantId = null) {
+    const query = tenantId ? { tenantId } : {}
+    return await Period.find(query).distinct('templateName')
   }
 
   /**

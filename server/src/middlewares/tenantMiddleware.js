@@ -2,10 +2,6 @@
  * Tenant-scoping middleware for C.K. Classes ERP multi-tenant architecture.
  * MUST run after verifyToken (auth) and BEFORE any scopeMiddleware or controller logic.
  */
-const Tenant = require('../models/Tenant')
-const User = require('../models/User')
-
-let cachedDefaultTenantId = null
 
 const attachTenantContext = async (req, res, next) => {
   try {
@@ -20,33 +16,12 @@ const attachTenantContext = async (req, res, next) => {
       return next()
     }
 
-    // Fallback: resolve primary default tenant for existing accounts or single-tenant mode
-    if (!cachedDefaultTenantId) {
-      let defaultTenant = await Tenant.findOne({ slug: 'ck-classes-main' })
-      if (!defaultTenant) {
-        defaultTenant = await Tenant.findOne({ isActive: true })
-      }
-      if (!defaultTenant) {
-        defaultTenant = await Tenant.create({
-          name: 'C.K. Classes Primary',
-          slug: 'ck-classes-main',
-          contactEmail: 'admin@ckclasses.com',
-          isActive: true,
-          subscriptionStatus: 'active'
-        })
-      }
-      cachedDefaultTenantId = defaultTenant._id.toString()
-    }
-
-    req.tenantId = cachedDefaultTenantId
-    if (req.user) {
-      req.user.tenantId = cachedDefaultTenantId
-      // Asynchronously self-heal user record in DB without blocking the HTTP request
-      if (req.user.id) {
-        User.updateOne({ _id: req.user.id }, { $set: { tenantId: cachedDefaultTenantId } }).catch(() => {})
-      }
-    }
-    next()
+    // If neither is present, reject loudly per Phase 2 strict multi-tenant isolation specification
+    return res.status(403).json({
+      success: false,
+      code: 'TENANT_CONTEXT_MISSING',
+      error: { message: 'Tenant context missing. Unable to verify institution data isolation.' }
+    })
   } catch (error) {
     next(error)
   }

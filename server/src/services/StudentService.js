@@ -76,12 +76,12 @@ class StudentService {
 
     // Fetch portal account safely (no passwords/secrets)
     const User = require('../models/User')
-    const user = await User.findOne({ linkedStudent: student._id }).select('email isActive lastLogin createdAt').lean()
+    const user = await User.findOne({ linkedStudent: student._id, tenantId }).select('email isActive lastLogin createdAt').lean()
     studentObj.portalAccount = user || null
 
     // Fetch class history (PromotionHistory)
     const PromotionHistory = require('../models/PromotionHistory')
-    const classHistory = await PromotionHistory.find({ studentId: student.studentId }).sort({ promotionDate: -1 }).lean()
+    const classHistory = await PromotionHistory.find({ studentId: student.studentId, tenantId }).sort({ promotionDate: -1 }).lean()
     studentObj.classHistory = classHistory || []
 
     return studentObj
@@ -500,13 +500,13 @@ class StudentService {
   /**
    * Toggle student user portal access
    */
-  async togglePortalAccess(studentId, active, adminUser) {
-    const student = await Student.findById(studentId)
+  async togglePortalAccess(studentId, active, adminUser, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) {
       throw new Error('Student not found')
     }
     const User = require('../models/User')
-    const user = await User.findOne({ linkedStudent: student._id })
+    const user = await User.findOne({ linkedStudent: student._id, tenantId })
     if (!user) {
       throw new Error('Student does not have an active portal account yet.')
     }
@@ -531,9 +531,9 @@ class StudentService {
   /**
    * Upload student profile document
    */
-  async uploadDocument(studentId, file, docName, docType) {
+  async uploadDocument(studentId, file, docName, docType, tenantId) {
     if (!file) throw new Error('No document file provided')
-    const student = await Student.findById(studentId)
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     const ImageKitStorageService = require('./ImageKitStorageService')
@@ -564,8 +564,8 @@ class StudentService {
   /**
    * Delete student profile document
    */
-  async deleteDocument(studentId, docId) {
-    const student = await Student.findById(studentId)
+  async deleteDocument(studentId, docId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     student.documents = student.documents || []
@@ -599,9 +599,9 @@ class StudentService {
   /**
    * Add internal staff note to student profile
    */
-  async addInternalNote(studentId, text, adminUser) {
+  async addInternalNote(studentId, text, adminUser, tenantId) {
     if (!text) throw new Error('Note text is required')
-    const student = await Student.findById(studentId)
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     const performedByStr = adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email : 'Admin'
@@ -619,8 +619,8 @@ class StudentService {
   /**
    * Delete internal staff note from student profile
    */
-  async deleteInternalNote(studentId, noteId) {
-    const student = await Student.findById(studentId)
+  async deleteInternalNote(studentId, noteId, tenantId) {
+    const student = await Student.findOne({ _id: studentId, tenantId })
     if (!student) throw new Error('Student not found')
 
     student.internalNotes = student.internalNotes || []
@@ -635,12 +635,12 @@ class StudentService {
   /**
    * Bulk update status for multiple students
    */
-  async bulkUpdateStatus(studentIds, status, performedBy) {
+  async bulkUpdateStatus(studentIds, status, performedBy, tenantId) {
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
       throw new Error('No students selected')
     }
 
-    const students = await Student.find({ _id: { $in: studentIds } })
+    const students = await Student.find({ _id: { $in: studentIds }, tenantId })
     if (students.length === 0) {
       throw new Error('No students found matching selection')
     }

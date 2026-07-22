@@ -37,14 +37,16 @@ class AIService {
 
     // 0. Fetch Real-time Institutional Statistics & Overview Metrics
     try {
+      const tenantId = user.tenantId
+      const tenantFilter = tenantId ? { tenantId } : {}
       const [totalStudents, activeStudents, totalTeachers, totalSubjects, totalExams, totalAnnouncements, totalParents] = await Promise.all([
-        Student.countDocuments(),
-        Student.countDocuments({ status: { $regex: /^active$/i } }),
-        Teacher.countDocuments(),
-        Subject.countDocuments(),
-        Exam.countDocuments(),
-        Announcement.countDocuments(),
-        User.countDocuments({ role: { $regex: /^parent$/i } })
+        Student.countDocuments(tenantFilter),
+        Student.countDocuments({ ...tenantFilter, status: { $regex: /^active$/i } }),
+        Teacher.countDocuments(tenantFilter),
+        Subject.countDocuments(tenantFilter),
+        Exam.countDocuments(tenantFilter),
+        Announcement.countDocuments(tenantFilter),
+        User.countDocuments({ ...tenantFilter, role: { $regex: /^parent$/i } })
       ])
 
       contextLines.push('\n[PRIMARY MONGODB INSTITUTIONAL DATA SUMMARY]:')
@@ -58,7 +60,7 @@ class AIService {
       if (['admin', 'staff', 'teacher', 'superadmin'].includes(role)) {
         try {
           if (typeof StudentService.getAllStudents === 'function') {
-            const studentsRes = await StudentService.getAllStudents({ limit: 5 }, user)
+            const studentsRes = await StudentService.getAllStudents({ limit: 5, tenantId: user.tenantId }, user)
             const studentList = studentsRes.students || studentsRes.data || (Array.isArray(studentsRes) ? studentsRes : [])
             if (studentList.length > 0) {
               contextLines.push('\n[Enrolled Students Sample Records]:')
@@ -73,7 +75,7 @@ class AIService {
 
         try {
           if (typeof TeacherService.getAllTeachers === 'function') {
-            const teachersRes = await TeacherService.getAllTeachers({ limit: 5 }, user)
+            const teachersRes = await TeacherService.getAllTeachers({ limit: 5, tenantId: user.tenantId }, user)
             const teacherList = teachersRes.teachers || teachersRes.data || (Array.isArray(teachersRes) ? teachersRes : [])
             if (teacherList.length > 0) {
               contextLines.push('\n[Faculty Mentors Snapshot]:')
@@ -94,7 +96,7 @@ class AIService {
     // 1. Fetch Announcements & Homework
     try {
       if (typeof AnnouncementService.getAllAnnouncements === 'function') {
-        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 3 }, user)
+        const announcementsRes = await AnnouncementService.getAllAnnouncements({ limit: 3, tenantId: user.tenantId }, user)
         const announcementsList = announcementsRes.announcements || announcementsRes.data || []
         if (announcementsList.length > 0) {
           contextLines.push('\n[Recent System Announcements]:')
@@ -106,7 +108,7 @@ class AIService {
       }
 
       if (typeof HomeworkService.getAllHomeworks === 'function') {
-        const hwRes = await HomeworkService.getAllHomeworks({ limit: 3 }, user)
+        const hwRes = await HomeworkService.getAllHomeworks({ limit: 3, tenantId: user.tenantId }, user)
         const hwList = hwRes.homework || hwRes.data || []
         if (hwList.length > 0) {
           contextLines.push(`\n[Assigned Homework Records]:`)
@@ -123,7 +125,7 @@ class AIService {
     // Student Role Specific Context
     if (role === 'student' && user.linkedStudent) {
       try {
-        const studentProfile = await StudentService.getStudentById(user.linkedStudent)
+        const studentProfile = await StudentService.getStudentById(user.linkedStudent, user.tenantId)
         if (studentProfile) {
           contextLines.push(`\n[Active Student Profile]:`)
           contextLines.push(`- ID: ${studentProfile.studentId}, Name: ${studentProfile.firstName} ${studentProfile.lastName}, Class: ${studentProfile.class}, Status: ${studentProfile.status}`)
@@ -136,7 +138,7 @@ class AIService {
     // Student Fee Records
     try {
       if (typeof StudentFeeService.getAllStudentFees === 'function') {
-        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 3 })
+        const feeRes = await StudentFeeService.getAllStudentFees({ limit: 3, tenantId: user.tenantId })
         const feeList = feeRes.fees || feeRes.studentFees || (Array.isArray(feeRes) ? feeRes : [])
         if (feeList.length > 0) {
           contextLines.push(`\n[Student Fee Summaries]:`)
@@ -205,7 +207,7 @@ class AIService {
 
     if (params.resourceId) {
       try {
-        const resDoc = await Resource.findById(params.resourceId).populate('subject')
+        const resDoc = await Resource.findOne({ _id: params.resourceId, ...(user.tenantId ? { tenantId: user.tenantId } : {}) }).populate('subject')
         if (resDoc) {
           resourceTitle = resDoc.title
           resourceDetails = `Title: ${resDoc.title}\nCategory: ${resDoc.category}\nClass: ${resDoc.class || 'N/A'}\nDescription: ${resDoc.description || ''}\nTags: ${(resDoc.tags || []).join(', ')}`

@@ -88,7 +88,7 @@ const subjectSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Auto-derive stream and auto-generate subjectId on pre-save hook in format SUB20260001
+// Auto-derive stream and auto-generate subjectId on pre-save hook in format SUB20260001 if not explicitly provided
 subjectSchema.pre('save', async function(next) {
   // 1. Derive stream based on class name
   if (this.class.includes('Science')) {
@@ -99,8 +99,8 @@ subjectSchema.pre('save', async function(next) {
     this.stream = ''
   }
 
-  // 2. Generate subjectId
-  if (!this.isNew) {
+  // 2. Generate subjectId if not explicitly provided
+  if (!this.isNew || Boolean(this.subjectId)) {
     return next()
   }
 
@@ -109,7 +109,7 @@ subjectSchema.pre('save', async function(next) {
     const prefix = `SUB${year}`
     
     const lastSubject = await mongoose.model('Subject').findOne(
-      { subjectId: new RegExp(`^${prefix}`) },
+      { tenantId: this.tenantId, subjectId: new RegExp(`^${prefix}`) },
       { subjectId: 1 },
       { sort: { subjectId: -1 } }
     )

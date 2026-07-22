@@ -3,7 +3,7 @@ const HolidayService = require('../services/HolidayService')
 class HolidayController {
   async getAllHolidays(req, res, next) {
     try {
-      const holidays = await HolidayService.getAllHolidays(req.query)
+      const holidays = await HolidayService.getAllHolidays({ ...req.query, tenantId: req.tenantId })
       res.status(200).json({
         success: true,
         message: 'Holidays retrieved successfully',
@@ -16,7 +16,7 @@ class HolidayController {
 
   async getHolidayById(req, res, next) {
     try {
-      const holiday = await HolidayService.getHolidayById(req.params.id)
+      const holiday = await HolidayService.getHolidayById(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Holiday details retrieved successfully',
@@ -29,7 +29,7 @@ class HolidayController {
 
   async createHoliday(req, res, next) {
     try {
-      const holiday = await HolidayService.createHoliday(req.body)
+      const holiday = await HolidayService.createHoliday({ ...req.body, tenantId: req.tenantId })
       res.status(201).json({
         success: true,
         message: 'Holiday created successfully',
@@ -42,7 +42,7 @@ class HolidayController {
 
   async updateHoliday(req, res, next) {
     try {
-      const holiday = await HolidayService.updateHoliday(req.params.id, req.body)
+      const holiday = await HolidayService.updateHoliday(req.params.id, req.body, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Holiday updated successfully',
@@ -55,7 +55,7 @@ class HolidayController {
 
   async deleteHoliday(req, res, next) {
     try {
-      const holiday = await HolidayService.deleteHoliday(req.params.id)
+      const holiday = await HolidayService.deleteHoliday(req.params.id, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Holiday deleted successfully',

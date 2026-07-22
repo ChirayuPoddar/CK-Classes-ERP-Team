@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const User = require('../models/User')
+const Tenant = require('../models/Tenant')
 const PasswordResetToken = require('../models/PasswordResetToken')
 const { verifyToken } = require('../middlewares/authMiddleware')
 const { hashToken } = require('../utils/hashToken')
@@ -11,8 +12,8 @@ const otpService = require('../services/otpService')
 const { validatePasswordFormat } = require('../validators/userValidator')
 const ApiError = require('../utils/ApiError')
 
-// Helper: Generate Access and Refresh Tokens with Session ID & Type
-const generateTokens = (user, sessionId) => {
+// Helper: Generate Access and Refresh Tokens with Session ID & Type & Tenant ID
+const generateTokens = (user, sessionId, explicitTenantId) => {
   const accessSecret = process.env.JWT_ACCESS_SECRET
   const refreshSecret = process.env.JWT_REFRESH_SECRET
 
@@ -20,13 +21,15 @@ const generateTokens = (user, sessionId) => {
     throw new Error('Server authentication configuration error: Secrets missing.')
   }
 
+  const tenantIdStr = explicitTenantId ? explicitTenantId.toString() : (user.tenantId ? user.tenantId.toString() : null)
+
   const accessToken = jwt.sign(
     {
       id: user._id,
       role: user.role,
       email: user.email,
       sessionId,
-      tenantId: user.tenantId ? user.tenantId.toString() : null,
+      tenantId: tenantIdStr,
       type: 'access'
     },
     accessSecret,
@@ -37,7 +40,7 @@ const generateTokens = (user, sessionId) => {
     {
       id: user._id,
       sessionId,
-      tenantId: user.tenantId ? user.tenantId.toString() : null,
+      tenantId: tenantIdStr,
       type: 'refresh'
     },
     refreshSecret,
@@ -93,9 +96,10 @@ const setCookies = (res, accessToken, refreshToken) => {
   }
 }
 
-// POST: Login Route
+// POST: Login Route (With Institution Slug Resolution & Tenant-Scoped Lookup)
 router.post('/login', async (req, res, next) => {
-  const { email, password } = req.body
+  const { email, password, institutionSlug, tenantSlug, slug } = req.body
+  const targetSlug = institutionSlug || tenantSlug || slug
 
   try {
     if (!email || !password) {
@@ -105,8 +109,26 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
+    if (!targetSlug || typeof targetSlug !== 'string') {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Invalid email or password' }
+      })
+    }
+
+    const cleanSlug = targetSlug.toLowerCase().trim()
+    const tenant = await Tenant.findOne({ slug: cleanSlug, isActive: true })
+
+    if (!tenant) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Invalid email or password' }
+      })
+    }
+
     const cleanInput = email.toLowerCase().trim()
     const user = await User.findOne({
+      tenantId: tenant._id,
       $or: [
         { email: cleanInput },
         { email: `${cleanInput}@ckclasses.com` }
@@ -168,7 +190,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const sessionId = crypto.randomUUID()
-    const { accessToken, refreshToken } = generateTokens(user, sessionId)
+    const { accessToken, refreshToken } = generateTokens(user, sessionId, tenant._id)
     const refreshTokenHash = hashToken(refreshToken)
 
     const ua = req.headers['user-agent'] || ''
@@ -211,7 +233,7 @@ router.post('/login', async (req, res, next) => {
         firstName: user.firstName,
         lastName: user.lastName,
         sessionId: newSession.sessionId,
-        tenantId: user.tenantId ? user.tenantId.toString() : null
+        tenantId: tenant._id.toString()
       }
     })
   } catch (error) {
@@ -296,7 +318,7 @@ router.post('/refresh', async (req, res, next) => {
       })
     }
 
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user, session.sessionId)
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user, session.sessionId, decoded.tenantId || user.tenantId)
 
     session.refreshTokenHash = hashToken(newRefreshToken)
     session.lastActiveAt = now

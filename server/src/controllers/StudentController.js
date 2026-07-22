@@ -257,7 +257,7 @@ class StudentController {
         performedBy = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email
       }
 
-      const updatedCount = await StudentService.bulkUpdateStatus(studentIds, status, performedBy)
+      const updatedCount = await StudentService.bulkUpdateStatus(studentIds, status, performedBy, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Successfully updated status to ${status} for ${updatedCount} students.`,
@@ -274,7 +274,7 @@ class StudentController {
   async togglePortalAccess(req, res, next) {
     try {
       const { active } = req.body
-      const result = await StudentService.togglePortalAccess(req.params.id, active, req.user)
+      const result = await StudentService.togglePortalAccess(req.params.id, active, req.user, req.tenantId)
       res.status(200).json({
         success: true,
         message: `Portal access ${active ? 'enabled' : 'disabled'} successfully`,
@@ -291,7 +291,7 @@ class StudentController {
   async uploadDocument(req, res, next) {
     try {
       const { name, type } = req.body
-      const student = await StudentService.uploadDocument(req.params.id, req.file, name, type)
+      const student = await StudentService.uploadDocument(req.params.id, req.file, name, type, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Document uploaded successfully',
@@ -307,7 +307,7 @@ class StudentController {
    */
   async deleteDocument(req, res, next) {
     try {
-      const student = await StudentService.deleteDocument(req.params.id, req.params.docId)
+      const student = await StudentService.deleteDocument(req.params.id, req.params.docId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Document deleted successfully',
@@ -324,7 +324,7 @@ class StudentController {
   async addInternalNote(req, res, next) {
     try {
       const { text } = req.body
-      const student = await StudentService.addInternalNote(req.params.id, text, req.user)
+      const student = await StudentService.addInternalNote(req.params.id, text, req.user, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Internal note added successfully',
@@ -340,7 +340,7 @@ class StudentController {
    */
   async deleteInternalNote(req, res, next) {
     try {
-      const student = await StudentService.deleteInternalNote(req.params.id, req.params.noteId)
+      const student = await StudentService.deleteInternalNote(req.params.id, req.params.noteId, req.tenantId)
       res.status(200).json({
         success: true,
         message: 'Internal note deleted successfully',

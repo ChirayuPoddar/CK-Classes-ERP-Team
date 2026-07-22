@@ -25,6 +25,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Backups & Data Dumps
+server/backups/
+backups/
+
 # System & OS Files
 .DS_Store
 Thumbs.db
